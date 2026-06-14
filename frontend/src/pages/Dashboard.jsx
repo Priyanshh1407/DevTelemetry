@@ -6,7 +6,8 @@ import {
 } from "recharts";
 import {
     Users, ChevronUp, Zap, Banknote, ChevronDown,
-    Download, LayoutDashboard, Activity, Bot, Settings, Plus
+    Download, LayoutDashboard, Activity, Bot, Settings, Plus,
+    CheckCircle, Loader2, Mail
 } from "lucide-react";
 import Navbar from "../components/Navbar";
 
@@ -70,6 +71,9 @@ export default function Dashboard() {
     const [alertFreq, setAlertFreq] = useState("Weekly");
     const [alertDay, setAlertDay] = useState("Friday");
     const [alertTime, setAlertTime] = useState("17:00");
+    const [isTestingAlerts, setIsTestingAlerts] = useState(false);
+    const [showToast, setShowToast] = useState(false);
+    const [toastMessage, setToastMessage] = useState("");
 
     // 2. Fetch Data on Load
     useEffect(() => {
@@ -132,17 +136,38 @@ export default function Dashboard() {
 
     const handleSaveSchedule = async () => {
         try {
-            const response = await fetch('http://127.0.0.1:8000/api/settings', {
+            const API_BASE = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
+            await fetch(`${API_BASE}/api/settings`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ frequency: alertFreq, day: alertDay, time: alertTime })
             });
-            if (response.ok) {
-                alert(`Schedule successfully saved: ${alertFreq} at ${alertTime}`);
-            }
-        } catch (error) {
-            console.error("Failed to save schedule:", error);
-            alert("Failed to save schedule.");
+            setToastMessage("Alert schedule saved successfully.");
+            setShowToast(true);
+            setTimeout(() => setShowToast(false), 3000);
+        } catch (e) {
+            console.error("Failed to save schedule:", e);
+        }
+    };
+
+    const handleTestAlerts = async () => {
+        setIsTestingAlerts(true);
+        try {
+            const API_BASE = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
+            const res = await fetch(`${API_BASE}/api/trigger-alerts`, {
+                method: 'POST'
+            });
+            const data = await res.json();
+            setToastMessage(data.message || "Alerts sent successfully!");
+            setShowToast(true);
+            setTimeout(() => setShowToast(false), 4000);
+        } catch (e) {
+            console.error("Failed to trigger alerts:", e);
+            setToastMessage("Error triggering alerts. Check console.");
+            setShowToast(true);
+            setTimeout(() => setShowToast(false), 4000);
+        } finally {
+            setIsTestingAlerts(false);
         }
     };
 
@@ -444,9 +469,32 @@ export default function Dashboard() {
                         >
                             SAVE SYNC
                         </button>
+                        
+                        <button
+                            onClick={handleTestAlerts}
+                            disabled={isTestingAlerts}
+                            className="flex items-center gap-2 bg-secondary/10 hover:bg-secondary/20 text-secondary border border-secondary/30 px-4 py-2 rounded-lg font-mono text-xs tracking-wide transition-colors cursor-pointer disabled:opacity-50"
+                        >
+                            {isTestingAlerts ? (
+                                <Loader2 size={14} className="animate-spin" />
+                            ) : (
+                                <Mail size={14} />
+                            )}
+                            TEST ALERTS NOW
+                        </button>
                     </div>
                 </section>
             </div>
+            
+            {/* Toast Notification */}
+            {showToast && (
+                <div className="fixed bottom-20 md:bottom-10 left-1/2 transform -translate-x-1/2 z-[100] animate-in fade-in slide-in-from-bottom-4 duration-300">
+                    <div className="flex items-center gap-3 bg-surface-container-highest border border-outline px-6 py-3 rounded-full shadow-lg">
+                        <CheckCircle size={18} className="text-primary" />
+                        <span className="font-mono text-xs text-on-surface tracking-wide">{toastMessage}</span>
+                    </div>
+                </div>
+            )}
 
             {/* ── Mobile Bottom Nav ── */}
             <nav className="md:hidden fixed bottom-0 left-0 w-full bg-surface-container border-t border-outline-variant h-16 flex items-center justify-around z-50">
