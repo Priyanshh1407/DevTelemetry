@@ -7,12 +7,14 @@ import sys
 # Ensure Python can find our core modules
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from core.db import get_db_connection
+from core.db import get_db_connection, init_db
 from core.scorer import calculate_efficiency_score
 
 fake = Faker()
 
 def generate_historical_data(days_back=30, num_engineers=10):
+    print("Ensuring database tables exist...")
+    init_db()
     print(f"Generating {days_back} days of historical data for {num_engineers} engineers...")
     
     # 1. Generate static engineers with synthesized emails
