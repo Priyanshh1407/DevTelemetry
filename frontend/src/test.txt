@@ -1,0 +1,9 @@
+Check your Dashboard: In the browser, navigate to your Dashboard (http://localhost:5173).
+
+Test the Low Route: Click on the top-ranking developer (Rank 1). You will instantly be routed to the green, full-width MaintenanceRunbook (/runbook/low).
+
+Test the Moderate Route: Go back and click on a middle-ranking developer (Rank 6 or 7). You will see the amber TuningRunbook (/runbook/moderate).
+
+Test the Critical Route: Go back and click on the very last developer in the table. You will see the same tuning layout, but immediately aggressive in red (/runbook/critical).
+
+Test the Automation: If you still have clock.py running in your backend terminal, set your Alert Schedule on the Dashboard to trigger 1 minute from now, hit SAVE SYNC, and watch the terminal print out the correct links for everyone!

@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html>
+<body style="font-family: Arial, sans-serif; color: #333; max-width: 600px; margin: 0 auto; padding: 0;">
+
+    <!-- Header Banner -->
+    <div style="background-color: {{ banner_color }}; padding: 24px 30px; border-radius: 8px 8px 0 0;">
+        <h1 style="color: #ffffff; margin: 0; font-size: 22px;">{{ severity_icon }} DevTelemetry Alert</h1>
+        <p style="color: rgba(255,255,255,0.85); margin: 6px 0 0; font-size: 13px;">
+            Automated Efficiency Report &mdash; {{ date }}
+        </p>
+    </div>
+
+    <!-- Greeting -->
+    <div style="padding: 25px 30px 10px;">
+        <p style="font-size: 15px; margin: 0;">Hi <strong>{{ name }}</strong>,</p>
+        <p style="font-size: 14px; color: #555; margin: 8px 0 0; line-height: 1.6;">
+            {{ greeting_message }}
+        </p>
+    </div>
+
+    <!-- Stats Card -->
+    <div style="margin: 15px 30px; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden;">
+        <div style="background-color: #f8fafc; padding: 12px 20px; border-bottom: 1px solid #e2e8f0;">
+            <strong style="font-size: 13px; color: #64748b; text-transform: uppercase; letter-spacing: 1px;">Your Daily Snapshot</strong>
+        </div>
+        <table style="width: 100%; border-collapse: collapse;">
+            <tr>
+                <td style="padding: 14px 20px; border-bottom: 1px solid #f1f5f9; font-size: 13px; color: #64748b;">Team Rank</td>
+                <td style="padding: 14px 20px; border-bottom: 1px solid #f1f5f9; font-size: 16px; font-weight: bold; text-align: right; color: {{ rank_color }};">#{{ rank }} of {{ total_devs }}</td>
+            </tr>
+            <tr>
+                <td style="padding: 14px 20px; border-bottom: 1px solid #f1f5f9; font-size: 13px; color: #64748b;">Efficiency Score</td>
+                <td style="padding: 14px 20px; border-bottom: 1px solid #f1f5f9; font-size: 16px; font-weight: bold; text-align: right;">{{ score }} / 100</td>
+            </tr>
+            <tr>
+                <td style="padding: 14px 20px; border-bottom: 1px solid #f1f5f9; font-size: 13px; color: #64748b;">Estimated Cost</td>
+                <td style="padding: 14px 20px; border-bottom: 1px solid #f1f5f9; font-size: 16px; font-weight: bold; text-align: right;">${{ cost }}</td>
+            </tr>
+            <tr>
+                <td style="padding: 14px 20px; font-size: 13px; color: #64748b;">Severity Level</td>
+                <td style="padding: 14px 20px; font-size: 14px; font-weight: bold; text-align: right;">
+                    <span style="background-color: {{ severity_bg }}; color: {{ severity_text }}; padding: 4px 12px; border-radius: 20px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px;">
+                        {{ severity }}
+                    </span>
+                </td>
+            </tr>
+        </table>
+    </div>
+
+    <!-- Personalized Tip -->
+    {% if tip %}
+    <div style="margin: 20px 30px; background-color: {{ tip_bg }}; border-left: 4px solid {{ banner_color }}; padding: 16px 20px; border-radius: 0 6px 6px 0;">
+        <strong style="font-size: 13px; color: #334155;">💡 Quick Tip</strong>
+        <p style="font-size: 13px; color: #475569; margin: 6px 0 0; line-height: 1.5;">{{ tip }}</p>
+    </div>
+    {% endif %}
+
+    <!-- CTA Button -->
+    <div style="text-align: center; padding: 20px 30px 10px;">
+        <a href="{{ runbook_url }}" style="background-color: {{ banner_color }}; color: #ffffff; padding: 14px 32px; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 14px; display: inline-block;">
+            View Your Personalized Runbook →
+        </a>
+    </div>
+
+    <!-- Footer -->
+    <div style="padding: 20px 30px; margin-top: 15px; border-top: 1px solid #e2e8f0;">
+        <p style="font-size: 11px; color: #94a3b8; text-align: center; margin: 0; line-height: 1.5;">
+            This is an automated alert from the DevTelemetry Usage Intelligence Agent.<br>
+            To adjust alert frequency, visit the <a href="{{ dashboard_url }}" style="color: #005088;">Dashboard Settings</a>.
+        </p>
+    </div>
+
+</body>
+</html>

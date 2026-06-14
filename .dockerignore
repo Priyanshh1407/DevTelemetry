@@ -1,0 +1,14 @@
+venv/
+env/
+.env
+__pycache__/
+*.pyc
+tests/
+frontend/node_modules/
+frontend/dist/
+.git/
+.gitignore
+README.md
+engineers_data.json
+docker-compose.yml
+Dockerfile*

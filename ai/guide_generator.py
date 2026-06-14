@@ -12,6 +12,7 @@ model = genai.GenerativeModel("gemini-2.5-flash")
 def generate_efficiency_guide(engineer_data, severity="moderate"):
     """
     Generates a personalized guide. Tone and length adjust based on severity.
+    Includes fallback data if the API rate limit is hit.
     """
     if severity == "critical":
         tone_instructions = "You are doing a direct, serious intervention. Generate a highly detailed, 5-point actionable guide to drastically reduce their token waste."
@@ -29,19 +30,55 @@ def generate_efficiency_guide(engineer_data, severity="moderate"):
     
     Rules:
     1. Reference their actual data points in the advice (e.g., "Your cache ratio is X%").
-    2. Format it as a simple numbered list without markdown bolding in the list numbers.
+    2. Format it as a simple numbered list. DO NOT use markdown formatting like **bold** or bullet points. Just plain text.
     3. Keep it concise and professional.
     """
     
     try:
-        return model.generate_content(prompt).text
+        response_text = model.generate_content(prompt).text
+        
+        tasks = []
+        for line in response_text.split('\n'):
+            line = line.strip()
+            if line and line[0].isdigit() and '. ' in line[:4]:
+                clean_text = line.split('. ', 1)[1].strip()
+                
+                # Strip out stray markdown asterisks that the AI ignores rules to include
+                clean_text = clean_text.replace('**', '').replace('*', '')
+                
+                tasks.append({
+                    "title": "Optimization Action", 
+                    "desc": clean_text
+                })
+                
+        if not tasks:
+            tasks = [{"title": "AI Summary", "desc": response_text.replace('**', '')}]
+            
+        return tasks
+
     except Exception as e:
-        return f"Error generating guide: {str(e)}"
+        error_str = str(e)
+        
+        # 1. Handle Rate Limits Gracefully
+        if "429" in error_str or "quota" in error_str.lower():
+            print("API Rate Limit Hit. Deploying fallback runbook...")
+            return [
+                {"title": "System Notice: API Rate Limit", "desc": "Personalized generation is paused due to Gemini API limits. Showing standard procedures."},
+                {"title": "Audit Token Looping", "desc": "Check agent logs for repetitive, failing task loops."},
+                {"title": "Enforce Model Tiering", "desc": "Shift non-essential background tasks to Haiku/Flash models."},
+                {"title": "Consolidate Prompts", "desc": "Batch multiple instructions into a single context window."}
+            ]
+            
+        # 2. Handle Total API Failure (e.g., No Internet)
+        print(f"API Error: {error_str}")
+        return [
+            {"title": "AI Service Offline", "desc": "Unable to connect to the intelligence engine."},
+            {"title": "Manual Intervention", "desc": "Please review the raw telemetry metrics directly."}
+        ]
+
 
 def generate_team_report(team_summary):
-    """
-    Generates a broad, general optimization report for the entire engineering team.
-    """
+    # ... (Keep this exactly as you had it) ...
     prompt = f"""
     You are an AI usage analyst writing a daily memo for an engineering team using the 'Claude Code' AI agent.
     
@@ -56,6 +93,6 @@ def generate_team_report(team_summary):
     """
     
     try:
-        return model.generate_content(prompt).text
+        return model.generate_content(prompt).text.replace('**', '')
     except Exception as e:
-        return f"Error generating team report: {str(e)}"
+        return f"Error generating team report: System Offline." 

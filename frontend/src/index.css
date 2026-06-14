@@ -1,0 +1,47 @@
+@import "tailwindcss";
+
+@import url('https://fonts.googleapis.com/css2?family=Geist:wght@100..900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap');
+
+/* This replaces your old tailwind.config.js */
+@theme {
+  --color-primary: #c0c1ff;
+  --color-primary-container: #8083ff;
+  --color-on-primary-container: #0d0096;
+  --color-secondary: #89ceff;
+  --color-secondary-container: #00a2e6;
+  --color-tertiary: #ffb783;
+  --color-error: #ffb4ab;
+  --color-background: #131313;
+  --color-surface: #131313;
+  --color-surface-container: #201f1f;
+  --color-surface-container-high: #2a2a2a;
+  --color-outline-variant: #464554;
+  --color-on-surface: #e5e2e1;
+  --color-on-surface-variant: #c7c4d7;
+
+  --font-display: "Geist", sans-serif;
+  --font-body: "Geist", sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+}
+
+body {
+  background-color: var(--color-background);
+  color: var(--color-on-surface);
+  font-family: var(--font-body);
+}
+
+.material-symbols-outlined {
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+}
+
+.glass-card {
+  background-color: #0a0a0a;
+  border: 1px solid #1f1f1f;
+  transition: all 0.3s ease;
+}
+
+.glass-card:hover {
+  border-color: #2e2e2e;
+}

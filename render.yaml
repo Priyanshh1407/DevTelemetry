@@ -1,0 +1,36 @@
+services:
+  # Backend FastAPI Service
+  - type: web
+    name: dev-telemetry-api
+    env: docker
+    dockerfilePath: ./Dockerfile.backend
+    envVars:
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: EMAIL_SENDER
+        sync: false
+      - key: EMAIL_PASSWORD
+        sync: false
+      - key: EMAIL_RECIPIENT
+        sync: false
+      - key: SLACK_WEBHOOK_URL
+        sync: false
+      - key: FRONTEND_URL
+        sync: false
+      - key: PRODUCTION_MODE
+        value: "true"
+    # Because Render restarts containers, we'll run the seed script
+    # to populate the SQLite DB each time for the demo.
+    # We could attach a disk, but a demo DB is fine to reset.
+
+  # Frontend React Service
+  - type: web
+    name: dev-telemetry-dashboard
+    env: static
+    buildCommand: npm install && npm run build
+    staticPublishPath: ./dist
+    rootDir: frontend
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
