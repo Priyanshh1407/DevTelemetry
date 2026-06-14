@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html>
+<body style="font-family: Arial, sans-serif; color: #333; max-width: 600px; margin: 0 auto;">
+    <h2 style="color: #2c3e50; border-bottom: 2px solid #eee; padding-bottom: 10px;">
+        Daily Claude Usage & Efficiency Report
+    </h2>
+    
+    <div style="background-color: #f0f4f8; padding: 15px; border-radius: 8px; margin-bottom: 20px; text-align: center;">
+        <span style="margin: 0 15px;"><strong>Team Avg Score:</strong> {{ average_score }}/100</span>
+        <span style="margin: 0 15px;"><strong>Total Daily Spend:</strong> ${{ total_team_cost }}</span>
+    </div>
+
+    <div style="background-color: #f8f9fa; border-left: 4px solid #005088; padding: 15px; margin-bottom: 25px; font-size: 14px; line-height: 1.5; color: #475569;">
+        <i>{{ ai_team_summary }}</i>
+    </div>
+
+    <p>Here is the daily breakdown of your team's Claude Code usage, ranked by efficiency score.</p>
+
+    <h3 style="color: #27ae60;">🏆 Top Performers</h3>
+    <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
+        <tr style="background-color: #f8f9fa; text-align: left;">
+            <th style="padding: 10px; border: 1px solid #ddd;">Rank</th>
+            <th style="padding: 10px; border: 1px solid #ddd;">Engineer</th>
+            <th style="padding: 10px; border: 1px solid #ddd;">Score</th>
+            <th style="padding: 10px; border: 1px solid #ddd;">Cost</th>
+        </tr>
+        {% for engineer in top_engineers %}
+        <tr>
+            <td style="padding: 10px; border: 1px solid #ddd;">#{{ loop.index }}</td>
+            <td style="padding: 10px; border: 1px solid #ddd;"><b>{{ engineer.name }}</b></td>
+            <td style="padding: 10px; border: 1px solid #ddd;">{{ engineer.efficiency_score }}</td>
+            <td style="padding: 10px; border: 1px solid #ddd;">${{ engineer.estimated_cost_usd }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+
+    <h3 style="color: #c0392b;">⚠️ Needs Review</h3>
+    <table style="width: 100%; border-collapse: collapse; margin-bottom: 25px;">
+        <tr style="background-color: #f8f9fa; text-align: left;">
+            <th style="padding: 10px; border: 1px solid #ddd;">Engineer</th>
+            <th style="padding: 10px; border: 1px solid #ddd;">Score</th>
+            <th style="padding: 10px; border: 1px solid #ddd;">Primary Waste Pattern</th>
+        </tr>
+        {% for engineer in bottom_engineers %}
+        <tr>
+            <td style="padding: 10px; border: 1px solid #ddd;"><b>{{ engineer.name }}</b></td>
+            <td style="padding: 10px; border: 1px solid #ddd; color: #c0392b; font-weight: bold;">{{ engineer.efficiency_score }}</td>
+            <td style="padding: 10px; border: 1px solid #ddd;">{{ engineer.primary_waste_pattern }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+    
+    <div style="text-align: center; margin: 30px 0;">
+        <a href="{{ dashboard_url }}" style="background-color: #005088; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold; font-size: 14px;">
+            Open DevTelemetry Dashboard
+        </a>
+    </div>
+
+    <p style="font-size: 12px; color: #7f8c8d; margin-top: 30px; text-align: center;">
+        Generated automatically by the DevTelemetry Usage Intelligence Agent.
+    </p>
+</body>
+</html>
