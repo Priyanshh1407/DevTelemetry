@@ -4,6 +4,7 @@ from ai.guide_generator import generate_efficiency_guide
 from pydantic import BaseModel
 import asyncio
 import sqlite3
+from data.alert_worker import run_weekly_telemetry_check
 
 router = APIRouter()
 
@@ -105,6 +106,14 @@ def update_alert_settings(schedule: AlertSchedule):
         """, (schedule.frequency, schedule.day, schedule.time))
         conn.commit()
     return {"status": "success", "message": "Schedule updated"}
+
+@router.post("/trigger-alerts")
+def trigger_alerts():
+    try:
+        run_weekly_telemetry_check()
+        return {"status": "success", "message": "All alerts successfully dispatched!"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/engineer/{user_id}/details")
 def get_engineer_details(user_id: str):
