@@ -67,7 +67,8 @@ export default function EngineerDetail() {
     useEffect(() => {
         const fetchDetails = async () => {
             try {
-                const res = await fetch(`http://127.0.0.1:8000/api/engineer/${userId}/details`);
+                const API_BASE = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
+                const res = await fetch(`${API_BASE}/api/engineer/${userId}/details`);
                 if (!res.ok) {
                     throw new Error(res.status === 404 ? "Engineer not found" : "Failed to load engineer details");
                 }

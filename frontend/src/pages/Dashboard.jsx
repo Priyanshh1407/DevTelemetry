@@ -75,11 +75,12 @@ export default function Dashboard() {
     useEffect(() => {
         const fetchData = async () => {
             try {
+                const API_BASE = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
                 // Step A: Fetch all three endpoints at the exact same time
                 const [boardRes, trendsRes, settingsRes] = await Promise.all([
-                    fetch('http://127.0.0.1:8000/api/leaderboard'),
-                    fetch('http://127.0.0.1:8000/api/trends'),
-                    fetch('http://127.0.0.1:8000/api/settings')
+                    fetch(`${API_BASE}/api/leaderboard`),
+                    fetch(`${API_BASE}/api/trends`),
+                    fetch(`${API_BASE}/api/settings`)
                 ]);
 
                 // Step B: Convert all three responses to JSON
