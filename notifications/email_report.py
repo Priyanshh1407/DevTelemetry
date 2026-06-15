@@ -115,7 +115,8 @@ def send_daily_report(top_engineers, bottom_engineers, average_score, total_cost
     msg.attach(part)
 
     try:
-        server = smtplib.SMTP(SMTP_SERVER, SMTP_PORT)
+        print(f"⏳ Attempting to connect to {SMTP_SERVER}:{SMTP_PORT} for Executive Digest...")
+        server = smtplib.SMTP(SMTP_SERVER, SMTP_PORT, timeout=10)
         server.ehlo()
         server.starttls()
         server.ehlo()
@@ -164,7 +165,8 @@ def send_developer_alert(dev_data):
     msg.attach(part)
 
     try:
-        server = smtplib.SMTP(SMTP_SERVER, SMTP_PORT)
+        print(f"   ⏳ Attempting to connect to {SMTP_SERVER}:{SMTP_PORT} for {dev_data['name']}...")
+        server = smtplib.SMTP(SMTP_SERVER, SMTP_PORT, timeout=10)
         server.ehlo()
         server.starttls()
         server.ehlo()
