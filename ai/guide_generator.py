@@ -1,13 +1,13 @@
 import os
 import json
-import google.generativeai as genai
+from google import genai
 from dotenv import load_dotenv
 
 load_dotenv()
-genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 
 # Initialize model once to reuse
-model = genai.GenerativeModel("gemini-2.5-flash")
+model_id = "gemini-2.5-flash"
 
 def generate_efficiency_guide(engineer_data, severity="moderate"):
     """
@@ -35,7 +35,10 @@ def generate_efficiency_guide(engineer_data, severity="moderate"):
     """
     
     try:
-        response_text = model.generate_content(prompt).text
+        response_text = client.models.generate_content(
+            model=model_id,
+            contents=prompt
+        ).text
         
         tasks = []
         for line in response_text.split('\n'):
@@ -93,6 +96,9 @@ def generate_team_report(team_summary):
     """
     
     try:
-        return model.generate_content(prompt).text.replace('**', '')
+        return client.models.generate_content(
+            model=model_id,
+            contents=prompt
+        ).text.replace('**', '')
     except Exception as e:
         return f"Error generating team report: System Offline." 

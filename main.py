@@ -1,15 +1,19 @@
 import json
 import os
+import sys
+
+# Ensure stdout can print emojis on Windows
+sys.stdout.reconfigure(encoding='utf-8')
 from core.scorer import calculate_efficiency_score
 from ai.guide_generator import generate_efficiency_guide, generate_team_report
-from data.seed import generate_mock_data
+from data.seed import generate_historical_data
 
 def main():
     file_path = "engineers_data.json"
 
     if not os.path.exists(file_path):
         print("Generating mock telemetry data...")
-        generate_mock_data()
+        generate_historical_data()
 
     with open(file_path, "r") as f:
         engineers = json.load(f)

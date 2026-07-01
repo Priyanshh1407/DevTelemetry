@@ -59,7 +59,7 @@ function CostTooltip({ active, payload, label }) {
 export default function EngineerDetail() {
     const { userId } = useParams();
     const navigate = useNavigate();
-    
+
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -141,7 +141,7 @@ export default function EngineerDetail() {
             <Navbar />
 
             <div className="max-w-[1440px] mx-auto px-6 md:px-10 py-8 flex flex-col gap-8">
-                
+
                 {/* ── Back Navigation & Action Bar ── */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <button
@@ -210,7 +210,7 @@ export default function EngineerDetail() {
                         <span className="font-mono text-[11px] tracking-widest uppercase text-on-surface-variant mb-2">
                             30-Day Efficiency Score
                         </span>
-                        
+
                         <div className="relative w-32 h-32 flex items-center justify-center">
                             {/* Radial Score Gauge SVG */}
                             <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
@@ -243,8 +243,8 @@ export default function EngineerDetail() {
 
                         <p className="text-xs text-on-surface-variant mt-2 max-w-[200px]">
                             {averages.avg_score >= 80 ? "Excellent token stewardship and habit discipline." :
-                             averages.avg_score >= 55 ? "Moderate efficiency. Personal roadmap shows areas to optimize." :
-                             "Requires prompt structure calibration and model mix adjusting."}
+                                averages.avg_score >= 55 ? "Moderate efficiency. Personal roadmap shows areas to optimize." :
+                                    "Requires prompt structure calibration and model mix adjusting."}
                         </p>
                     </div>
                 </section>
