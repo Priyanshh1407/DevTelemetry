@@ -1,9 +1,9 @@
-import sqlite3
 import os
 import sys
 
 # Ensure Python can find your AI and Notification modules
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from core.db import get_db_connection
 from ai.guide_generator import generate_team_report
 from notifications.email_report import send_daily_report, send_developer_alert
 from notifications.slack_post import send_slack_summary
@@ -12,9 +12,7 @@ def run_weekly_telemetry_check():
     print("Initiating Industry-Grade Telemetry Review...\n")
     
     # --- 1. CONNECT TO THE LIVE DATABASE ---
-    db_path = os.path.join(os.path.dirname(__file__), 'usage.db')
-    conn = sqlite3.connect(db_path)
-    conn.row_factory = sqlite3.Row
+    conn = get_db_connection()
     cursor = conn.cursor()
 
     cursor.execute("""

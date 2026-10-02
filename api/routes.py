@@ -3,7 +3,6 @@ from core.db import get_db_connection
 from ai.guide_generator import generate_efficiency_guide
 from pydantic import BaseModel
 import asyncio
-import sqlite3
 from data.alert_worker import run_weekly_telemetry_check
 
 router = APIRouter()
@@ -276,8 +275,7 @@ async def get_personalized_tasks(severity: str, user_id: str):
     print(f"[CACHE MISS] Asking Gemini to generate tasks for {user_id}...")
     
     # 3. Connect to DB to get the latest metrics for this specific dev
-    conn = sqlite3.connect('data/usage.db')
-    conn.row_factory = sqlite3.Row
+    conn = get_db_connection()
     cursor = conn.cursor()
     
     cursor.execute("""
