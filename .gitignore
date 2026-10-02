@@ -10,3 +10,7 @@ __pycache__/
 # Database and Data
 data/usage.db
 engineers_data.json
+
+# Test artifacts
+.coverage
+.pytest_cache/
