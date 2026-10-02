@@ -1,26 +1,177 @@
+"""Characterization tests for the read API and settings.
+
+They pin down current behavior against a deterministic temporary DB (see conftest.py),
+so later phases can change internals without silently changing responses.
+Known bugs from the audit are recorded as strict xfails: when a fix lands, the xfail
+starts passing, pytest reports XPASS as a failure, and the marker must be removed.
+"""
 import pytest
-from fastapi.testclient import TestClient
-from api.main import app
 
-client = TestClient(app)
+from tests.conftest import LATEST_DATE, NUM_ENGINEERS, engineer_id, seed_db
 
-def test_read_root():
+
+def test_read_root(client):
     response = client.get("/")
     assert response.status_code == 200
     assert response.json() == {"status": "API is running"}
 
-def test_get_leaderboard():
+
+# ── /api/leaderboard ────────────────────────────────────────────────────────
+
+def test_leaderboard_empty_db_returns_empty_list(client):
     response = client.get("/api/leaderboard")
     assert response.status_code == 200
-    data = response.json()
-    assert isinstance(data, list)
-    assert len(data) >= 0
+    assert response.json() == []
 
-def test_get_engineer_details_not_found():
+
+def test_leaderboard_ranks_latest_day_by_score(client, seeded_db, query):
+    data = client.get("/api/leaderboard").json()
+
+    assert len(data) == NUM_ENGINEERS
+    assert [row["user_id"] for row in data] == [engineer_id(i) for i in reversed(range(NUM_ENGINEERS))]
+    assert set(data[0]) == {"name", "user_id", "efficiency_score", "estimated_cost_usd",
+                            "input_tokens", "output_tokens"}
+
+    latest_scores = {r["user_id"]: r["efficiency_score"] for r in query(
+        "SELECT user_id, efficiency_score FROM usage_metrics WHERE date = ?", (LATEST_DATE,))}
+    assert {row["user_id"]: row["efficiency_score"] for row in data} == latest_scores
+
+
+# ── /api/trends ─────────────────────────────────────────────────────────────
+
+def test_trends_returns_daily_team_aggregates(client, seeded_db, query):
+    data = client.get("/api/trends").json()
+
+    expected = query("""SELECT date, ROUND(AVG(efficiency_score), 2) AS avg_score,
+                               ROUND(SUM(estimated_cost_usd), 2) AS total_cost
+                        FROM usage_metrics GROUP BY date ORDER BY date""")
+    assert data == expected
+    assert [d["date"] for d in data] == ["2026-01-01", "2026-01-02", LATEST_DATE]
+
+
+@pytest.mark.xfail(strict=True, reason="BUG-05: ORDER BY date ASC LIMIT 30 returns the oldest 30 days")
+def test_trends_window_ends_at_latest_date(client, empty_db):
+    seed_db(num_days=40)
+    data = client.get("/api/trends").json()
+
+    assert len(data) == 30
+    assert data[-1]["date"] == "2026-02-09"
+
+
+# ── /api/engineer/{id}/details ──────────────────────────────────────────────
+
+def test_details_unknown_engineer_returns_404(client, seeded_db):
     response = client.get("/api/engineer/nonexistent_id/details")
     assert response.status_code == 404
     assert response.json() == {"detail": "Engineer not found"}
 
-# We can't easily test a successful engineer details or runbook tasks without a known user_id.
-# We'd ideally use a testing database setup or mock the db calls, but for this level of test,
-# verifying the endpoints exist and handle errors is a good start.
+
+def test_details_engineer_without_usage_returns_404(client, seeded_db, query):
+    from core.db import get_db_connection
+
+    conn = get_db_connection()
+    conn.execute("INSERT INTO engineers (user_id, name, email) VALUES ('new', 'New Hire', 'n@example.com')")
+    conn.commit()
+    conn.close()
+
+    response = client.get("/api/engineer/new/details")
+    assert response.status_code == 404
+    assert response.json() == {"detail": "No usage history found for this engineer"}
+
+
+@pytest.mark.parametrize("index, rank, severity", [
+    (9, 1, "low"),
+    (5, 5, "low"),
+    (4, 6, "moderate"),
+    (2, 8, "moderate"),
+    (1, 9, "critical"),
+    (0, 10, "critical"),
+])
+def test_details_rank_and_severity_tiers(client, seeded_db, index, rank, severity):
+    data = client.get(f"/api/engineer/{engineer_id(index)}/details").json()
+
+    assert data["current_rank"] == rank
+    assert data["current_severity"] == severity
+
+
+def test_details_history_averages_and_patterns(client, seeded_db, query):
+    data = client.get(f"/api/engineer/{engineer_id(3)}/details").json()
+
+    assert data["name"] == "Engineer 03"
+    assert [h["date"] for h in data["history"]] == ["2026-01-01", "2026-01-02", LATEST_DATE]
+
+    rows = query("SELECT * FROM usage_metrics WHERE user_id = ? ORDER BY date", (engineer_id(3),))
+    for h, row in zip(data["history"], rows):
+        assert h["cache_ratio"] == round(row["cache_read_tokens"] / row["input_tokens"], 4)
+
+    assert data["averages"]["avg_score"] == round(sum(r["efficiency_score"] for r in rows) / 3, 2)
+    assert data["averages"]["total_commits"] == 3 * 3
+    assert data["latest"]["efficiency_score"] == rows[-1]["efficiency_score"]
+    assert [p["label"] for p in data["patterns"]] == ["Model Usage", "Cache Efficiency", "Session Discipline"]
+
+
+# ── /api/settings ───────────────────────────────────────────────────────────
+
+def test_settings_default_row_from_schema(client):
+    assert client.get("/api/settings").json() == {"frequency": "Weekly", "day": "Friday", "time": "17:00"}
+
+
+def test_settings_falls_back_when_row_missing(client, empty_db):
+    from core.db import get_db_connection
+
+    conn = get_db_connection()
+    conn.execute("DELETE FROM alert_settings")
+    conn.commit()
+    conn.close()
+
+    assert client.get("/api/settings").json() == {"frequency": "Weekly", "day": "Friday", "time": "17:00"}
+
+
+def test_settings_update_round_trip(client):
+    new = {"frequency": "Daily", "day": "Monday", "time": "09:30"}
+
+    response = client.post("/api/settings", json=new)
+
+    assert response.status_code == 200
+    assert response.json() == {"status": "success", "message": "Schedule updated"}
+    assert client.get("/api/settings").json() == new
+
+
+def test_settings_missing_field_is_rejected(client):
+    assert client.post("/api/settings", json={"frequency": "Daily"}).status_code == 422
+
+
+@pytest.mark.xfail(strict=True, reason="VAL-01: settings fields are unvalidated strings")
+def test_settings_invalid_values_are_rejected(client):
+    response = client.post("/api/settings", json={"frequency": "Hourly", "day": "Funday", "time": "99:99"})
+    assert response.status_code == 422
+
+
+# ── /api/guide and /api/runbook-tasks (Gemini mocked) ───────────────────────
+
+def test_guide_unknown_engineer_returns_404(client, seeded_db):
+    assert client.get("/api/guide/nonexistent_id").status_code == 404
+
+
+def test_guide_returns_parsed_tasks_for_latest_day(client, seeded_db):
+    data = client.get(f"/api/guide/{engineer_id(0)}").json()
+
+    assert data["name"] == "Engineer 00"
+    assert data["date"] == LATEST_DATE
+    assert [t["desc"] for t in data["guide"]] == ["Mock tip one", "Mock tip two"]
+
+
+def test_runbook_unknown_engineer_returns_placeholder_task(client, seeded_db):
+    data = client.get("/api/runbook-tasks/critical/nonexistent_id").json()
+    assert data == {"tasks": [{"title": "Data Missing", "desc": "No telemetry found for this user."}]}
+
+
+def test_runbook_second_request_is_served_from_cache(client, seeded_db, mock_gemini):
+    url = f"/api/runbook-tasks/critical/{engineer_id(0)}"
+
+    first = client.get(url).json()
+    second = client.get(url).json()
+
+    assert first == second
+    assert [t["desc"] for t in first["tasks"]] == ["Mock tip one", "Mock tip two"]
+    mock_gemini.models.generate_content.assert_called_once()

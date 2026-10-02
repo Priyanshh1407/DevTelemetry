@@ -75,9 +75,10 @@ def engineer_id(i):
 
 
 def make_metrics(i, day_index):
-    """Deterministic metrics: higher i means better habits, so rank 1 is eng-09."""
+    """Deterministic metrics. Cache ratio and /compact rate both rise with i, so the
+    score is strictly increasing in i: on any day rank 1 is eng-09 and rank 10 is eng-00."""
     input_tokens = 100_000
-    sessions = 4
+    sessions = 10
     return {
         "input_tokens": input_tokens,
         "output_tokens": 20_000 + 1_000 * i,
@@ -85,7 +86,7 @@ def make_metrics(i, day_index):
         "cache_write_tokens": 10_000,
         "model_mix": {"opus_pct": 0.3, "sonnet_pct": 0.5, "haiku_pct": 0.2},
         "session_count": sessions,
-        "compact_uses": i % (sessions + 1),
+        "compact_uses": i,
         "git_commits": i,
         "estimated_cost_usd": round(10.0 + i + day_index * 0.5, 2),
     }
