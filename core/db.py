@@ -2,16 +2,23 @@ import sqlite3
 import os
 import datetime
 
-# Define paths relative to the project root
-DB_PATH = os.path.join("data", "usage.db")
-SCHEMA_PATH = os.path.join("data", "schema.sql")
+# Resolve paths from this file's location so the app works from any working directory.
+# DB_PATH can be overridden (e.g. tests point it at a temporary database).
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+SCHEMA_PATH = os.path.join(PROJECT_ROOT, "data", "schema.sql")
+
+
+def get_db_path():
+    """Returns the active database path, read at call time so it can be overridden."""
+    return os.getenv("DB_PATH", os.path.join(PROJECT_ROOT, "data", "usage.db"))
+
 
 def get_db_connection():
     """
     Creates and returns a database connection.
     Sets row_factory so we can access columns by name (like a dictionary).
     """
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(get_db_path())
     conn.row_factory = sqlite3.Row
     return conn
 
@@ -21,7 +28,8 @@ def init_db():
     Only creates tables if they don't already exist.
     """
     # Ensure the data directory exists
-    os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
+    db_path = get_db_path()
+    os.makedirs(os.path.dirname(db_path), exist_ok=True)
     
     with get_db_connection() as conn:
         with open(SCHEMA_PATH, 'r') as f:
@@ -31,7 +39,7 @@ def init_db():
         conn.executescript(schema_script)
         conn.commit()
         
-    print(f"Database initialized successfully at {DB_PATH}")
+    print(f"Database initialized successfully at {db_path}")
 
 def get_daily_records(date_str=None):
     """
