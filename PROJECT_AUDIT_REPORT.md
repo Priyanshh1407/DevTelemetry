@@ -10,7 +10,7 @@ Assumptions (not stated in repo): target roles = SDE **and** ML/AI Engineer; tim
 
 - **Overall health:** A nicely presented prototype whose demo path works locally, but several core numbers are fabricated or random, the AI feature breaks on the deployed site, and the side-effecting endpoints are open to anyone.
 - **Would this project survive a 45-minute deep-dive interview today? No.** The first “how is estimated cost calculated?” or “what happens if I POST to `/api/trigger-alerts`?” question exposes a P0. The test suite the commit history advertises has 3 of 10 backend tests failing, and the README describes features and files that don’t exist.
-- **Findings:** P0 3 | P1 9 | P2 13 | P3 1 bundle (8 items)
+- **Findings:** P0 3 | P1 9 | P2 14 | P3 1 bundle (8 items) — TEST-02 added during Phase 0
 - **Top 3 things to fix before any interview:**
   1. **SEC-01**: unauthenticated `POST /api/trigger-alerts` and `POST /api/settings` on a public deployment (sends real email/Slack and spends Gemini quota).
   2. **ML-01**: `estimated_cost_usd` is `random.uniform(5, 30)` and has nothing to do with tokens or model mix, yet the product pitch is cost reduction.
@@ -287,6 +287,14 @@ Not run: the live Render deployment (I didn’t want to trigger side effects on 
 - Category: DX
 - Location: `venv/` has `google-generativeai` (deprecated) and not `google-genai`; Python versions are inconsistent (3.10 Docker / 3.11 README / 3.14 venv)
 - Fix: Recreate the venv from pinned requirements, add a `requirements-dev.txt` (pytest, ruff), and state one supported Python version.
+- Effort: S
+
+### [TEST-02] Importing the app loads real SMTP and Slack credentials into the test process *(found during Phase 0)*
+- Severity: P2 | Interview Risk: MEDIUM | Confidence: CONFIRMED (code). No send was observed: the Phase 0 network guard blocks it.
+- Category: testing / security
+- Location: `notifications/email_report.py:8-15` and `notifications/slack_post.py:7-9` call `load_dotenv()` and read credentials into **module-level constants at import time**. Importing `api.routes` imports `data.alert_worker`, which imports both modules.
+- What’s wrong: Any test that reaches `send_developer_alert`, `send_daily_report`, or `send_slack_summary` (for example a future `/trigger-alerts` test) would use the developer’s real Gmail app password and Slack webhook from `.env`. Because the values are captured at import, `monkeypatch.delenv` in a test has no effect.
+- Fix: Read config at call time, or through a settings object, and have the test fixtures clear `EMAIL_*`/`SLACK_*`. Keep the socket guard as a backstop. Schedule this before TEST-01a in Phase 3; do it in Phase 1 if BUG-03’s tests touch the senders.
 - Effort: S
 
 ---
