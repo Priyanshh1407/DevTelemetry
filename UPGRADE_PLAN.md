@@ -37,12 +37,12 @@ Total: roughly 18–21 working days, which fits 3–4 weeks.
 Goal: Make the code safely changeable: reproducible environment, isolated test DB, and a green baseline that captures current behavior.
 Why this order: Every later fix needs a red→green test, and tests need a DB they don’t share with your dev data and an LLM client that can be mocked.
 Items:
-- [ ] P0-1 Commit the existing reports (`DEVTELEMETRY_INTERVIEW_REPORT.md`, this plan, the audit) on `deployment`, then `git checkout -b phase-0-safety-net` — S
-- [ ] P0-2 Recreate venv from `requirements.txt` (it currently has `google-generativeai`, not `google-genai`), pin versions (`pip freeze` → `requirements.txt`), add `requirements-dev.txt` (pytest, pytest-cov, ruff) — `requirements*.txt` — S
-- [ ] P0-3 Make the DB path configurable: `DB_PATH` env var with a `Path(__file__)`-based default in `core/db.py`; route `routes.py:282` through `get_db_connection` — `core/db.py`, `api/routes.py` — S
-- [ ] P0-4 `tests/conftest.py`: `tmp_path` DB fixture (init schema + small deterministic seed) and an autouse fixture that mocks the Gemini client so no test hits the network — `tests/conftest.py` — S
-- [ ] P0-5 Fix `tests/test_generator.py` to patch `ai.guide_generator.client` (it patches the nonexistent `model`) — S
-- [ ] P0-6 Characterization tests for `/leaderboard`, `/trends`, `/engineer/{id}/details`, `/settings` against the fixture DB — `tests/test_api.py` — M
+- [x] P0-1 Commit the existing reports (`DEVTELEMETRY_INTERVIEW_REPORT.md`, this plan, the audit) on `deployment`, then `git checkout -b phase-0-safety-net` — S
+- [x] P0-2 Recreate venv from `requirements.txt` (it currently has `google-generativeai`, not `google-genai`), pin versions (`pip freeze` → `requirements.txt`), add `requirements-dev.txt` (pytest, pytest-cov, ruff) — `requirements*.txt` — S
+- [x] P0-3 Make the DB path configurable: `DB_PATH` env var with a `Path(__file__)`-based default in `core/db.py`; route `routes.py:282` through `get_db_connection` — `core/db.py`, `api/routes.py` — S
+- [x] P0-4 `tests/conftest.py`: `tmp_path` DB fixture (init schema + small deterministic seed) and an autouse fixture that mocks the Gemini client so no test hits the network — `tests/conftest.py` — S
+- [x] P0-5 Fix `tests/test_generator.py` to patch `ai.guide_generator.client` (it patches the nonexistent `model`) — S
+- [x] P0-6 Characterization tests for `/leaderboard`, `/trends`, `/engineer/{id}/details`, `/settings` against the fixture DB — `tests/test_api.py` — M
 Acceptance criteria:
 - `pytest -q` passes in the venv (not only in global Python), with 0 network calls.
 - `data/usage.db` is untouched by the test run (check its mtime).
@@ -65,6 +65,7 @@ Items:
 - [ ] ERR-01 Lazy Gemini client; app boots and non-AI endpoints work without `GEMINI_API_KEY` — `ai/guide_generator.py` — S
 - [ ] CONC-01 Runbook route no longer blocks the event loop (`def`, or async client) + LLM call timeout — `api/routes.py`, `ai/guide_generator.py` — S
 - [ ] BUG-02 Generator returns a typed result; only successes are cached; cache key includes latest data date — `ai/guide_generator.py`, `api/routes.py` — S
+- [ ] TEST-02 Read SMTP/Slack config at call time; fixtures clear real credentials (needed before BUG-03 tests touch senders) — `notifications/*`, `tests/conftest.py` — S
 - [ ] BUG-03 Senders return results; worker aggregates `{sent, failed}`; endpoint returns accurate status; UI checks `res.ok` and shows counts; no `str(e)` to clients — `notifications/*`, `data/alert_worker.py`, `api/routes.py`, `Dashboard.jsx` — S–M
 Acceptance criteria:
 - `POST /api/trigger-alerts` and `POST /api/settings` without the header → 401 (test).
