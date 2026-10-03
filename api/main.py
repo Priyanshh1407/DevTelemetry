@@ -1,3 +1,4 @@
+import logging
 import os
 from contextlib import asynccontextmanager
 
@@ -6,6 +7,9 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 load_dotenv()
+# Server code logs (it never prints): a log handler that can't encode a character reports it
+# instead of raising into the request or background job.
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 
 from api.routes import router  # noqa: E402
 from core.db import init_db  # noqa: E402

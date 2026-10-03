@@ -421,10 +421,10 @@ def get_personalized_tasks(severity: Severity, user_id: str):
     # 2. Serve from cache if this exact data was already turned into a guide
     cache_key = (user_id, engineer_data["date"], severity)
     if cache_key in ai_task_cache:
-        print(f"[CACHE HIT] Returning instant tasks for {user_id}")
+        logger.info("Runbook cache hit for %s", user_id)
         return {"tasks": ai_task_cache[cache_key], "source": "ai"}
 
-    print(f"[CACHE MISS] Asking Gemini to generate tasks for {user_id}...")
+    logger.info("Runbook cache miss for %s; generating", user_id)
 
     # 3. Call Gemini
     result = generate_efficiency_guide(without_pii(engineer_data), severity)

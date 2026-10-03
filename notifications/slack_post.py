@@ -1,3 +1,4 @@
+import logging
 import os
 import json
 import urllib.request
@@ -5,6 +6,8 @@ import urllib.error
 from dotenv import load_dotenv
 
 load_dotenv()
+
+logger = logging.getLogger(__name__)
 
 
 # Read at call time (not import) so tests and runtime config decide where messages go.
@@ -116,7 +119,7 @@ def send_slack_summary(all_devs, average_score, total_cost):
 
     webhook_url = _webhook_url()
     if not webhook_url:
-        print("[SLACK] No SLACK_WEBHOOK_URL configured in .env — skipping Slack notification.")
+        logger.warning("SLACK_WEBHOOK_URL not configured; skipping the Slack summary")
         return "skipped"
 
     payload = _build_slack_blocks(all_devs, average_score, total_cost)
@@ -132,23 +135,23 @@ def send_slack_summary(all_devs, average_score, total_cost):
     try:
         with urllib.request.urlopen(req, timeout=SLACK_TIMEOUT_SECONDS) as response:
             if response.status == 200:
-                print("[SLACK] Team summary posted to Slack channel successfully!")
+                logger.info("Slack summary posted")
                 return "sent"
             else:
-                print(f"[SLACK] Unexpected response status: {response.status}")
+                logger.error("Slack returned unexpected status %s", response.status)
                 return "failed"
 
     except urllib.error.HTTPError as e:
         error_body = e.read().decode("utf-8", errors="replace")
-        print(f"[SLACK] HTTP Error {e.code}: {error_body}")
+        logger.error("Slack HTTP error %s: %s", e.code, error_body)
         return "failed"
 
     except urllib.error.URLError as e:
-        print(f"[SLACK] Connection error: {e.reason}")
+        logger.error("Slack connection error: %s", e.reason)
         return "failed"
 
     except Exception as e:
-        print(f"[SLACK] Unexpected error: {e}")
+        logger.error("Slack unexpected error: %s", e)
         return "failed"
 
 
@@ -169,6 +172,6 @@ if __name__ == "__main__":
 
     result = send_slack_summary(test_devs, average_score=54.8, total_cost=147.80)
     if result == "sent":
-        print("\nTest passed — check your Slack channel!")
+        print("\nTest passed — check your Slack channel!")  # noqa: T201 (manual CLI check)
     else:
-        print("\nTest failed — check the error messages above.")
+        print("\nTest failed — check the error messages above.")  # noqa: T201 (manual CLI check)

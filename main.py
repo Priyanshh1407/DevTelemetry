@@ -2,6 +2,7 @@
 
 Reads the same SQLite database as the dashboard (DB_PATH). If it is empty, seeds it first.
 """
+import logging
 import sys
 
 from ai.guide_generator import generate_efficiency_guide, generate_team_report
@@ -74,4 +75,5 @@ def main():
 if __name__ == "__main__":
     # Ensure stdout can print emojis on Windows consoles
     sys.stdout.reconfigure(encoding="utf-8")
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
     main()
