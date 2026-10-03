@@ -128,22 +128,24 @@ Items:
 - [ ] TEST-01a Tests for `alert_worker` (severity tiers at team sizes 3, 7, 10), notifications with mocked `smtplib`/`urlopen`, and runbook caching — `tests/` — M
 - [ ] TEST-01b Frontend tests: Dashboard renders API data with mocked fetch, plus error state; Runbook error state — `frontend/src/__tests__/` — M
 - [ ] TEST-01c GitHub Actions: `ruff check`, `pytest --cov`, `npm ci && npm run lint && npm test && npm run build` — `.github/workflows/ci.yml` — S
-- [ ] OPS-01 On/off switches for the automation (requested by the developer, 2026-10-03) — M
-  - **Scheduled alerts, dashboard button (main switch):** an admin-only "Scheduled alerts: ON / OFF" toggle on the Dashboard. Stored as `alert_settings.enabled` (added to existing DBs via `core/db.ADDED_COLUMNS`, default ON). While OFF, `POST /api/scheduled-tick` answers `{"status": "disabled"}` and sends nothing. The manual "Send alerts" button still works, and the saved day/time/timezone are kept for when it's switched back on. Files: `data/schema.sql`, `core/db.py`, `api/routes.py`, `Dashboard.jsx`.
-  - **Scheduled alerts, GitHub repository variable (stops the pings too):** `SCHEDULED_ALERTS_ENABLED`, set under Settings → Secrets and variables → Actions → Variables. The workflow job has `if: vars.SCHEDULED_ALERTS_ENABLED != 'false'`, so setting it to `false` skips the job entirely (no API call, no waking Render). Unset means ON, so nothing changes until you choose. Variables aren't secrets: they're visible in logs, which is fine for a flag.
-  - **CI: GitHub's built-in switch, no custom code:** Actions tab → "CI" → `...` → **Disable workflow** (and **Enable workflow** to undo). For a single push, put `[skip ci]` in the commit message. A custom CI kill switch is deliberately *not* added: turning CI off should be rare and visible, and the built-in button already covers it.
-  - Documented in the README ("Turning automation off") and in comments at the top of both workflow files.
+- [ ] OPS-01 Off switches for GitHub Actions (requested by the developer, 2026-10-03: "turn the GitHub Actions off") — S
+  - **Built-in buttons, no code (documented, work today):** per workflow, Actions tab → pick the workflow → `...` → **Disable workflow** (and **Enable workflow** to undo). For the whole repository, Settings → Actions → General → Actions permissions → **Disable actions**. A disabled workflow runs nothing at all, including manual runs.
+  - **Repository-variable switches (what gets built):** Settings → Secrets and variables → Actions → **Variables**: `CI_ENABLED` and `SCHEDULED_ALERTS_ENABLED`. Every job in `ci.yml` / `scheduled-alerts.yml` gets `if: vars.<NAME> != 'false' || github.event_name == 'workflow_dispatch'`. Setting a variable to `false` turns off the automatic runs (push / PR / schedule; they show as *skipped*), while **Run workflow** still works for a deliberate manual run. Unset = ON, so nothing changes until you choose. Advantage over the built-in button: the off state is visible in each run, and manual runs keep working.
+  - **Command line, same switches:** `gh workflow disable "CI"` / `gh workflow enable "CI"`; `gh variable set SCHEDULED_ALERTS_ENABLED --body false` / `gh variable delete SCHEDULED_ALERTS_ENABLED`.
+  - **Guard test:** a pytest parses every file in `.github/workflows/` and fails if any job lacks its kill-switch `if:`, so a job added later can't silently ignore the switch.
+  - **Docs:** a README section "Turning GitHub Actions off" (the three methods and what each one stops), plus a short header comment in both workflow files.
+  - Not doing: a dashboard button that calls GitHub's API to disable workflows. See "Upgrades I'm Deliberately NOT Recommending".
 Acceptance criteria:
 - CI is green on push. Backend coverage ≥ 80% on `core/` and `api/` (critical paths, not a vanity number). ESLint 0 errors.
-- OPS-01: with the dashboard toggle OFF, a due tick returns `disabled`, creates no `dispatch_runs` row and calls no sender (test). Toggling back ON lets the same still-due slot send (test). Only an admin can toggle (401 test). An old-schema DB gains `enabled` = ON (migration test). Dashboard test: the toggle shows the server state and sends the admin token.
-- OPS-01: with `SCHEDULED_ALERTS_ENABLED=false` the workflow run shows the `tick` job as *skipped* (manual check in the Actions tab).
+- OPS-01: the workflow guard test passes (every job in every workflow carries its kill-switch `if:`), and fails if the `if:` is removed from a job (red→green).
+- OPS-01 (manual, on GitHub): with `CI_ENABLED=false` a push shows the CI jobs as *skipped*; with `SCHEDULED_ALERTS_ENABLED=false` the 15-minute runs are *skipped* but **Run workflow** still executes; deleting the variables restores both.
 Verification commands:
 - `pytest --cov=core --cov=api --cov=ai --cov-report=term-missing`
 - `npm --prefix frontend run lint && npm --prefix frontend test`
-- OPS-01 manual: Actions → Scheduled alerts tick → Run workflow, once with the variable unset and once with it `false`; then CI → `...` → Disable workflow / Enable workflow.
+- OPS-01 manual: set/unset the two variables (Settings or `gh variable set ...`), push a commit, and click Run workflow; then try Actions → CI → `...` → Disable workflow / Enable workflow.
 Interview payoff:
 - A CI badge, plus “external services are mocked at the boundary, so tests are deterministic and free”.
-- OPS-01: “Automation has layered off switches: an app-level flag the admin flips from the dashboard (data stays, nothing sends), an infrastructure-level variable that stops the cron from even calling the API, and GitHub's own disable button for CI. Each one is checked where the decision is made, and both are tested.”
+- OPS-01: “Every workflow has an off switch that doesn't need a code change: a repository variable checked by each job, so automatic runs stop but a deliberate manual run still works. A test makes sure no job is ever added without it, and GitHub's own Disable button stays available as the hard stop.”
 Risk / rollback:
 - None to runtime.
 
@@ -253,6 +255,7 @@ Risk / rollback:
 
 | Idea | Why not for this project |
 |---|---|
+| Dashboard button that turns GitHub Actions on/off via the GitHub API | The backend would need a GitHub token with write access to the repo's Actions: a much bigger blast radius if the server or its env leaked, for a switch GitHub already provides as a button (Actions tab) and a repository variable. |
 | Kubernetes / microservices | One API, 10 synthetic engineers, one worker. There is no scaling or team-boundary problem to point to. |
 | Celery + Redis job queue | Dispatch is ~11 messages per week. `BackgroundTasks` + a `dispatch_runs` table gives status and idempotency without new infrastructure. Mention a queue as the next step if dispatch volume grows. |
 | Migrate to PostgreSQL now | SQLite is fine for a single instance at this size. The real deployment problem is the ephemeral disk, which a Render disk or an honest “resets on restart” note solves. Explain when Postgres becomes worth it (multiple instances, concurrent writers) instead of doing it. |
