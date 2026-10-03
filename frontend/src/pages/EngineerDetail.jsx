@@ -10,6 +10,7 @@ import {
     Activity, Bot, BookOpen, Compass, Code, Cpu, RefreshCw, BarChart2, Coins
 } from "lucide-react";
 import Navbar from "../components/Navbar";
+import { getJSON } from "../api";
 
 // Helper for matching severity color classes
 const severityStyles = {
@@ -67,13 +68,7 @@ export default function EngineerDetail() {
     useEffect(() => {
         const fetchDetails = async () => {
             try {
-                const API_BASE = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
-                const res = await fetch(`${API_BASE}/api/engineer/${userId}/details`);
-                if (!res.ok) {
-                    throw new Error(res.status === 404 ? "Engineer not found" : "Failed to load engineer details");
-                }
-                const json = await res.json();
-                setData(json);
+                setData(await getJSON(`/api/engineer/${userId}/details`));
             } catch (err) {
                 console.error(err);
                 setError(err.message);

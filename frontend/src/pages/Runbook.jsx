@@ -10,6 +10,8 @@ import {
     ArrowLeft, Coins, ArrowRight, Info, Loader2
 } from "lucide-react";
 
+import { getJSON } from "../api";
+
 // ─── Shared Header ────────────────────────────────────────────────────────
 function RunbookHeader() {
     return (
@@ -434,13 +436,13 @@ export default function Runbook() {
     const { severity, userId } = useParams();
     const [tasks, setTasks] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
 
     // Ask the backend/AI generator for the specific tasks for this severity
     useEffect(() => {
         const fetchAITasks = async () => {
             try {
-                const response = await fetch(`http://127.0.0.1:8000/api/runbook-tasks/${severity}/${userId}`);
-                const data = await response.json();
+                const data = await getJSON(`/api/runbook-tasks/${severity}/${userId}`);
 
                 // Map the backend tasks to include a checked state for the UI
                 const interactiveTasks = data.tasks.map((t, index) => ({
@@ -451,8 +453,9 @@ export default function Runbook() {
                 }));
 
                 setTasks(interactiveTasks);
-            } catch (error) {
-                console.error("Failed to fetch AI tasks:", error);
+            } catch (err) {
+                console.error("Failed to fetch AI tasks:", err);
+                setError(err.message);
             } finally {
                 setLoading(false);
             }
@@ -475,6 +478,19 @@ export default function Runbook() {
                     <p className="font-mono text-sm text-on-surface-variant animate-pulse tracking-widest uppercase">
                         AI compiling {severity} runbook...
                     </p>
+                </div>
+            </div>
+        );
+    }
+
+    if (error) {
+        return (
+            <div className="min-h-screen bg-background text-on-surface font-body flex flex-col">
+                <RunbookHeader />
+                <div role="alert" className="flex-1 flex flex-col items-center justify-center gap-3 px-6 text-center">
+                    <AlertTriangle size={40} className="text-error" />
+                    <p className="text-lg font-bold">Couldn't load this runbook.</p>
+                    <p className="font-mono text-sm text-on-surface-variant">{error}</p>
                 </div>
             </div>
         );
