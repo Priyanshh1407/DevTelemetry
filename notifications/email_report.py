@@ -106,11 +106,11 @@ def render_developer_email(dev_data):
 
 
 def send_daily_report(top_engineers, bottom_engineers, average_score, total_cost, ai_summary):
-    """Packages the HTML into an email and sends it via SMTP."""
+    """Packages the HTML into an email and sends it via SMTP. Returns "sent", "failed" or "skipped"."""
     sender, password, recipient = _smtp_credentials()
     if not all([sender, password, recipient]):
         print("❌ SMTP Credentials missing in .env. Skipping email dispatch.")
-        return
+        return "skipped"
 
     html_content = render_email_html(top_engineers, bottom_engineers, average_score, total_cost, ai_summary)
 
@@ -122,6 +122,7 @@ def send_daily_report(top_engineers, bottom_engineers, average_score, total_cost
     part = MIMEText(html_content, "html")
     msg.attach(part)
 
+    server = None
     try:
         print(f"⏳ Attempting to connect to {SMTP_SERVER}:{SMTP_PORT} for Executive Digest...")
         server = smtplib.SMTP(SMTP_SERVER, SMTP_PORT, timeout=10)
@@ -133,15 +134,18 @@ def send_daily_report(top_engineers, bottom_engineers, average_score, total_cost
         server.sendmail(sender, recipient, msg.as_string())
         
         print(f"✅ Executive digest successfully emailed to {recipient}!")
+        return "sent"
         
     except Exception as e:
         print(f"❌ Failed to send email. Check your SMTP app password! Error: {e}")
+        return "failed"
         
     finally:
-        try:
-            server.quit()
-        except:
-            pass
+        if server is not None:
+            try:
+                server.quit()
+            except smtplib.SMTPException:
+                pass
 
 
 def send_developer_alert(dev_data):
@@ -150,11 +154,12 @@ def send_developer_alert(dev_data):
     
     In production: sends to the developer's own email (dev_data['email']).
     In demo mode:  sends to EMAIL_RECIPIENT so you can see all emails.
+    Returns "sent", "failed" or "skipped".
     """
     sender, password, recipient = _smtp_credentials()
     if not all([sender, password, recipient]):
         print(f"   ⚠️  SMTP credentials missing. Skipping email for {dev_data['name']}.")
-        return
+        return "skipped"
     
     html_content = render_developer_email(dev_data)
 
@@ -173,6 +178,7 @@ def send_developer_alert(dev_data):
     part = MIMEText(html_content, "html")
     msg.attach(part)
 
+    server = None
     try:
         print(f"   ⏳ Attempting to connect to {SMTP_SERVER}:{SMTP_PORT} for {dev_data['name']}...")
         server = smtplib.SMTP(SMTP_SERVER, SMTP_PORT, timeout=10)
@@ -184,12 +190,15 @@ def send_developer_alert(dev_data):
         server.sendmail(sender, target_email, msg.as_string())
         
         print(f"   📨 Alert sent to {dev_data['name']} ({target_email})")
+        return "sent"
         
     except Exception as e:
         print(f"   ❌ Failed to send alert to {dev_data['name']}: {e}")
+        return "failed"
         
     finally:
-        try:
-            server.quit()
-        except:
-            pass
+        if server is not None:
+            try:
+                server.quit()
+            except smtplib.SMTPException:
+                pass

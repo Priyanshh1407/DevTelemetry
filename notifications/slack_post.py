@@ -108,12 +108,13 @@ def send_slack_summary(all_devs, average_score, total_cost):
     """
     Sends a formatted team summary to the configured Slack webhook channel.
     Gracefully skips if SLACK_WEBHOOK_URL is not set.
+    Returns "sent", "failed" or "skipped".
     """
 
     webhook_url = _webhook_url()
     if not webhook_url:
         print("[SLACK] No SLACK_WEBHOOK_URL configured in .env — skipping Slack notification.")
-        return False
+        return "skipped"
 
     payload = _build_slack_blocks(all_devs, average_score, total_cost)
     json_data = json.dumps(payload).encode("utf-8")
@@ -129,23 +130,23 @@ def send_slack_summary(all_devs, average_score, total_cost):
         with urllib.request.urlopen(req) as response:
             if response.status == 200:
                 print("[SLACK] Team summary posted to Slack channel successfully!")
-                return True
+                return "sent"
             else:
                 print(f"[SLACK] Unexpected response status: {response.status}")
-                return False
+                return "failed"
 
     except urllib.error.HTTPError as e:
         error_body = e.read().decode("utf-8", errors="replace")
         print(f"[SLACK] HTTP Error {e.code}: {error_body}")
-        return False
+        return "failed"
 
     except urllib.error.URLError as e:
         print(f"[SLACK] Connection error: {e.reason}")
-        return False
+        return "failed"
 
     except Exception as e:
         print(f"[SLACK] Unexpected error: {e}")
-        return False
+        return "failed"
 
 
 if __name__ == "__main__":
@@ -164,7 +165,7 @@ if __name__ == "__main__":
     ]
 
     result = send_slack_summary(test_devs, average_score=54.8, total_cost=147.80)
-    if result:
+    if result == "sent":
         print("\nTest passed — check your Slack channel!")
     else:
         print("\nTest failed — check the error messages above.")

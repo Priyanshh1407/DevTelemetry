@@ -3,8 +3,10 @@ from core.db import get_db_connection
 from ai.guide_generator import generate_efficiency_guide
 from pydantic import BaseModel
 import asyncio
-from data.alert_worker import run_weekly_telemetry_check
+import logging
+from data.alert_worker import overall_status, run_weekly_telemetry_check
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
 
 @router.get("/leaderboard")
@@ -107,13 +109,36 @@ def update_alert_settings(schedule: AlertSchedule):
         conn.commit()
     return {"status": "success", "message": "Schedule updated"}
 
+def _dispatch_message(summary):
+    emails = summary["developer_emails"]
+    return (f"Developer alerts: {emails['sent']} sent, {emails['failed']} failed, {emails['skipped']} skipped. "
+            f"Manager digest: {summary['manager_digest']}. Slack: {summary['slack']}.")
+
+
 @router.post("/trigger-alerts")
 def trigger_alerts():
     try:
-        run_weekly_telemetry_check()
-        return {"status": "success", "message": "All alerts successfully dispatched!"}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        summary = run_weekly_telemetry_check()
+    except Exception:
+        # Log the details server-side; never echo internals (paths, SQL, credentials) to the client.
+        logger.exception("Alert dispatch crashed")
+        raise HTTPException(status_code=500, detail="Alert dispatch failed unexpectedly; see server logs.")
+
+    status = overall_status(summary)
+    if status == "no_data":
+        raise HTTPException(status_code=409, detail="No usage data to report yet.")
+    if status == "failed":
+        # 502: the request was fine, but an upstream service (SMTP/Slack) failed.
+        raise HTTPException(status_code=502, detail={
+            "status": "failed",
+            "message": "Some notifications failed. " + _dispatch_message(summary),
+            "summary": summary,
+        })
+    if status == "skipped":
+        message = "Nothing was sent: email and Slack are not configured on the server."
+    else:
+        message = _dispatch_message(summary)
+    return {"status": status, "message": message, "summary": summary}
 
 @router.get("/engineer/{user_id}/details")
 def get_engineer_details(user_id: str):
