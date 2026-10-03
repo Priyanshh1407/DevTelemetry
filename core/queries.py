@@ -14,6 +14,10 @@ def latest_day_rows(conn):
     return [dict(row) for row in conn.execute(LATEST_DAY_SQL).fetchall()]
 
 
+# Identity never leaves for the LLM: coaching needs the metrics, not who they belong to.
+PII_FIELDS = ("name", "email")
+
+
 def without_pii(row):
     """The row minus fields that must never be sent to an external LLM."""
-    return {k: v for k, v in row.items() if k != "email"}
+    return {k: v for k, v in row.items() if k not in PII_FIELDS}
