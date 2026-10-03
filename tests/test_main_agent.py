@@ -25,6 +25,7 @@ def test_agent_never_sends_email_addresses_to_the_llm(seeded_db, mock_gemini):
 
     prompts = " ".join(str(call) for call in mock_gemini.models.generate_content.call_args_list)
     assert "@example.com" not in prompts
+    assert "Engineer 0" not in prompts  # names are identity too
 
 
 def test_agent_runs_on_a_fresh_clone(tmp_path):

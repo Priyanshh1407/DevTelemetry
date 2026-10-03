@@ -10,6 +10,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from data.alert_worker import overall_status, run_weekly_telemetry_check
 from api.security import require_admin
 from core.severity import severity_for_rank
+from core.queries import without_pii
 from core.dispatch import (DispatchBusy, DispatchCoolingDown, SlotAlreadyDispatched, finish_run, get_run,
                            start_run)
 from core.schedule import due_slot
@@ -103,8 +104,9 @@ def get_user_guide(user_id: str):
         # Convert sqlite3.Row to a standard dictionary for the AI generator
         eng_dict = dict(engineer_data)
 
-    # Generate after the DB session closes: don't hold a connection open during an LLM call
-    result = generate_efficiency_guide(eng_dict, severity="moderate")
+    # Generate after the DB session closes: don't hold a connection open during an LLM call.
+    # Only metrics go to the LLM, never the engineer's name or email.
+    result = generate_efficiency_guide(without_pii(eng_dict), severity="moderate")
 
     return {
         "name": eng_dict["name"],
@@ -458,7 +460,7 @@ def get_personalized_tasks(severity: Severity, user_id: str):
     print(f"[CACHE MISS] Asking Gemini to generate tasks for {user_id}...")
 
     # 3. Call Gemini
-    result = generate_efficiency_guide(engineer_data, severity)
+    result = generate_efficiency_guide(without_pii(engineer_data), severity)
 
     # 4. Cache only real answers. A fallback is returned but not stored, so the next
     #    request retries instead of serving an outage message until restart.

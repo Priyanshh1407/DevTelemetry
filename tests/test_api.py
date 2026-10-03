@@ -308,3 +308,15 @@ def test_insights_praise_habits_within_team_targets(client, empty_db):
     assert "within team target" in insights["Model Usage"]
     assert "strong reuse" in insights["Cache Efficiency"]
     assert "strong context management" in insights["Session Discipline"]
+
+
+# ── Privacy: the LLM gets metrics, never identity ──────────────────────────
+
+@pytest.mark.parametrize("path", [f"/api/guide/{engineer_id(4)}", f"/api/runbook-tasks/critical/{engineer_id(4)}"])
+def test_llm_prompts_contain_no_name_or_email(client, seeded_db, mock_gemini, path):
+    client.get(path)
+
+    prompt = mock_gemini.models.generate_content.call_args.kwargs["contents"]
+    assert "Engineer 04" not in prompt
+    assert "@example.com" not in prompt
+    assert "efficiency_score" in prompt  # the metrics are still there
