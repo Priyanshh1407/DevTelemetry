@@ -7,7 +7,7 @@ import {
 import {
     Users, ChevronUp, Zap, Banknote, ChevronDown,
     Download, LayoutDashboard, Activity, Bot, Settings, Plus,
-    CheckCircle, Loader2, Mail
+    CheckCircle, Loader2, Mail, AlertTriangle
 } from "lucide-react";
 import Navbar from "../components/Navbar";
 import { adminPost, getJSON, waitForDispatch } from "../api";
@@ -76,6 +76,8 @@ export default function Dashboard() {
     const [team, setTeam] = useState([]);
     const [trendData, setTrendData] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [loadError, setLoadError] = useState(null);
+    const [reloadKey, setReloadKey] = useState(0);
     const navigate = useNavigate();
     // Alert Configuration State
     const [alertFreq, setAlertFreq] = useState("Weekly");
@@ -129,19 +131,44 @@ export default function Dashboard() {
                 setTeam(formattedBoard);
 
             } catch (error) {
+                // Previously only logged: the page then looked like a team with no data.
                 console.error("Failed to fetch API data:", error);
+                setLoadError(error.message);
             } finally {
                 setLoading(false);
             }
         };
 
         fetchData();
-    }, []);
+    }, [reloadKey]);
 
     // 5. Calculate live KPI stats
     const latestStats = trendData.length > 0 ? trendData[trendData.length - 1] : { score: 0, cost: 0 };
 
     if (loading) return <div className="p-10 font-mono text-primary">Loading live telemetry...</div>;
+
+    if (loadError) {
+        return (
+            <div className="min-h-screen bg-background text-on-surface font-body">
+                <Navbar />
+                <div role="alert" className="flex flex-col items-center justify-center gap-3 px-6 py-24 text-center">
+                    <AlertTriangle size={40} className="text-error" />
+                    <p className="text-lg font-bold">Couldn't load team telemetry.</p>
+                    <p className="font-mono text-sm text-on-surface-variant">{loadError}</p>
+                    <button
+                        onClick={() => {
+                            setLoadError(null);
+                            setLoading(true);
+                            setReloadKey((k) => k + 1); // re-runs the fetch effect
+                        }}
+                        className="mt-2 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/30 px-4 py-2 rounded-lg font-mono text-xs"
+                    >
+                        RETRY
+                    </button>
+                </div>
+            </div>
+        );
+    }
 
     const handleSaveSchedule = async () => {
         try {
