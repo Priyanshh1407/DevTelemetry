@@ -64,3 +64,100 @@ Known bugs recorded as strict xfails, verified to fail for the documented reason
 
 `strict=True` means that when the fix lands, the test XPASSes, pytest reports a failure, and the marker has to be removed, so the bug can't be fixed or regress silently.
 Interview version: "Before changing behavior I wrote characterization tests: they assert what the system does today, not what it should do. For two bugs I already knew about, I wrote the correct assertion and marked it as an expected failure in strict mode, so fixing the bug forces me to flip the test, and it then guards against regression."
+
+---
+
+## Phase 1 — Critical Fixes (2026-10-03, branch `phase-1-critical-fixes`)
+
+Baseline (end of Phase 0) → after:
+
+| Check | Before | After |
+|---|---|---|
+| Backend tests | 35 passed, 2 xfailed | 78 passed, 2 xfailed (the xfails are BUG-05 and VAL-01, Phase 2) |
+| Frontend tests | 3 | 13 |
+| Coverage (core, api, ai, notifications) | 86% (without notifications) | 90% |
+| Leaderboard latency while one runbook waits 1.5 s on the LLM | 1.32 s | 0.016 s |
+| Concurrent "Send alerts" clicks (5 at once) | 5 dispatches | 1 dispatch (others 409/429) |
+| Unauthenticated `POST /api/trigger-alerts` | 200, emails sent | 401 (503 if the server has no ADMIN_TOKEN) |
+| Spearman(cost, input+output tokens) on seeded data | +0.059 | +0.613 (+0.742 vs uncached input + output) |
+| API boots without `GEMINI_API_KEY` | no (`ValueError` at import) | yes |
+| Real `data/usage.db` touched by tests | no | no (mtime still 2026-07-01 11:58:33) |
+
+Order changed from the plan: ERR-01 → CONC-01 → BUG-02 → TEST-02 → BUG-01 → BUG-03 → SEC-01 → ML-01. BUG-01 (shared `api.js`) came before BUG-03 and SEC-01 so their UI changes could build on it.
+
+### ERR-01 — a missing API key took the whole API down (commit 0821da7)
+Situation: Starting the backend without `GEMINI_API_KEY` (fresh clone, CI, a misconfigured deploy).
+Symptom: `ValueError: No API key was provided` at import. The leaderboard, trends, and settings (none of which use AI) were unreachable.
+Investigation: A subprocess test imports the app with the key blanked and calls `/api/leaderboard`. The traceback pointed at `genai.Client(...)` at module level in `ai/guide_generator.py`, imported by `api/routes.py`.
+Root cause: An optional dependency was initialized eagerly at import time, coupling the availability of every endpoint to one feature's configuration.
+Fix: `get_client()` builds the client on first use and raises `AIUnavailableError` without a key. The generator already degrades to a fallback, so AI endpoints answer with a marked fallback and everything else works. The subprocess test is needed because the test process has already imported the module. Empty env values beat `.env`, because `load_dotenv` never overrides.
+Verification: `test_api_boots_without_gemini_key` red → green; `test_missing_key_degrades_to_fallback_instead_of_raising`.
+Interview version: "My API wouldn't even start without the Gemini key, even though only one feature uses it, because the client was created when the module was imported. I made it lazy, so a missing key now degrades one feature instead of taking down the dashboard. The general lesson is not to let optional dependencies fail your startup."
+
+### CONC-01 — one slow LLM call froze every request (commit 9bb3890)
+Situation: The runbook endpoint calls Gemini, which can take seconds.
+Symptom: While one runbook was generating, unrelated requests like the leaderboard hung.
+Investigation: TestClient can't show this (each request gets its own event loop), so the test starts a real uvicorn server on loopback, stubs generation with a 1.5 s `time.sleep`, and times the leaderboard during it. Red: **1.32 s**, exactly the remaining sleep.
+Root cause: The handler was `async def` but called blocking code (sqlite3, the sync Gemini SDK). FastAPI runs `async def` handlers directly on the event loop, so a blocking call stalls every request on that worker. Plain `def` handlers run in a threadpool.
+Fix: Made the handler `def`, and gave the Gemini client a 15 s timeout with at most 2 attempts (SDK exponential backoff on 408/429/5xx), so worst-case wait is bounded. Alternative considered: keep `async def` and use `client.aio` plus an async DB driver. That's more change for no benefit at this scale, and the threadpool (default 40 threads) is enough.
+Verification: `test_slow_runbook_generation_does_not_block_leaderboard` 1.32 s → **0.016 s**; `test_client_is_built_with_timeout_and_bounded_retries`.
+Trade-off / larger scale: The threadpool caps concurrent blocking calls. At high concurrency, go fully async (async SDK client and DB driver) or move generation to a background job.
+Interview version: "I measured that one slow LLM call made my leaderboard take 1.3 seconds instead of 16 milliseconds. The route was declared async but did blocking I/O, and in FastAPI that runs on the event loop and blocks everyone. Making it a sync def moves it to the threadpool. I wrote a regression test against a real server, because the test client hides this bug."
+
+### BUG-02 — an outage got cached as if it were an answer (commit dd01c97)
+Situation: The runbook page caches AI tasks in memory to avoid repeat LLM calls.
+Symptom: After one failed generation (429, timeout, no key), that engineer's runbook showed "AI Service Offline" until the server restarted, even after Gemini recovered. New daily data never refreshed a cached guide either.
+Investigation: Red tests. Fail once then succeed → the second response was still the outage text, with 1 generate call instead of 2. Insert a newer day of data → still 1 call.
+Root cause: The generator turned every exception into a normal-looking list, so the caller couldn't tell a fallback from an answer and cached both. The cache key `(user, severity)` ignored the data date.
+Fix: The generator returns `GuideResult(tasks, source)` with `source` ∈ {ai, rate_limited, unavailable}. Only `ai` results are cached, keyed `(user_id, latest_metrics_date, severity)`. Rate limits are detected with `errors.APIError.code == 429` instead of substring matching on "429"/"quota". Responses include `source` so the UI can tell what it got.
+Verification: `test_runbook_failed_generation_is_not_cached`, `test_runbook_cache_refreshes_when_newer_data_arrives`, `test_non_rate_limit_api_error_is_unavailable_not_rate_limited`.
+Trade-off: The cache is still in-process (lost on restart, not shared between workers). UPG-01 persists guides in the `ai_guides` table.
+Interview version: "My fallback looked exactly like a real answer, so my cache stored the outage. One rate-limit blip meant a user saw 'service offline' until I restarted the server. I made the generator return a typed result with its source, cached only real answers, and put the data date in the cache key so new data invalidates old advice."
+
+### TEST-02 — tests could reach real SMTP and Slack (commit 98d0038)
+Situation: Writing tests for the notification senders.
+Symptom: With all email and Slack env vars removed, `send_developer_alert` still called SMTP and `send_slack_summary` still called `urlopen`. Red in 4/4 tests. This confirmed (beyond LIKELY) that the real `.env` contains SMTP credentials and a Slack webhook that were captured at import.
+Root cause: `load_dotenv()` plus module-level constants (`SENDER_EMAIL = os.getenv(...)`) froze configuration at import, so `monkeypatch.delenv` had no effect. Only the Phase 0 socket guard stood between a test and a real email.
+Fix: Config is read inside the functions, and an autouse fixture deletes EMAIL_*, SLACK_WEBHOOK_URL, PRODUCTION_MODE, FRONTEND_URL, and ADMIN_TOKEN for every test.
+Also fixed (new finding): the Slack "Open Dashboard" button was hardcoded to `http://localhost:5173`. It now uses `FRONTEND_URL` like the emails (`test_slack_dashboard_button_uses_frontend_url`).
+Interview version: "My tests could have emailed real people. The SMTP credentials were read into constants when the module loaded, so tests couldn't remove them. I only found out because I'd already blocked outbound sockets in tests. Reading config at call time made it controllable, and the socket guard stays as defense in depth."
+
+### BUG-01 — the AI runbook was empty on the live site (commit 17d6a2f)
+Situation: Opening a runbook on the deployed dashboard.
+Symptom: Empty task list. The page fetched `http://127.0.0.1:8000/...`, which is the visitor's own machine.
+Investigation: A Vitest test stubs `VITE_API_URL=https://api.example.test` and asserts the requested URL. Red: `Received: "http://127.0.0.1:8000/api/runbook-tasks/moderate/eng-01"`. The default *is* 127.0.0.1, so without stubbing the env the test couldn't tell the two apart.
+Root cause: Each page built its own fetch, and Runbook skipped the env var. No page except EngineerDetail checked `res.ok`.
+Fix: `src/api.js` holds `API_BASE`, `getJSON`, and `postJSON`. It throws `ApiError` (with FastAPI's `detail`) on any non-2xx, including non-JSON error pages. All pages use it. Runbook has an error state, and the schedule-save toast no longer says "saved" when the save failed.
+Verification: `Runbook.test.jsx` (2), `api.test.js` (5); `grep 127.0.0.1 frontend/src` → only the dev default in `api.js`.
+Interview version: "My flagship page worked on my laptop and was empty in production, because one component hardcoded localhost. I centralized every API call in one client that reads the base URL from config and turns HTTP errors into exceptions, and I wrote a test that fails if any page bypasses it."
+
+### BUG-03 — "All alerts successfully dispatched!" when nothing was sent (commit a9c94f5)
+Symptom: With every SMTP send failing, the endpoint returned 200 and the success message. The Dashboard also showed "Alerts sent successfully!" for a 500, because the body had no `message` and that was the fallback string.
+Investigation: Red tests with SMTP mocked. All sends failing → 200; nothing configured → "success"; no data → 200; an internal error → its message (including a file path) echoed to the client.
+Root cause: Failures were swallowed at three layers. Senders printed and returned None, the worker ignored return values, and the endpoint hardcoded success.
+Fix: Senders return `sent`/`failed`/`skipped`. The worker returns a summary (counts, failed recipients, digest and Slack status). The endpoint maps it to 200 `success`/`skipped`, 409 no data, or 502 with the summary when anything failed (502 because an upstream service failed, not the request). Unexpected errors are logged with the traceback and answered with a generic 500. The UI shows the server's real counts.
+Verification: `tests/test_alerts.py` (6), sender return-value tests.
+Interview version: "The system reported success no matter what happened. I made each layer return what actually happened and mapped that to honest status codes, including a 502 with per-recipient results for partial failure, so an operator can see exactly who didn't get their email."
+
+### SEC-01 — anyone could trigger the email blast (commit e8e6f4c)
+Situation: The public deployment exposed `POST /api/trigger-alerts` (11 emails, a Slack post, and a Gemini call per hit) and `POST /api/settings` with no auth and CORS `*`.
+Investigation: Red tests: no token → 200; and **5 concurrent triggers → 5 dispatches**.
+Fix:
+- `require_admin` dependency: `X-Admin-Token` checked against `ADMIN_TOKEN` with `secrets.compare_digest`. Fails closed (503) if the server has no token.
+- `DispatchGuard`: a non-blocking lock gives single-flight (409 while running), plus a cooldown (429 with `Retry-After`) that starts only after a dispatch that delivered or attempted something. "Not configured" can be fixed and retried immediately.
+- CORS limited to `FRONTEND_URL` and the Vite dev origins, no credentials, only the methods and headers used.
+- The frontend `adminPost()` asks the admin for the token once and keeps it in `sessionStorage`. It's never in the bundle (anything in a Vite build is public). It's forgotten on 401/503.
+- `render.yaml`: `PRODUCTION_MODE=false`, plus an `ADMIN_TOKEN` slot. Seeded emails moved from the real `company.com` domain to `example.com` (RFC 2606).
+
+Why a shared token and not accounts: There are no users in this system. A single admin secret is proportionate. With real users it would be OIDC/session auth plus role checks, and the cooldown state would move from process memory to the DB or Redis.
+Verification: `tests/test_security.py` (12), `api.test.js` adminPost tests (3).
+Trade-off: `sessionStorage` is readable by any script on the page (XSS). An httpOnly cookie avoids that but brings CSRF handling. Acceptable for a single-admin demo; name the trade-off if asked.
+Interview version: "My live demo had an unauthenticated endpoint that sends emails, and a test showed five simultaneous clicks sent five batches. I added an admin token that fails closed, a single-flight lock with a cooldown, and locked CORS to my frontend. I kept the token out of the JavaScript bundle on purpose, because anything shipped to the browser is public."
+
+### ML-01 — cost was a random number (commit 9395fbb)
+Symptom: `estimated_cost_usd = random.uniform(5, 30)` in the seed. Every dollar figure in the product was noise: Spearman(cost, tokens) **+0.059** on a 300-row seeded DB (measured with a scratch script that seeds a temp DB with `random.seed(42)`).
+Fix: `core/pricing.py` holds a dated price table (`PRICE_TABLE_VERSION = "2026-09-25"`, Anthropic list prices: Opus 5.5 $4/$20, Sonnet 5.5 $2/$10, Haiku 4.5 $1/$5 per MTok; 5-minute cache writes at 1.25× input; cache reads $0.20 / $0.20 / $0.10). `estimate_cost()` bills uncached input, output, cache reads, and cache writes per model, weighted by the normalized model mix, and rejects negative or empty input. The seed and the legacy JSON generator use it.
+Stated assumptions: `input_tokens` includes cache reads (matching how the scorer computes hit ratio), and daily tokens are split across models by the mix. Both are revisited in ML-03 / UPG-02.
+Verification: 11 tests with hand-computed values (e.g. a 50/50 Opus/Haiku day = 0.5×1.32 + 0.5×0.335). After: Spearman **+0.613** vs tokens, **+0.742** vs uncached input + output, **+0.184** vs Opus share (was +0.015).
+Consequence worth knowing: Daily costs are now **$0.26–$1.75** per engineer, not $5–$30, because that's what the simulated token volumes cost. The README's "$13/developer/day" benchmark therefore doesn't match the generator (see the audit report addendum).
+Interview version: "The cost column in my dashboard was literally a random number. I replaced it with a dated per-model price table that bills uncached input, output, and cache reads and writes separately. Correlation between cost and usage went from essentially zero to 0.74. It also exposed that my synthetic data produced about a dollar a day, not the thirteen my README claimed, so I'm fixing the data rather than the claim."

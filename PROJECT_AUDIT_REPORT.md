@@ -297,6 +297,12 @@ Not run: the live Render deployment (I didn’t want to trigger side effects on 
 - Fix: Read config at call time, or through a settings object, and have the test fixtures clear `EMAIL_*`/`SLACK_*`. Keep the socket guard as a backstop. Schedule this before TEST-01a in Phase 3; do it in Phase 1 if BUG-03’s tests touch the senders.
 - Effort: S
 
+### Status after Phase 1 (2026-10-03)
+- **Fixed** (red→green tests, see FIX_LOG.md): SEC-01, ML-01, BUG-01, ERR-01, CONC-01, BUG-02, BUG-03, TEST-02. Remaining P0: none. Remaining P1: BUG-04, ML-02, BUG-05, ARCH-02 (Phase 2), TEST-01 (Phase 3).
+- **New, fixed in TEST-02:** the Slack "Open Dashboard" button was hardcoded to `http://localhost:5173` (`notifications/slack_post.py`).
+- **New, open (adds to ML-02 / DOC-01):** with real prices, the generator’s token volumes cost **$0.26–$1.75 per engineer-day**. The README’s “$13/developer/active day” benchmark and its sample output ($1.84–$14.20) don’t match the simulated data. Fix the persona generator’s volumes in ML-02 (with a source for them), or change the claim.
+- **Operational, not code:** existing databases (your local `data/usage.db` and the deployed one) still contain the old random costs and `@company.com` emails until they are reseeded (`seed.py --reset` arrives with BUG-06). Before redeploying, set `ADMIN_TOKEN` and `FRONTEND_URL` on the Render backend and `VITE_API_URL` on the Render frontend. Without `FRONTEND_URL`, CORS will block the deployed dashboard.
+
 ---
 
 ## 5. Hygiene Bundle (P3)
@@ -327,12 +333,12 @@ Not run: the live Render deployment (I didn’t want to trigger side effects on 
 
 ## 7. Things I Must NOT Claim in an Interview (current state)
 
-- “It’s tested” or “it has a test suite.” Today 3 of 10 backend tests fail, there’s no CI, and the frontend has one trivial component test.
-- “It calculates cost” or “it shows how much each engineer spends.” Cost is a random number (ML-01).
+- “It’s fully tested” or “it has CI.” *(updated after Phase 1)* There are now 78 backend tests (90% coverage of core/api/ai/notifications) and 13 frontend tests, but no CI runs them yet (Phase 3).
+- “It shows how much each engineer spends.” *(updated after Phase 1)* Cost is now computed from token usage with dated list prices (ML-01 fixed), but the usage itself is synthetic, and the per-model split is an assumption (tokens allocated by model mix). Say “estimated from usage with list prices”.
 - “It tracks Claude Code usage.” Nothing ingests real telemetry. All data is synthetic, and the generator produces i.i.d. noise, not benchmark-modeled behavior (ML-02).
 - “Weekly alerts are scheduled in production.” The scheduler isn’t deployed (ARCH-02).
-- “AI guides are cached/persisted.” They’re in-memory only, lost on restart, and failures are cached too (BUG-02). The `ai_guides` table is unused.
-- “It’s secure” or “production-ready.” There’s no auth on endpoints that send email (SEC-01).
+- “AI guides are persisted.” *(updated after Phase 1)* Only successful guides are cached now (BUG-02 fixed), but in process memory: lost on restart, not shared between workers. The `ai_guides` table is still unused (UPG-01).
+- “Production-ready” or “it has user authentication.” *(updated after Phase 1)* Mutating endpoints now need a shared admin token (SEC-01 fixed), but there are no user accounts or roles, and the token sits in sessionStorage (XSS-readable).
 - “Switching to Claude takes 5 minutes.” There’s no provider abstraction, and the referenced doc doesn’t exist.
 - “Uses Gemini 1.5 Flash / Chart.js / React 18.” It doesn’t (DOC-01).
 - “The trend arrows / sparklines show performance trends.” They’re hardcoded and random (BUG-07).
