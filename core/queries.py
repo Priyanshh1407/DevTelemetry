@@ -14,6 +14,18 @@ def latest_day_rows(conn):
     return [dict(row) for row in conn.execute(LATEST_DAY_SQL).fetchall()]
 
 
+def latest_metrics_for_user(conn, user_id):
+    """One engineer's most recent day of metrics (with their name), or None."""
+    row = conn.execute("""
+        SELECT u.*, e.name
+        FROM usage_metrics u
+        JOIN engineers e ON u.user_id = e.user_id
+        WHERE u.user_id = ?
+        ORDER BY u.date DESC LIMIT 1
+    """, (user_id,)).fetchone()
+    return dict(row) if row else None
+
+
 # Identity never leaves for the LLM: coaching needs the metrics, not who they belong to.
 PII_FIELDS = ("name", "email")
 

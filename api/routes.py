@@ -10,7 +10,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from data.alert_worker import overall_status, run_weekly_telemetry_check
 from api.security import require_admin
 from core.severity import severity_for_rank
-from core.queries import latest_day_rows, without_pii
+from core.queries import latest_day_rows, latest_metrics_for_user, without_pii
 from core.dispatch import (DispatchBusy, DispatchCoolingDown, SlotAlreadyDispatched, finish_run, get_run,
                            start_run)
 from core.schedule import due_slot
@@ -85,24 +85,9 @@ def get_team_trends():
 @router.get("/guide/{user_id}")
 def get_user_guide(user_id: str):
     with db_session() as conn:
-        cursor = conn.cursor()
-        
-        # Get the user's most recent metrics
-        cursor.execute("""
-            SELECT u.*, e.name 
-            FROM usage_metrics u
-            JOIN engineers e ON u.user_id = e.user_id
-            WHERE u.user_id = ?
-            ORDER BY date DESC LIMIT 1
-        """, (user_id,))
-        
-        engineer_data = cursor.fetchone()
-        
-        if not engineer_data:
-            raise HTTPException(status_code=404, detail="Engineer not found")
-        
-        # Convert sqlite3.Row to a standard dictionary for the AI generator
-        eng_dict = dict(engineer_data)
+        eng_dict = latest_metrics_for_user(conn, user_id)
+    if eng_dict is None:
+        raise HTTPException(status_code=404, detail="Engineer not found")
 
     # Generate after the DB session closes: don't hold a connection open during an LLM call.
     # Only metrics go to the LLM, never the engineer's name or email.
@@ -426,16 +411,10 @@ ai_task_cache = {}
 def get_personalized_tasks(severity: Severity, user_id: str):
     # 1. Get the latest metrics for this dev (cheap; needed for the cache key)
     with db_session() as conn:
-        row = conn.execute("""
-            SELECT * FROM usage_metrics
-            WHERE user_id = ?
-            ORDER BY date DESC LIMIT 1
-        """, (user_id,)).fetchone()
+        engineer_data = latest_metrics_for_user(conn, user_id)
 
-    if not row:
+    if engineer_data is None:
         return {"tasks": [{"title": "Data Missing", "desc": "No telemetry found for this user."}], "source": "none"}
-
-    engineer_data = dict(row)
 
     # 2. Serve from cache if this exact data was already turned into a guide
     cache_key = (user_id, engineer_data["date"], severity)
