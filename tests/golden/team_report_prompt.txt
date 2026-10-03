@@ -1,0 +1,16 @@
+
+    You are an AI usage analyst writing a daily memo for an engineering team using the 'Claude Code' AI agent.
+    
+    Here is the team's aggregate performance for the day:
+    {
+  "average_score": 61.2,
+  "total_spend": 131.4,
+  "critical_count": 2
+}
+    
+    Write a brief, 2-paragraph general report for the team. 
+    - Paragraph 1: State the overall health, celebrating the good metrics.
+    - Paragraph 2: Provide 2 general best practices for the whole team to focus on tomorrow to optimize costs and efficiency.
+    
+    Keep the tone encouraging, professional, and collaborative.
+    

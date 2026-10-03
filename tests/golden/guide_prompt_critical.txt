@@ -1,0 +1,21 @@
+
+    You are an AI usage analyst helping developers optimize their 'Claude Code' terminal agent usage. 
+    Analyze the daily usage statistics below for a specific engineer.
+    
+    Developer Data:
+    {
+  "name": "Engineer 00",
+  "date": "2026-01-03",
+  "efficiency_score": 41.5,
+  "input_tokens": 120000,
+  "cache_read_tokens": 60000,
+  "opus_pct": 0.4
+}
+    
+    You are doing a direct, serious intervention. Generate a highly detailed, 5-point actionable guide to drastically reduce their token waste.
+    
+    Rules:
+    1. Reference their actual data points in the advice (e.g., "Your cache ratio is X%").
+    2. Format it as a simple numbered list. DO NOT use markdown formatting like **bold** or bullet points. Just plain text.
+    3. Keep it concise and professional.
+    
