@@ -260,3 +260,62 @@ Interview version: "The free tier sleeps, so I made the scheduler external and t
 - New finding, fixed: `.dockerignore` didn't exclude `*.db`, so a local `docker build` copied the developer's own database into the image.
 - Runs as non-root, honors `$PORT`, takes the frontend `VITE_API_URL` as a build arg.
 Verified: `docker compose config` is valid, and a simulated double start seeds once and skips once. **Not verified:** an actual image build/run, because the Docker daemon wasn't running.
+
+---
+
+## Phase 3 — Testing & CI (2026-10-03, branch `phase-3-ci`)
+
+Baseline (end of Phase 2) → after:
+
+| Check | Before | After |
+|---|---|---|
+| Backend tests | 168 | 192 |
+| Frontend tests | 18 (4 files) | 23 (5 files) |
+| Coverage (core, api, ai, notifications, data, main) | 94% | 96.4%, enforced ≥ 85% in CI |
+| `ruff check .` | 45 findings with a personal global config; 8 with project-relevant rules | 0 (rules pinned in `ruff.toml`) |
+| ESLint | 15 errors | 0 |
+| CI | none | `.github/workflows/ci.yml`: Python 3.10 + 3.14, Node 22 |
+| Off switch for GitHub Actions | none | repository variables per workflow, plus a guard test |
+| CI verified on clean environments | n/a | `git archive` of HEAD, fresh venvs from pinned requirements: 192 passed on **3.10** and **3.14**; clean `npm ci`: lint 0, 23 tests, build OK |
+
+### TEST-01c (part 1) — a lint baseline CI can enforce (commit b1c49aa)
+Finding: `ruff check .` reported 45 issues locally, mostly import order and `dict()` style. They came from a **personal user-level ruff config** on the developer's machine, because the project had none. CI would have used different rules, so "passes locally" would not have meant "passes in CI".
+Fix: `ruff.toml` pins the project rules (pyflakes, serious pycodestyle errors, bugbear; target py310). The 8 real findings were fixed:
+- exception chaining (`raise … from e`) for the HTTP errors raised inside `except` blocks;
+- `zip(strict=True)`;
+- unused imports;
+- `generate_team_report` **swallowed API errors without logging**; it now logs them.
+
+ESLint went from 15 errors to 0 (unused imports and props). These were pulled forward from the Phase 4 hygiene bundle because CI must start green.
+Interview version: "My linter gave different answers on my machine and in CI, because a personal config was being picked up. Pinning the rules in the repo makes the result the same everywhere. That's the whole point of CI."
+
+### TEST-01a — tests where the decisions are (commit 75ff98d)
+Most of TEST-01a was already done during Phases 1–2: notifications with mocked SMTP and Slack, runbook caching, severity tiers. Coverage showed the remaining business logic with no tests:
+- what the **worker** sends: rank, team size and severity per engineer for teams of 10, 7 and 3;
+- the **waste-pattern diagnosis** in the manager digest (Opus > 50% wins over a low score);
+- the engineer-detail **insight thresholds** on both sides;
+- **Slack failure modes** (non-200, HTTP error carrying Slack's reason, unexpected error);
+- **dispatch-run messages**.
+
+These tests pin existing correct behaviour, so they passed immediately. To make sure they can fail, the Opus threshold was temporarily mutated (0.50 → 0.70) and the tests caught it.
+
+### TEST-01b — Dashboard error state (commit 6b06b5e)
+Symptom: With the backend down, or one endpoint returning 500, the Dashboard only logged to the console and rendered an **empty leaderboard that looked like a team with no data**.
+Fix: An alert shows the API's message and a **Retry** button that re-runs the fetch. The first version reset state inside the effect; the react-hooks lint rule flagged it (extra cascading render), so the reset moved into the click handler.
+Verification: network failure and a single endpoint's 500 both show the error (red before the fix), and Retry recovers. EngineerDetail, previously untested, now has tests for its rendering and its 404 message.
+
+### TEST-01c (part 2) + OPS-01 — CI and the off switches (commit b73d1b4)
+CI runs on every push and pull request:
+- **backend** on Python **3.10** (what `Dockerfile.backend` ships) and **3.14** (local dev): ruff, then pytest with an 85% coverage gate; the coverage table is written to the run's summary page;
+- **frontend** on Node **22**: `npm ci`, ESLint, Vitest, production build.
+
+Other settings: read-only `permissions`, a newer push cancels the outdated run, 15-minute timeouts, pip/npm caching. Actions are pinned to their current major versions (`checkout`, `setup-python` and `setup-node` at v7, confirmed from their release pages and READMEs). No secrets are needed, because the tests mock Gemini, SMTP and Slack and block outbound network. Node 20 reached end-of-life in April 2026, so the frontend Docker image moved to `node:22`, matching CI.
+
+Off switches (developer request: "turn the GitHub Actions off"):
+- Every job has `if: vars.<CI_ENABLED | SCHEDULED_ALERTS_ENABLED> != 'false' || github.event_name == 'workflow_dispatch'`. Setting the repository variable to `false` skips automatic runs while a manual **Run workflow** still works. Unset means on.
+- `tests/test_workflows.py` fails if a job lacks its switch, a workflow file isn't registered, the manual trigger is missing, or write permissions are requested. Removing the switch from one job was caught and named the job.
+- The README documents the variables, GitHub's Disable buttons, `[skip ci]` and the `gh` CLI commands.
+
+**Not yet verified on GitHub:** CI hasn't run on github.com, because nothing has been pushed. Every step was reproduced locally on clean environments (see the table). The first real run happens when the branch is pushed.
+Trade-offs: the 3.10 + 3.14 matrix doubles backend minutes (free for public repos) in exchange for testing both what ships and what you develop on. Push + pull_request means a branch with an open PR runs CI twice per push; accepted for simplicity.
+Interview version: "CI runs both test suites on clean machines, on the Python version I ship and the one I develop on, with a coverage gate. It needs no secrets because every external service is mocked at the boundary. Each workflow has an off switch, a repository variable that skips automatic runs but still allows manual ones, and a test that parses the workflow files fails if a new job forgets the switch."
