@@ -30,7 +30,8 @@ def test_leaderboard_ranks_latest_day_by_score(client, seeded_db, query):
     assert len(data) == NUM_ENGINEERS
     assert [row["user_id"] for row in data] == [engineer_id(i) for i in reversed(range(NUM_ENGINEERS))]
     assert set(data[0]) == {"name", "user_id", "efficiency_score", "estimated_cost_usd",
-                            "input_tokens", "output_tokens"}
+                            "input_tokens", "output_tokens",
+                            "score_change_7d", "recent_activity"}  # added in BUG-07
 
     latest_scores = {r["user_id"]: r["efficiency_score"] for r in query(
         "SELECT user_id, efficiency_score FROM usage_metrics WHERE date = ?", (LATEST_DATE,))}
@@ -252,3 +253,28 @@ def test_runbook_cache_refreshes_when_newer_data_arrives(client, seeded_db, mock
     client.get(url)
 
     assert mock_gemini.models.generate_content.call_count == 2
+
+
+# ── BUG-07: trend and activity come from data, not from list position / Math.random ──
+
+def test_leaderboard_reports_real_7_day_score_change_and_activity(client, empty_db, query):
+    seed_db(num_days=10)  # 2026-01-01 .. 2026-01-10
+
+    rows = {r["user_id"]: r for r in client.get("/api/leaderboard").json()}
+
+    for user_id, row in rows.items():
+        history = query("SELECT date, efficiency_score, input_tokens FROM usage_metrics "
+                        "WHERE user_id = ? ORDER BY date", (user_id,))
+        latest = history[-1]["efficiency_score"]
+        previous_week = [h["efficiency_score"] for h in history if "2026-01-03" <= h["date"] <= "2026-01-09"]
+        assert row["score_change_7d"] == pytest.approx(round(latest - sum(previous_week) / 7, 2))
+        assert row["recent_activity"] == [h["input_tokens"] for h in history[-7:]]
+
+
+def test_leaderboard_trend_is_null_without_history(client, empty_db):
+    seed_db(num_days=1)
+
+    row = client.get("/api/leaderboard").json()[0]
+
+    assert row["score_change_7d"] is None
+    assert len(row["recent_activity"]) == 1
