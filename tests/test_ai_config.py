@@ -35,3 +35,17 @@ def test_missing_key_degrades_to_fallback_instead_of_raising(monkeypatch):
     result = gg.generate_efficiency_guide({"efficiency_score": 40.0})
 
     assert result[0]["title"] == "AI Service Offline"
+
+
+def test_client_is_built_with_timeout_and_bounded_retries(monkeypatch):
+    import ai.guide_generator as gg
+
+    captured = {}
+    monkeypatch.setattr(gg, "_client", None)
+    monkeypatch.setenv("GEMINI_API_KEY", "dummy")
+    monkeypatch.setattr(gg.genai, "Client", lambda **kwargs: captured.update(kwargs) or "client")
+
+    assert gg.get_client() == "client"
+    http_options = captured["http_options"]
+    assert http_options.timeout == gg.LLM_TIMEOUT_MS
+    assert http_options.retry_options.attempts == gg.LLM_MAX_ATTEMPTS

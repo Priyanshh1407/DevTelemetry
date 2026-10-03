@@ -1,11 +1,17 @@
 import os
 import json
 from google import genai
+from google.genai import types
 from dotenv import load_dotenv
 
 load_dotenv()
 
 model_id = "gemini-2.5-flash"
+
+# Bound how long one request can wait on the LLM. The SDK retries 408/429/5xx with
+# exponential backoff; 2 attempts keeps the worst case near 2 x timeout.
+LLM_TIMEOUT_MS = int(os.getenv("LLM_TIMEOUT_MS", "15000"))
+LLM_MAX_ATTEMPTS = 2
 
 # Created on first use, not at import: a missing key must only disable AI features,
 # not stop the whole API from starting.
@@ -22,7 +28,13 @@ def get_client():
         api_key = os.getenv("GEMINI_API_KEY")
         if not api_key:
             raise AIUnavailableError("GEMINI_API_KEY is not set")
-        _client = genai.Client(api_key=api_key)
+        _client = genai.Client(
+            api_key=api_key,
+            http_options=types.HttpOptions(
+                timeout=LLM_TIMEOUT_MS,
+                retry_options=types.HttpRetryOptions(attempts=LLM_MAX_ATTEMPTS, initial_delay=1.0, max_delay=5.0),
+            ),
+        )
     return _client
 
 def generate_efficiency_guide(engineer_data, severity="moderate"):
