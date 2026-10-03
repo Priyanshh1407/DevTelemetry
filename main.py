@@ -68,7 +68,10 @@ def main():
         
         print(f"\n--- Coaching for {eng['name']} (Rank: {actual_rank}, Score: {eng['efficiency_score']:.2f}) ---")
         guide = generate_efficiency_guide(eng, severity=severity)
-        print(guide)
+        if guide.is_fallback:
+            print(f"(fallback guide: {guide.source})")
+        for n, task in enumerate(guide.tasks, 1):
+            print(f"{n}. {task['desc']}")
 
 if __name__ == "__main__":
     main()

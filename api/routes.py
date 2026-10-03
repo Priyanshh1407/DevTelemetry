@@ -70,12 +70,13 @@ def get_user_guide(user_id: str):
         eng_dict = dict(engineer_data)
         
         # Generate the guide dynamically
-        guide_text = generate_efficiency_guide(eng_dict, severity="moderate")
-        
+        result = generate_efficiency_guide(eng_dict, severity="moderate")
+
         return {
             "name": eng_dict["name"],
             "date": eng_dict["date"],
-            "guide": guide_text
+            "guide": result.tasks,
+            "source": result.source
         }
     
 # Defines the shape of the data coming from React
@@ -262,22 +263,16 @@ def get_engineer_details(user_id: str):
             "patterns": patterns
         }
 
+# In-memory, per-process cache of successful AI guides only.
+# Key: (user_id, date of their latest metrics, severity), so new data produces a new guide.
 ai_task_cache = {}
 
-@router.get("/runbook-tasks/{severity}/{user_id}")
 # Deliberately sync: the DB and Gemini calls below block, and FastAPI runs plain `def`
 # handlers in a threadpool. As `async def`, they ran on the event loop and stalled every
 # other request for the length of the LLM call.
+@router.get("/runbook-tasks/{severity}/{user_id}")
 def get_personalized_tasks(severity: str, user_id: str):
-    # 2. Check the cache FIRST. If we already generated this user's tasks, return them instantly!
-    cache_key = f"{user_id}_{severity}"
-    if cache_key in ai_task_cache:
-        print(f"[CACHE HIT] Returning instant tasks for {user_id}")
-        return {"tasks": ai_task_cache[cache_key]}
-
-    print(f"[CACHE MISS] Asking Gemini to generate tasks for {user_id}...")
-    
-    # 3. Connect to DB to get the latest metrics for this specific dev
+    # 1. Get the latest metrics for this dev (cheap; needed for the cache key)
     conn = get_db_connection()
     cursor = conn.cursor()
     
@@ -291,14 +286,24 @@ def get_personalized_tasks(severity: str, user_id: str):
     conn.close()
 
     if not row:
-        return {"tasks": [{"title": "Data Missing", "desc": "No telemetry found for this user."}]}
+        return {"tasks": [{"title": "Data Missing", "desc": "No telemetry found for this user."}], "source": "none"}
 
     engineer_data = dict(row)
 
-    # 4. Call Gemini
-    ai_tasks = generate_efficiency_guide(engineer_data, severity)
-    
-    # 5. Save the result in the cache so it's instant next time
-    ai_task_cache[cache_key] = ai_tasks
-    
-    return {"tasks": ai_tasks}
+    # 2. Serve from cache if this exact data was already turned into a guide
+    cache_key = (user_id, engineer_data["date"], severity)
+    if cache_key in ai_task_cache:
+        print(f"[CACHE HIT] Returning instant tasks for {user_id}")
+        return {"tasks": ai_task_cache[cache_key], "source": "ai"}
+
+    print(f"[CACHE MISS] Asking Gemini to generate tasks for {user_id}...")
+
+    # 3. Call Gemini
+    result = generate_efficiency_guide(engineer_data, severity)
+
+    # 4. Cache only real answers. A fallback is returned but not stored, so the next
+    #    request retries instead of serving an outage message until restart.
+    if not result.is_fallback:
+        ai_task_cache[cache_key] = result.tasks
+
+    return {"tasks": result.tasks, "source": result.source}

@@ -4,6 +4,8 @@ The Gemini client is replaced by the autouse `mock_gemini` fixture in conftest.p
 These tests previously patched `ai.guide_generator.model`, an attribute that stopped
 existing when the module moved to the google-genai `client` API.
 """
+from google.genai import errors
+
 from ai.guide_generator import generate_efficiency_guide, generate_team_report
 
 TEAM_DATA = {"average_score": 60.5, "total_spend": 150.0, "critical_count": 2}
@@ -38,8 +40,9 @@ def test_generate_efficiency_guide_parses_numbered_list(mock_gemini):
 
     result = generate_efficiency_guide(USER_DATA, "critical")
 
-    assert [t["desc"] for t in result] == ["Use compact more", "Cache large files"]
-    assert all(t["title"] == "Optimization Action" for t in result)
+    assert result.source == "ai" and not result.is_fallback
+    assert [t["desc"] for t in result.tasks] == ["Use compact more", "Cache large files"]
+    assert all(t["title"] == "Optimization Action" for t in result.tasks)
     mock_gemini.models.generate_content.assert_called_once()
 
 
@@ -48,23 +51,33 @@ def test_generate_efficiency_guide_unnumbered_response_becomes_single_summary(mo
 
     result = generate_efficiency_guide(USER_DATA)
 
-    assert result == [{"title": "AI Summary", "desc": "- use compact\n- cache files"}]
+    assert result.tasks == [{"title": "AI Summary", "desc": "- use compact\n- cache files"}]
+    assert result.source == "ai"
 
 
 def test_generate_efficiency_guide_rate_limit_returns_fallback_runbook(mock_gemini):
-    mock_gemini.models.generate_content.side_effect = Exception("429 RESOURCE_EXHAUSTED")
+    mock_gemini.models.generate_content.side_effect = errors.ClientError(
+        429, {"error": {"code": 429, "message": "quota exceeded", "status": "RESOURCE_EXHAUSTED"}})
 
     result = generate_efficiency_guide(USER_DATA)
 
-    assert result[0]["title"] == "System Notice: API Rate Limit"
-    assert len(result) == 4
+    assert result.source == "rate_limited" and result.is_fallback
+    assert result.tasks[0]["title"] == "System Notice: API Rate Limit"
+    assert len(result.tasks) == 4
 
 
 def test_generate_efficiency_guide_other_error_returns_offline_notice(mock_gemini):
-    # Current behavior (audit BUG-02): failures come back as a normal-looking list,
-    # so callers can't tell a fallback from a real answer.
+    # BUG-02: fallbacks are now marked, so callers (e.g. the runbook cache) can tell them apart.
     mock_gemini.models.generate_content.side_effect = Exception("connection reset")
 
     result = generate_efficiency_guide(USER_DATA)
 
-    assert result[0]["title"] == "AI Service Offline"
+    assert result.source == "unavailable" and result.is_fallback
+    assert result.tasks[0]["title"] == "AI Service Offline"
+
+
+def test_non_rate_limit_api_error_is_unavailable_not_rate_limited(mock_gemini):
+    mock_gemini.models.generate_content.side_effect = errors.ServerError(
+        503, {"error": {"code": 503, "message": "overloaded", "status": "UNAVAILABLE"}})
+
+    assert generate_efficiency_guide(USER_DATA).source == "unavailable"

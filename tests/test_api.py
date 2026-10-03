@@ -159,11 +159,12 @@ def test_guide_returns_parsed_tasks_for_latest_day(client, seeded_db):
     assert data["name"] == "Engineer 00"
     assert data["date"] == LATEST_DATE
     assert [t["desc"] for t in data["guide"]] == ["Mock tip one", "Mock tip two"]
+    assert data["source"] == "ai"
 
 
 def test_runbook_unknown_engineer_returns_placeholder_task(client, seeded_db):
     data = client.get("/api/runbook-tasks/critical/nonexistent_id").json()
-    assert data == {"tasks": [{"title": "Data Missing", "desc": "No telemetry found for this user."}]}
+    assert data == {"tasks": [{"title": "Data Missing", "desc": "No telemetry found for this user."}], "source": "none"}
 
 
 def test_runbook_second_request_is_served_from_cache(client, seeded_db, mock_gemini):
@@ -175,3 +176,34 @@ def test_runbook_second_request_is_served_from_cache(client, seeded_db, mock_gem
     assert first == second
     assert [t["desc"] for t in first["tasks"]] == ["Mock tip one", "Mock tip two"]
     mock_gemini.models.generate_content.assert_called_once()
+
+
+def test_runbook_failed_generation_is_not_cached(client, seeded_db, mock_gemini):
+    # BUG-02: an outage used to be cached as if it were a real answer.
+    ok = mock_gemini.models.generate_content.return_value
+    mock_gemini.models.generate_content.side_effect = [Exception("connection reset"), ok]
+    url = f"/api/runbook-tasks/critical/{engineer_id(0)}"
+
+    first = client.get(url).json()
+    second = client.get(url).json()
+
+    assert first["tasks"][0]["title"] == "AI Service Offline"
+    assert [t["desc"] for t in second["tasks"]] == ["Mock tip one", "Mock tip two"]
+    assert mock_gemini.models.generate_content.call_count == 2
+
+
+def test_runbook_cache_refreshes_when_newer_data_arrives(client, seeded_db, mock_gemini):
+    from core.db import get_db_connection
+
+    url = f"/api/runbook-tasks/critical/{engineer_id(0)}"
+    client.get(url)
+
+    conn = get_db_connection()
+    conn.execute("""INSERT INTO usage_metrics (user_id, date, input_tokens, cache_read_tokens, opus_pct,
+                    sonnet_pct, haiku_pct, session_count, compact_uses, estimated_cost_usd, efficiency_score)
+                    VALUES (?, '2026-01-04', 1000, 0, 0.3, 0.5, 0.2, 1, 0, 1.0, 10.0)""", (engineer_id(0),))
+    conn.commit()
+    conn.close()
+    client.get(url)
+
+    assert mock_gemini.models.generate_content.call_count == 2
