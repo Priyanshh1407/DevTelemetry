@@ -125,10 +125,10 @@ Risk / rollback:
 Goal: Every push runs lint and tests for both halves; critical paths have meaningful assertions.
 Why this order: Comes after the behavior-changing fixes so CI locks in correct behavior rather than the bugs.
 Items:
-- [ ] TEST-01a Tests for `alert_worker` (severity tiers at team sizes 3, 7, 10), notifications with mocked `smtplib`/`urlopen`, and runbook caching — `tests/` — M
-- [ ] TEST-01b Frontend tests: Dashboard renders API data with mocked fetch, plus error state; Runbook error state — `frontend/src/__tests__/` — M
-- [ ] TEST-01c GitHub Actions: `ruff check`, `pytest --cov`, `npm ci && npm run lint && npm test && npm run build` — `.github/workflows/ci.yml` — S
-- [ ] OPS-01 Off switches for GitHub Actions (requested by the developer, 2026-10-03: "turn the GitHub Actions off") — S
+- [x] TEST-01a Tests for `alert_worker` (severity tiers at team sizes 3, 7, 10), notifications with mocked `smtplib`/`urlopen`, and runbook caching — `tests/` — M
+- [x] TEST-01b Frontend tests: Dashboard renders API data with mocked fetch, plus error state; Runbook error state — `frontend/src/__tests__/` — M
+- [x] TEST-01c GitHub Actions: `ruff check`, `pytest --cov`, `npm ci && npm run lint && npm test && npm run build` — `.github/workflows/ci.yml` — S
+- [x] OPS-01 Off switches for GitHub Actions (requested by the developer, 2026-10-03: "turn the GitHub Actions off") — S
   - **Built-in buttons, no code (documented, work today):** per workflow, Actions tab → pick the workflow → `...` → **Disable workflow** (and **Enable workflow** to undo). For the whole repository, Settings → Actions → General → Actions permissions → **Disable actions**. A disabled workflow runs nothing at all, including manual runs.
   - **Repository-variable switches (what gets built):** Settings → Secrets and variables → Actions → **Variables**: `CI_ENABLED` and `SCHEDULED_ALERTS_ENABLED`. Every job in `ci.yml` / `scheduled-alerts.yml` gets `if: vars.<NAME> != 'false' || github.event_name == 'workflow_dispatch'`. Setting a variable to `false` turns off the automatic runs (push / PR / schedule; they show as *skipped*), while **Run workflow** still works for a deliberate manual run. Unset = ON, so nothing changes until you choose. Advantage over the built-in button: the off state is visible in each run, and manual runs keep working.
   - **Command line, same switches:** `gh workflow disable "CI"` / `gh workflow enable "CI"`; `gh variable set SCHEDULED_ALERTS_ENABLED --body false` / `gh variable delete SCHEDULED_ALERTS_ENABLED`.
@@ -137,6 +137,7 @@ Items:
   - Not doing: a dashboard button that calls GitHub's API to disable workflows. See "Upgrades I'm Deliberately NOT Recommending".
 Acceptance criteria:
 - CI is green on push. Backend coverage ≥ 80% on `core/` and `api/` (critical paths, not a vanity number). ESLint 0 errors.
+  - *Result:* every CI step reproduced locally on clean environments (Python 3.10 and 3.14 from pinned requirements: 192 passed, 96.4% coverage; clean `npm ci`: ESLint 0, 23 tests, build OK). The first run on github.com happens on the first push of this branch.
 - OPS-01: the workflow guard test passes (every job in every workflow carries its kill-switch `if:`), and fails if the `if:` is removed from a job (red→green).
 - OPS-01 (manual, on GitHub): with `CI_ENABLED=false` a push shows the CI jobs as *skipped*; with `SCHEDULED_ALERTS_ENABLED=false` the 15-minute runs are *skipped* but **Run workflow** still executes; deleting the variables restores both.
 Verification commands:
@@ -158,6 +159,7 @@ Items:
 - [ ] ML-03 Cache ratio on total prompt tokens (verify Anthropic semantics first), mix normalized/capped, sub-score breakdown returned by the API, rationale + limitations in `docs/scoring.md` — `core/scorer.py`, `api/routes.py` — S–M
   - *New input from ML-02:* the `compacts / sessions` term causes almost all daily rank noise (within-engineer daily SD 7.1 pts vs 1.6 cache, 0.7 mix). Score it over a rolling window (pooled compacts / pooled sessions over 7 days) or shrink it toward the engineer's mean; re-measure bottom-2 stability (Phase 2: 5-seed mean 0.71, 30-seed median 0.65).
 - [ ] Hygiene bundle: unused imports, `logging` instead of print, bare excepts, stray files (`test.txt`, `api/guide.txt`, Vite README) — S
+  - *Partly done in Phase 3:* unused imports (ruff + ESLint now 0, enforced by CI), the swallowed team-report error, bare excepts in the SMTP code (PERF-02). Remaining: `logging` instead of print, stray files (`test.txt`, `api/guide.txt`, Vite README).
 - [ ] SEC-03 / DX-02 `npm audit fix` + re-test; pinned Python deps; one stated Python version (3.12 recommended) in README, Dockerfile, CI — S
 Acceptance criteria:
 - `grep -rn '"critical"' --include=*.py` shows tier logic only in `core/severity.py`.

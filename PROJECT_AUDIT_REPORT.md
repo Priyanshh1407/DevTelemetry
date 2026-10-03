@@ -311,6 +311,11 @@ Not run: the live Render deployment (I didn’t want to trigger side effects on 
 - **New, open → ML-03 (P2, Interview Risk HIGH, CONFIRMED by a 30-seed sweep):** the score's `compacts / sessions` term carries almost all day-to-day rank noise (within-engineer daily SD 7.1 points vs 1.6 cache, 0.7 mix), because it scores a ratio of 2–7 daily events. The leaderboard's bottom 2 therefore churn more than habits do. Fix: pool over a rolling window or shrink toward the engineer's mean.
 - **Not verified:** a real Docker image build/run (daemon not running); the GitHub Actions schedule (runs only from the default branch with secrets set).
 
+### Status after Phase 3 (2026-10-03)
+- **Fixed:** TEST-01 (worker, insight-threshold and Slack-failure tests; Dashboard error state; CI workflow on Python 3.10 + 3.14 and Node 22 with an 85% coverage gate). **OPS-01** (developer request): repository-variable off switches for both workflows, guarded by `tests/test_workflows.py`.
+- **New, fixed:** a personal user-level ruff config made local lint differ from CI (now pinned in `ruff.toml`); `generate_team_report` swallowed errors without logging; the Dashboard rendered an empty leaderboard when the API was down; the frontend image used Node 20, which is end-of-life.
+- **Open P0/P1:** none. CI has been verified locally on clean environments but not yet run on github.com (nothing pushed).
+
 ---
 
 ## 5. Hygiene Bundle (P3)
@@ -341,7 +346,7 @@ Not run: the live Render deployment (I didn’t want to trigger side effects on 
 
 ## 7. Things I Must NOT Claim in an Interview (current state)
 
-- “It’s fully tested” or “it has CI.” *(updated after Phase 1)* There are now 78 backend tests (90% coverage of core/api/ai/notifications) and 13 frontend tests, but no CI runs them yet (Phase 3).
+- “CI is green on GitHub.” *(updated after Phase 3)* CI exists and every step passes on clean environments (192 backend tests on Python 3.10 and 3.14, 23 frontend tests, 96% coverage), but say “green on GitHub” only after you’ve seen the run in the Actions tab.
 - “It shows how much each engineer spends.” *(updated after Phase 1)* Cost is now computed from token usage with dated list prices (ML-01 fixed), but the usage itself is synthetic, and the per-model split is an assumption (tokens allocated by model mix). Say “estimated from usage with list prices”.
 - “It tracks Claude Code usage.” *(updated after Phase 2)* Nothing ingests real telemetry yet (UPG-02). Data is a persona-based simulation calibrated to Anthropic’s published ~$13/developer/day figure. Say “simulated, calibrated to published costs”.
 - “Scheduled alerts run in production.” *(updated after Phase 2)* The mechanism exists and is tested (GitHub Actions tick → idempotent endpoint), but it only runs once merged to the default branch with the two secrets set. Don’t claim it’s live until you’ve seen a scheduled run in the Actions tab.
