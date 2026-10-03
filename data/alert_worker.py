@@ -7,7 +7,7 @@ from core.db import db_session
 from core.queries import latest_day_rows
 from core.severity import severity_for_rank
 from ai.guide_generator import generate_team_report
-from notifications.email_report import send_daily_report, send_developer_alert
+from notifications.email_report import send_daily_report, send_developer_alert, smtp_session
 from notifications.slack_post import send_slack_summary
 
 def overall_status(summary):
@@ -62,18 +62,9 @@ def run_weekly_telemetry_check():
         icon = {"low": "🟢", "moderate": "🟡", "critical": "🔴"}[dev["severity"]]
         print(f"   {icon} [{dev['severity'].upper():>8}] #{rank} {dev['name']} — Score: {dev['efficiency_score']:.1f}")
 
-    # --- 3. SEND INDIVIDUAL DEVELOPER ALERT EMAILS ---
-    print("\n--- DISPATCHING INDIVIDUAL DEVELOPER ALERTS ---")
-    
-    for dev in all_devs:
-        status = send_developer_alert(dev)
-        summary["developer_emails"][status] += 1
-        if status == "failed":
-            summary["failed_recipients"].append(dev["name"])
-
-    print(f"\nDeveloper alerts: {summary['developer_emails']}")
-
-    # --- 4. DIAGNOSE WASTE PATTERNS FOR BOTTOM PERFORMERS ---
+    # --- 3. DIAGNOSE WASTE PATTERNS FOR BOTTOM PERFORMERS ---
+    # (Everything the emails need is prepared before the SMTP connection opens, so the
+    # connection isn't held idle during the Gemini call.)
     print("\n--- COMPILING MANAGER EXECUTIVE DIGEST ---")
     
     top_engineers = all_devs[:5] 
@@ -88,12 +79,12 @@ def run_weekly_telemetry_check():
         else:
             dev['primary_waste_pattern'] = "Low cache utilization"
 
-    # --- 5. CALCULATE LIVE AGGREGATES FOR MANAGER ---
+    # --- 4. CALCULATE LIVE AGGREGATES FOR MANAGER ---
     total_score = sum(dev['efficiency_score'] for dev in all_devs)
     total_cost = sum(dev['estimated_cost_usd'] for dev in all_devs)
     team_avg = total_score / total_devs
 
-    # --- 6. GENERATE AI SUMMARY & FIRE MANAGER EMAIL ---
+    # --- 5. GENERATE AI SUMMARY ---
     print("🧠 Analyzing live telemetry via Gemini...")
     team_summary_data = {
         "average_score": team_avg,
@@ -101,15 +92,25 @@ def run_weekly_telemetry_check():
         "critical_count": len(bottom_engineers)
     }
     ai_memo = generate_team_report(team_summary_data)
-    
-    print("📧 Handoff complete. Sending Manager Digest via SMTP...")
-    summary["manager_digest"] = send_daily_report(
-        top_engineers=top_engineers,
-        bottom_engineers=bottom_engineers,
-        average_score=team_avg,
-        total_cost=total_cost,
-        ai_summary=ai_memo
-    )
+
+    # --- 6. SEND ALL EMAILS OVER ONE SMTP CONNECTION ---
+    print("\n--- DISPATCHING DEVELOPER ALERTS + MANAGER DIGEST ---")
+    with smtp_session() as smtp:
+        for dev in all_devs:
+            status = send_developer_alert(dev, session=smtp)
+            summary["developer_emails"][status] += 1
+            if status == "failed":
+                summary["failed_recipients"].append(dev["name"])
+        print(f"\nDeveloper alerts: {summary['developer_emails']}")
+
+        summary["manager_digest"] = send_daily_report(
+            top_engineers=top_engineers,
+            bottom_engineers=bottom_engineers,
+            average_score=team_avg,
+            total_cost=total_cost,
+            ai_summary=ai_memo,
+            session=smtp,
+        )
 
     # --- 7. SEND SLACK CHANNEL SUMMARY ---
     print("\n--- POSTING SLACK CHANNEL SUMMARY ---")

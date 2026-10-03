@@ -1,5 +1,6 @@
 import os
 import smtplib
+from contextlib import contextmanager
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from jinja2 import Environment, FileSystemLoader, select_autoescape
@@ -113,8 +114,92 @@ def render_developer_email(dev_data):
     )
 
 
-def send_daily_report(top_engineers, bottom_engineers, average_score, total_cost, ai_summary):
-    """Packages the HTML into an email and sends it via SMTP. Returns "sent", "failed" or "skipped"."""
+class SmtpSession:
+    """One SMTP connection reused for a whole dispatch (previously: one connection + login per email).
+
+    - A dropped connection is reopened once and that email retried.
+    - If connecting or logging in fails, the session stays broken: later emails fail
+      immediately instead of hammering Gmail with the same bad login a dozen times.
+    """
+
+    def __init__(self, sender, password):
+        self.sender, self.password = sender, password
+        self.server = None
+        self.broken = None  # the exception that made the session unusable
+
+    def _connect(self):
+        print(f"⏳ Connecting to {SMTP_SERVER}:{SMTP_PORT}...")
+        server = smtplib.SMTP(SMTP_SERVER, SMTP_PORT, timeout=10)
+        server.ehlo()
+        server.starttls()
+        server.ehlo()
+        server.login(self.sender, self.password)
+        self.server = server
+
+    def send(self, to_address, message):
+        if self.broken:
+            raise self.broken
+        if self.server is None:
+            self._open()
+        try:
+            self.server.sendmail(self.sender, to_address, message)
+        except smtplib.SMTPServerDisconnected:
+            self.server = None
+            self._open()
+            self.server.sendmail(self.sender, to_address, message)
+        # Any other error (e.g. one refused recipient) fails only this email.
+
+    def _open(self):
+        try:
+            self._connect()
+        except Exception as e:
+            # Connect/login failures will fail every email the same way: remember and fail fast.
+            self.broken = e
+            raise
+
+    def close(self):
+        if self.server is not None:
+            try:
+                self.server.quit()
+            except smtplib.SMTPException:
+                pass
+            self.server = None
+
+
+@contextmanager
+def smtp_session():
+    """Yields an SmtpSession, or None when SMTP credentials aren't configured."""
+    sender, password, recipient = _smtp_credentials()
+    if not all([sender, password, recipient]):
+        yield None
+        return
+    session = SmtpSession(sender, password)
+    try:
+        yield session
+    finally:
+        session.close()
+
+
+def _deliver(session, to_address, msg, label):
+    """Sends via the given session, or a one-off session if none. Returns "sent" or "failed"."""
+    own_session = session is None
+    if own_session:
+        sender, password, _ = _smtp_credentials()
+        session = SmtpSession(sender, password)
+    try:
+        session.send(to_address, msg.as_string())
+        print(f"   📨 {label} sent to {to_address}")
+        return "sent"
+    except Exception as e:
+        print(f"   ❌ Failed to send {label}: {e}")
+        return "failed"
+    finally:
+        if own_session:
+            session.close()
+
+
+def send_daily_report(top_engineers, bottom_engineers, average_score, total_cost, ai_summary, session=None):
+    """Emails the manager digest. Returns "sent", "failed" or "skipped"."""
     sender, password, recipient = _smtp_credentials()
     if not all([sender, password, recipient]):
         print("❌ SMTP Credentials missing in .env. Skipping email dispatch.")
@@ -126,40 +211,15 @@ def send_daily_report(top_engineers, bottom_engineers, average_score, total_cost
     msg["Subject"] = "DevTelemetry: Weekly Team Efficiency Digest"
     msg["From"] = sender
     msg["To"] = recipient
+    msg.attach(MIMEText(html_content, "html"))
 
-    part = MIMEText(html_content, "html")
-    msg.attach(part)
-
-    server = None
-    try:
-        print(f"⏳ Attempting to connect to {SMTP_SERVER}:{SMTP_PORT} for Executive Digest...")
-        server = smtplib.SMTP(SMTP_SERVER, SMTP_PORT, timeout=10)
-        server.ehlo()
-        server.starttls()
-        server.ehlo()
-        
-        server.login(sender, password)
-        server.sendmail(sender, recipient, msg.as_string())
-        
-        print(f"✅ Executive digest successfully emailed to {recipient}!")
-        return "sent"
-        
-    except Exception as e:
-        print(f"❌ Failed to send email. Check your SMTP app password! Error: {e}")
-        return "failed"
-        
-    finally:
-        if server is not None:
-            try:
-                server.quit()
-            except smtplib.SMTPException:
-                pass
+    return _deliver(session, recipient, msg, "Executive digest")
 
 
-def send_developer_alert(dev_data):
+def send_developer_alert(dev_data, session=None):
     """
     Sends a personalized efficiency alert email to an individual developer.
-    
+
     In production: sends to the developer's own email (dev_data['email']).
     In demo mode:  sends to EMAIL_RECIPIENT so you can see all emails.
     Returns "sent", "failed" or "skipped".
@@ -168,45 +228,20 @@ def send_developer_alert(dev_data):
     if not all([sender, password, recipient]):
         print(f"   ⚠️  SMTP credentials missing. Skipping email for {dev_data['name']}.")
         return "skipped"
-    
+
     html_content = render_developer_email(dev_data)
 
     # --- PRODUCTION TOGGLE ---
     # In production mode, we send directly to the engineer.
     # In demo mode, we route all emails to the test EMAIL_RECIPIENT.
     target_email = dev_data['email'] if _production_mode() else recipient
-    
+
     severity = dev_data["severity"].upper()
-    
+
     msg = MIMEMultipart("alternative")
     msg["Subject"] = f"[{severity}] DevTelemetry: Your Efficiency Report — Rank #{dev_data['rank']}"
     msg["From"] = sender
     msg["To"] = target_email
+    msg.attach(MIMEText(html_content, "html"))
 
-    part = MIMEText(html_content, "html")
-    msg.attach(part)
-
-    server = None
-    try:
-        print(f"   ⏳ Attempting to connect to {SMTP_SERVER}:{SMTP_PORT} for {dev_data['name']}...")
-        server = smtplib.SMTP(SMTP_SERVER, SMTP_PORT, timeout=10)
-        server.ehlo()
-        server.starttls()
-        server.ehlo()
-        
-        server.login(sender, password)
-        server.sendmail(sender, target_email, msg.as_string())
-        
-        print(f"   📨 Alert sent to {dev_data['name']} ({target_email})")
-        return "sent"
-        
-    except Exception as e:
-        print(f"   ❌ Failed to send alert to {dev_data['name']}: {e}")
-        return "failed"
-        
-    finally:
-        if server is not None:
-            try:
-                server.quit()
-            except smtplib.SMTPException:
-                pass
+    return _deliver(session, target_email, msg, f"Alert for {dev_data['name']}")
