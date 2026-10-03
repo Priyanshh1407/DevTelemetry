@@ -127,23 +127,24 @@ def test_settings_falls_back_when_row_missing(client, empty_db):
     assert client.get("/api/settings").json() == {"frequency": "Weekly", "day": "Friday", "time": "17:00"}
 
 
-def test_settings_update_round_trip(client):
+def test_settings_update_round_trip(client, admin_headers):
     new = {"frequency": "Daily", "day": "Monday", "time": "09:30"}
 
-    response = client.post("/api/settings", json=new)
+    response = client.post("/api/settings", json=new, headers=admin_headers)
 
     assert response.status_code == 200
     assert response.json() == {"status": "success", "message": "Schedule updated"}
     assert client.get("/api/settings").json() == new
 
 
-def test_settings_missing_field_is_rejected(client):
-    assert client.post("/api/settings", json={"frequency": "Daily"}).status_code == 422
+def test_settings_missing_field_is_rejected(client, admin_headers):
+    assert client.post("/api/settings", json={"frequency": "Daily"}, headers=admin_headers).status_code == 422
 
 
 @pytest.mark.xfail(strict=True, reason="VAL-01: settings fields are unvalidated strings")
-def test_settings_invalid_values_are_rejected(client):
-    response = client.post("/api/settings", json={"frequency": "Hourly", "day": "Funday", "time": "99:99"})
+def test_settings_invalid_values_are_rejected(client, admin_headers):
+    response = client.post("/api/settings", json={"frequency": "Hourly", "day": "Funday", "time": "99:99"},
+                           headers=admin_headers)
     assert response.status_code == 422
 
 

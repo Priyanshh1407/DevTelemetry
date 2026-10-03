@@ -5,6 +5,7 @@ from pydantic import BaseModel
 import asyncio
 import logging
 from data.alert_worker import overall_status, run_weekly_telemetry_check
+from api.security import DispatchGuard, require_admin
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -97,7 +98,7 @@ def get_alert_settings():
             return dict(settings)
         return {"frequency": "Weekly", "day": "Friday", "time": "17:00"}
 
-@router.post("/settings")
+@router.post("/settings", dependencies=[Depends(require_admin)])
 def update_alert_settings(schedule: AlertSchedule):
     with get_db_connection() as conn:
         cursor = conn.cursor()
@@ -115,16 +116,33 @@ def _dispatch_message(summary):
             f"Manager digest: {summary['manager_digest']}. Slack: {summary['slack']}.")
 
 
-@router.post("/trigger-alerts")
-def trigger_alerts():
-    try:
-        summary = run_weekly_telemetry_check()
-    except Exception:
-        # Log the details server-side; never echo internals (paths, SQL, credentials) to the client.
-        logger.exception("Alert dispatch crashed")
-        raise HTTPException(status_code=500, detail="Alert dispatch failed unexpectedly; see server logs.")
+dispatch_guard = DispatchGuard()
 
-    status = overall_status(summary)
+
+@router.post("/trigger-alerts", dependencies=[Depends(require_admin)])
+def trigger_alerts():
+    # Single flight: a second click while emails are going out gets 409, not a second batch.
+    if not dispatch_guard.lock.acquire(blocking=False):
+        raise HTTPException(status_code=409, detail="An alert dispatch is already running.")
+    try:
+        wait = dispatch_guard.seconds_until_allowed()
+        if wait:
+            raise HTTPException(status_code=429, headers={"Retry-After": str(wait)},
+                                detail=f"Alerts were sent recently. Try again in {wait} seconds.")
+        try:
+            summary = run_weekly_telemetry_check()
+        except Exception:
+            # Log the details server-side; never echo internals (paths, SQL, credentials) to the client.
+            logger.exception("Alert dispatch crashed")
+            raise HTTPException(status_code=500, detail="Alert dispatch failed unexpectedly; see server logs.")
+        status = overall_status(summary)
+        # Cooldown only after a dispatch that delivered (or tried to deliver) something,
+        # so "nothing configured" can be fixed and retried immediately.
+        if status in ("success", "failed"):
+            dispatch_guard.mark_dispatched()
+    finally:
+        dispatch_guard.lock.release()
+
     if status == "no_data":
         raise HTTPException(status_code=409, detail="No usage data to report yet.")
     if status == "failed":

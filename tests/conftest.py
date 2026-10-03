@@ -43,7 +43,8 @@ def no_network(monkeypatch):
 
 
 NOTIFICATION_ENV = ("EMAIL_SENDER", "EMAIL_PASSWORD", "EMAIL_RECIPIENT", "SLACK_WEBHOOK_URL",
-                    "PRODUCTION_MODE", "FRONTEND_URL")
+                    "PRODUCTION_MODE", "FRONTEND_URL", "ADMIN_TOKEN")
+ADMIN_TOKEN = "test-admin-token"
 
 
 @pytest.fixture(autouse=True)
@@ -70,13 +71,30 @@ def mock_gemini(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
-def clear_runbook_cache():
-    """api.routes keeps a module-level cache; reset it so tests don't leak into each other."""
+def reset_route_state():
+    """api.routes keeps module-level state (runbook cache, dispatch cooldown); reset it per test."""
     import api.routes as routes
 
     routes.ai_task_cache.clear()
+    guard = getattr(routes, "dispatch_guard", None)
+    if guard is not None:
+        guard.reset()
     yield
     routes.ai_task_cache.clear()
+    if guard is not None:
+        guard.reset()
+
+
+@pytest.fixture
+def admin_token(monkeypatch):
+    """Configures the server's admin token (unset by default, so admin actions are disabled)."""
+    monkeypatch.setenv("ADMIN_TOKEN", ADMIN_TOKEN)
+    return ADMIN_TOKEN
+
+
+@pytest.fixture
+def admin_headers(admin_token):
+    return {"X-Admin-Token": admin_token}
 
 
 # ── Test database ───────────────────────────────────────────────────────────

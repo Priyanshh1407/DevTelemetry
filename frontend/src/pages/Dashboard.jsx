@@ -10,7 +10,7 @@ import {
     CheckCircle, Loader2, Mail
 } from "lucide-react";
 import Navbar from "../components/Navbar";
-import { getJSON, postJSON } from "../api";
+import { adminPost, getJSON } from "../api";
 
 // ─── Custom Tooltip ────────────────────────────────────────────────────────────
 function CustomTooltip({ active, payload, label }) {
@@ -131,7 +131,7 @@ export default function Dashboard() {
 
     const handleSaveSchedule = async () => {
         try {
-            await postJSON("/api/settings", { frequency: alertFreq, day: alertDay, time: alertTime });
+            await adminPost("/api/settings", { frequency: alertFreq, day: alertDay, time: alertTime });
             setToastMessage("Alert schedule saved successfully.");
         } catch (e) {
             // Previously the success toast showed even when the save failed.
@@ -146,7 +146,7 @@ export default function Dashboard() {
         setIsTestingAlerts(true);
         try {
             // The server reports real delivery counts; there is no default success message.
-            const data = await postJSON("/api/trigger-alerts");
+            const data = await adminPost("/api/trigger-alerts");
             setToastMessage(data.message);
         } catch (e) {
             console.error("Failed to trigger alerts:", e);
