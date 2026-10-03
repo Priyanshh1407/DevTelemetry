@@ -22,7 +22,7 @@ For this project, “interview-ready” means four things:
 | 0 | Safety net | branch, pinned env, test DB fixture, fixed tests, characterization tests | ~1 day | “I made it testable before changing it” |
 | 1 | Critical fixes | SEC-01, BUG-01, ML-01, ERR-01, CONC-01, BUG-02, BUG-03 | ~3 days | Auth, event-loop blocking, cache poisoning: three strong debugging stories |
 | 2 | Correctness & resilience | BUG-04, BUG-05, BUG-06, ML-02, VAL-01, ARCH-02, PERF-02, ERR-02, BUG-07, SEC-02, DX-01 | ~4–5 days | Idempotent jobs, honest scheduling, realistic simulation |
-| 3 | Testing & CI | TEST-01 completion, GitHub Actions, coverage on core | ~1.5 days | Green badge, mocked external services |
+| 3 | Testing & CI | TEST-01 completion, GitHub Actions, coverage on core, OPS-01 on/off switches | ~2 days | Green badge, mocked external services |
 | 4 | Architecture cleanup | ARCH-01, ML-03, lint/hygiene, SEC-03, DX-02 | ~2 days | Single source of truth for severity and queries |
 | 6 | Interview upgrades | UPG-01, UPG-02, UPG-03, UPG-04 | ~5–7 days | Eval numbers, ingestion contract, LLM cost tracking |
 | 7 | Ship & document | README rewrite, diagram, deploy, re-run interview report | ~1.5 days | Honest, clickable demo |
@@ -128,13 +128,22 @@ Items:
 - [ ] TEST-01a Tests for `alert_worker` (severity tiers at team sizes 3, 7, 10), notifications with mocked `smtplib`/`urlopen`, and runbook caching — `tests/` — M
 - [ ] TEST-01b Frontend tests: Dashboard renders API data with mocked fetch, plus error state; Runbook error state — `frontend/src/__tests__/` — M
 - [ ] TEST-01c GitHub Actions: `ruff check`, `pytest --cov`, `npm ci && npm run lint && npm test && npm run build` — `.github/workflows/ci.yml` — S
+- [ ] OPS-01 On/off switches for the automation (requested by the developer, 2026-10-03) — M
+  - **Scheduled alerts, dashboard button (main switch):** an admin-only "Scheduled alerts: ON / OFF" toggle on the Dashboard. Stored as `alert_settings.enabled` (added to existing DBs via `core/db.ADDED_COLUMNS`, default ON). While OFF, `POST /api/scheduled-tick` answers `{"status": "disabled"}` and sends nothing. The manual "Send alerts" button still works, and the saved day/time/timezone are kept for when it's switched back on. Files: `data/schema.sql`, `core/db.py`, `api/routes.py`, `Dashboard.jsx`.
+  - **Scheduled alerts, GitHub repository variable (stops the pings too):** `SCHEDULED_ALERTS_ENABLED`, set under Settings → Secrets and variables → Actions → Variables. The workflow job has `if: vars.SCHEDULED_ALERTS_ENABLED != 'false'`, so setting it to `false` skips the job entirely (no API call, no waking Render). Unset means ON, so nothing changes until you choose. Variables aren't secrets: they're visible in logs, which is fine for a flag.
+  - **CI: GitHub's built-in switch, no custom code:** Actions tab → "CI" → `...` → **Disable workflow** (and **Enable workflow** to undo). For a single push, put `[skip ci]` in the commit message. A custom CI kill switch is deliberately *not* added: turning CI off should be rare and visible, and the built-in button already covers it.
+  - Documented in the README ("Turning automation off") and in comments at the top of both workflow files.
 Acceptance criteria:
 - CI is green on push. Backend coverage ≥ 80% on `core/` and `api/` (critical paths, not a vanity number). ESLint 0 errors.
+- OPS-01: with the dashboard toggle OFF, a due tick returns `disabled`, creates no `dispatch_runs` row and calls no sender (test). Toggling back ON lets the same still-due slot send (test). Only an admin can toggle (401 test). An old-schema DB gains `enabled` = ON (migration test). Dashboard test: the toggle shows the server state and sends the admin token.
+- OPS-01: with `SCHEDULED_ALERTS_ENABLED=false` the workflow run shows the `tick` job as *skipped* (manual check in the Actions tab).
 Verification commands:
 - `pytest --cov=core --cov=api --cov=ai --cov-report=term-missing`
 - `npm --prefix frontend run lint && npm --prefix frontend test`
+- OPS-01 manual: Actions → Scheduled alerts tick → Run workflow, once with the variable unset and once with it `false`; then CI → `...` → Disable workflow / Enable workflow.
 Interview payoff:
 - A CI badge, plus “external services are mocked at the boundary, so tests are deterministic and free”.
+- OPS-01: “Automation has layered off switches: an app-level flag the admin flips from the dashboard (data stays, nothing sends), an infrastructure-level variable that stops the cron from even calling the API, and GitHub's own disable button for CI. Each one is checked where the decision is made, and both are tested.”
 Risk / rollback:
 - None to runtime.
 
