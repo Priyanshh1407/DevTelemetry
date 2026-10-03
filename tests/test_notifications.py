@@ -75,3 +75,29 @@ def test_slack_dashboard_button_uses_frontend_url(monkeypatch):
 
     button = next(b for b in blocks if b["type"] == "actions")["elements"][0]
     assert button["url"] == "https://dash.example.test"
+
+
+# ── BUG-03: senders report what happened ────────────────────────────────────
+
+def test_email_sender_returns_sent_failed_skipped(email_env, smtp, monkeypatch):
+    _, server = smtp
+    assert email_report.send_developer_alert(DEV) == "sent"
+
+    server.sendmail.side_effect = email_report.smtplib.SMTPException("relay denied")
+    assert email_report.send_developer_alert(DEV) == "failed"
+
+    monkeypatch.delenv("EMAIL_PASSWORD")
+    assert email_report.send_developer_alert(DEV) == "skipped"
+
+
+def test_slack_sender_returns_sent_failed_skipped(monkeypatch):
+    assert slack_post.send_slack_summary([dict(DEV, rank=1)], 50.0, 10.0) == "skipped"
+
+    monkeypatch.setenv("SLACK_WEBHOOK_URL", "https://hooks.example.test/T000/B000")
+    urlopen = MagicMock()
+    urlopen.return_value.__enter__.return_value = MagicMock(status=200)
+    monkeypatch.setattr(slack_post.urllib.request, "urlopen", urlopen)
+    assert slack_post.send_slack_summary([dict(DEV, rank=1)], 50.0, 10.0) == "sent"
+
+    urlopen.side_effect = slack_post.urllib.error.URLError("unreachable")
+    assert slack_post.send_slack_summary([dict(DEV, rank=1)], 50.0, 10.0) == "failed"

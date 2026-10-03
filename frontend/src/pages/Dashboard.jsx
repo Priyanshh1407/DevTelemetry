@@ -145,20 +145,15 @@ export default function Dashboard() {
     const handleTestAlerts = async () => {
         setIsTestingAlerts(true);
         try {
-            const API_BASE = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
-            const res = await fetch(`${API_BASE}/api/trigger-alerts`, {
-                method: 'POST'
-            });
-            const data = await res.json();
-            setToastMessage(data.message || "Alerts sent successfully!");
-            setShowToast(true);
-            setTimeout(() => setShowToast(false), 4000);
+            // The server reports real delivery counts; there is no default success message.
+            const data = await postJSON("/api/trigger-alerts");
+            setToastMessage(data.message);
         } catch (e) {
             console.error("Failed to trigger alerts:", e);
-            setToastMessage("Error triggering alerts. Check console.");
-            setShowToast(true);
-            setTimeout(() => setShowToast(false), 4000);
+            setToastMessage(`Alerts not fully sent: ${e.message}`);
         } finally {
+            setShowToast(true);
+            setTimeout(() => setShowToast(false), 6000);
             setIsTestingAlerts(false);
         }
     };

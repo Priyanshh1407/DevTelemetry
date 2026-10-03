@@ -8,8 +8,33 @@ from ai.guide_generator import generate_team_report
 from notifications.email_report import send_daily_report, send_developer_alert
 from notifications.slack_post import send_slack_summary
 
+def overall_status(summary):
+    """Collapses a dispatch summary into one status: no_data, failed, skipped or success."""
+    if summary["engineers"] == 0:
+        return "no_data"
+    statuses = [summary["manager_digest"], summary["slack"]]
+    if summary["developer_emails"]["failed"] or "failed" in statuses:
+        return "failed"
+    if not summary["developer_emails"]["sent"] and "sent" not in statuses:
+        return "skipped"
+    return "success"
+
+
 def run_weekly_telemetry_check():
+    """Sends developer alerts, the manager digest and the Slack summary.
+
+    Returns a summary of what was actually delivered, e.g.
+    {"engineers": 10, "developer_emails": {"sent": 9, "failed": 1, "skipped": 0},
+     "failed_recipients": ["..."], "manager_digest": "sent", "slack": "skipped"}
+    """
     print("Initiating Industry-Grade Telemetry Review...\n")
+    summary = {
+        "engineers": 0,
+        "developer_emails": {"sent": 0, "failed": 0, "skipped": 0},
+        "failed_recipients": [],
+        "manager_digest": "skipped",
+        "slack": "skipped",
+    }
     
     # --- 1. CONNECT TO THE LIVE DATABASE ---
     conn = get_db_connection()
@@ -29,9 +54,10 @@ def run_weekly_telemetry_check():
     total_devs = len(all_devs)
     if total_devs == 0:
         print("❌ No data found in the database. Aborting.")
-        return
+        return summary
 
     print(f"✅ Successfully pulled live data for {total_devs} engineers.\n")
+    summary["engineers"] = total_devs
 
     # --- 2. CLASSIFY EACH DEVELOPER BY SEVERITY TIER ---
     print("--- CLASSIFYING DEVELOPERS BY SEVERITY ---")
@@ -55,9 +81,12 @@ def run_weekly_telemetry_check():
     print("\n--- DISPATCHING INDIVIDUAL DEVELOPER ALERTS ---")
     
     for dev in all_devs:
-        send_developer_alert(dev)
-    
-    print(f"\n✅ Individual alerts dispatched to {total_devs} developers.")
+        status = send_developer_alert(dev)
+        summary["developer_emails"][status] += 1
+        if status == "failed":
+            summary["failed_recipients"].append(dev["name"])
+
+    print(f"\nDeveloper alerts: {summary['developer_emails']}")
 
     # --- 4. DIAGNOSE WASTE PATTERNS FOR BOTTOM PERFORMERS ---
     print("\n--- COMPILING MANAGER EXECUTIVE DIGEST ---")
@@ -89,7 +118,7 @@ def run_weekly_telemetry_check():
     ai_memo = generate_team_report(team_summary_data)
     
     print("📧 Handoff complete. Sending Manager Digest via SMTP...")
-    send_daily_report(
+    summary["manager_digest"] = send_daily_report(
         top_engineers=top_engineers,
         bottom_engineers=bottom_engineers,
         average_score=team_avg,
@@ -99,9 +128,10 @@ def run_weekly_telemetry_check():
 
     # --- 7. SEND SLACK CHANNEL SUMMARY ---
     print("\n--- POSTING SLACK CHANNEL SUMMARY ---")
-    send_slack_summary(all_devs, team_avg, total_cost)
-    
-    print("\n[DONE] Full telemetry review complete. All notifications dispatched.")
+    summary["slack"] = send_slack_summary(all_devs, team_avg, total_cost)
+
+    print(f"\n[DONE] Telemetry review complete: {overall_status(summary)} {summary}")
+    return summary
 
 if __name__ == "__main__":
     run_weekly_telemetry_check()
