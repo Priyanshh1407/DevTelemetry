@@ -118,3 +118,54 @@ def test_engineer_name_is_escaped_in_developer_alert():
 
     assert "<script>steal()" not in html
     assert "&lt;script&gt;steal()" in html
+
+
+# ── PERF-02: one SMTP connection per dispatch; bounded Slack call ──────────
+
+def _run_worker():
+    from data.alert_worker import run_weekly_telemetry_check
+    return run_weekly_telemetry_check()
+
+
+def test_dispatch_logs_in_to_smtp_once(seeded_db, email_env, smtp):
+    smtp_class, server = smtp
+
+    summary = _run_worker()
+
+    assert summary["developer_emails"]["sent"] == 10
+    assert smtp_class.call_count == 1          # was one connection + login per email
+    assert server.login.call_count == 1
+    assert server.sendmail.call_count == 11    # 10 developers + manager digest
+    server.quit.assert_called_once()
+
+
+def test_dropped_connection_is_reopened_once_and_the_email_retried(seeded_db, email_env, smtp):
+    smtp_class, server = smtp
+    server.sendmail.side_effect = [None, email_report.smtplib.SMTPServerDisconnected("bye")] + [None] * 20
+
+    summary = _run_worker()
+
+    assert summary["developer_emails"] == {"sent": 10, "failed": 0, "skipped": 0}
+    assert smtp_class.call_count == 2
+
+
+def test_bad_credentials_fail_fast_instead_of_retrying_every_email(seeded_db, email_env, smtp):
+    smtp_class, server = smtp
+    server.login.side_effect = email_report.smtplib.SMTPAuthenticationError(535, b"bad credentials")
+
+    summary = _run_worker()
+
+    assert summary["developer_emails"]["failed"] == 10
+    assert summary["manager_digest"] == "failed"
+    assert server.login.call_count == 1        # not 11 failed logins against Gmail
+
+
+def test_slack_request_has_a_timeout(monkeypatch):
+    monkeypatch.setenv("SLACK_WEBHOOK_URL", "https://hooks.example.test/T000/B000")
+    urlopen = MagicMock()
+    urlopen.return_value.__enter__.return_value = MagicMock(status=200)
+    monkeypatch.setattr(slack_post.urllib.request, "urlopen", urlopen)
+
+    slack_post.send_slack_summary([dict(DEV, rank=1)], 50.0, 10.0)
+
+    assert urlopen.call_args.kwargs.get("timeout") == slack_post.SLACK_TIMEOUT_SECONDS

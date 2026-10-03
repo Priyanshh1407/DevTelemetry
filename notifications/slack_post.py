@@ -8,6 +8,9 @@ load_dotenv()
 
 
 # Read at call time (not import) so tests and runtime config decide where messages go.
+SLACK_TIMEOUT_SECONDS = 10  # never let a slow Slack hang the dispatch
+
+
 def _webhook_url():
     return os.getenv("SLACK_WEBHOOK_URL")
 
@@ -127,7 +130,7 @@ def send_slack_summary(all_devs, average_score, total_cost):
     )
 
     try:
-        with urllib.request.urlopen(req) as response:
+        with urllib.request.urlopen(req, timeout=SLACK_TIMEOUT_SECONDS) as response:
             if response.status == 200:
                 print("[SLACK] Team summary posted to Slack channel successfully!")
                 return "sent"
