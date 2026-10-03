@@ -3,9 +3,21 @@
 // and HTTP errors are never mistaken for success.
 export const API_BASE = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
 
+// FastAPI's detail is a string, an object with a message, or (for 422) a list of
+// {loc, msg} validation errors.
+function describeDetail(detail) {
+    if (typeof detail === "string") return detail;
+    if (Array.isArray(detail)) {
+        return detail
+            .map((e) => `${(e.loc || []).filter((part) => part !== "body").join(".")}: ${e.msg}`)
+            .join("; ");
+    }
+    return detail?.message;
+}
+
 export class ApiError extends Error {
     constructor(status, detail) {
-        const message = typeof detail === "string" ? detail : detail?.message;
+        const message = describeDetail(detail);
         super(message || `Request failed (${status})`);
         this.name = "ApiError";
         this.status = status;

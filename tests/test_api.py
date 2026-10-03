@@ -151,11 +151,45 @@ def test_settings_missing_field_is_rejected(client, admin_headers):
     assert client.post("/api/settings", json={"frequency": "Daily"}, headers=admin_headers).status_code == 422
 
 
-@pytest.mark.xfail(strict=True, reason="VAL-01: settings fields are unvalidated strings")
 def test_settings_invalid_values_are_rejected(client, admin_headers):
     response = client.post("/api/settings", json={"frequency": "Hourly", "day": "Funday", "time": "99:99"},
                            headers=admin_headers)
     assert response.status_code == 422
+
+
+@pytest.mark.parametrize("field, bad_value", [
+    ("frequency", "Hourly"),
+    ("frequency", "Biweekly"),   # offered by the old UI but never implemented by any scheduler
+    ("frequency", "Monthly"),
+    ("day", "Funday"),
+    ("time", "99:99"),
+    ("time", "24:00"),
+    ("time", "9:30"),
+    ("time", "09:30; DROP TABLE"),
+])
+def test_settings_each_invalid_field_is_rejected_and_not_saved(client, admin_headers, field, bad_value):
+    payload = {"frequency": "Weekly", "day": "Friday", "time": "17:00", field: bad_value}
+
+    response = client.post("/api/settings", json=payload, headers=admin_headers)
+
+    assert response.status_code == 422
+    assert client.get("/api/settings").json() == {"frequency": "Weekly", "day": "Friday", "time": "17:00"}
+
+
+@pytest.mark.parametrize("payload", [
+    {"frequency": "Daily", "day": "Monday", "time": "00:00"},
+    {"frequency": "Weekly", "day": "Sunday", "time": "23:59"},
+])
+def test_settings_valid_edge_values_are_accepted(client, admin_headers, payload):
+    assert client.post("/api/settings", json=payload, headers=admin_headers).status_code == 200
+
+
+def test_runbook_unknown_severity_is_rejected_without_calling_the_llm(client, seeded_db, mock_gemini):
+    # Every distinct severity string used to be a new cache entry and a new paid LLM call.
+    response = client.get(f"/api/runbook-tasks/anything-i-want/{engineer_id(0)}")
+
+    assert response.status_code == 422
+    mock_gemini.models.generate_content.assert_not_called()
 
 
 # ── /api/guide and /api/runbook-tasks (Gemini mocked) ───────────────────────

@@ -1,7 +1,8 @@
 from fastapi import APIRouter, HTTPException,Depends
 from core.db import get_db_connection
 from ai.guide_generator import generate_efficiency_guide
-from pydantic import BaseModel
+from typing import Literal
+from pydantic import BaseModel, Field
 import asyncio
 import logging
 from data.alert_worker import overall_status, run_weekly_telemetry_check
@@ -86,10 +87,15 @@ def get_user_guide(user_id: str):
         }
     
 # Defines the shape of the data coming from React
+Weekday = Literal["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+Severity = Literal["low", "moderate", "critical"]
+
+
 class AlertSchedule(BaseModel):
-    frequency: str
-    day: str
-    time: str
+    # Only frequencies the scheduler actually implements (Biweekly/Monthly never fired anywhere).
+    frequency: Literal["Daily", "Weekly"]
+    day: Weekday  # ignored for Daily
+    time: str = Field(pattern=r"^([01]\d|2[0-3]):[0-5]\d$", description="24-hour HH:MM")
 
 @router.get("/settings")
 def get_alert_settings():
@@ -319,7 +325,7 @@ ai_task_cache = {}
 # handlers in a threadpool. As `async def`, they ran on the event loop and stalled every
 # other request for the length of the LLM call.
 @router.get("/runbook-tasks/{severity}/{user_id}")
-def get_personalized_tasks(severity: str, user_id: str):
+def get_personalized_tasks(severity: Severity, user_id: str):
     # 1. Get the latest metrics for this dev (cheap; needed for the cache key)
     conn = get_db_connection()
     cursor = conn.cursor()

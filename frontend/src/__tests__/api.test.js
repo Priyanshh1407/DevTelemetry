@@ -86,3 +86,16 @@ describe('adminPost (SEC-01)', () => {
         expect(fetchMock).not.toHaveBeenCalled();
     });
 });
+
+describe('validation errors (VAL-01)', () => {
+    afterEach(() => vi.unstubAllGlobals());
+
+    it('turns a FastAPI 422 detail list into a readable message', async () => {
+        mockFetch(422, { detail: [
+            { loc: ['body', 'time'], msg: "String should match pattern '^([01]\d|2[0-3]):[0-5]\d$'" },
+            { loc: ['body', 'day'], msg: 'Input should be a weekday' },
+        ] });
+        const error = await getJSON('/api/settings').catch((e) => e);
+        expect(error.message).toBe("time: String should match pattern '^([01]\d|2[0-3]):[0-5]\d$'; day: Input should be a weekday");
+    });
+});

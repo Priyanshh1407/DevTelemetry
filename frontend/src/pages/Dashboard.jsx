@@ -427,11 +427,9 @@ export default function Dashboard() {
                         >
                             <option value="Daily">Daily</option>
                             <option value="Weekly">Weekly</option>
-                            <option value="Biweekly">Biweekly</option>
-                            <option value="Monthly">Monthly</option>
                         </select>
 
-                        {alertFreq === "Weekly" || alertFreq === "Biweekly" ? (
+                        {alertFreq === "Weekly" ? (
                             <select
                                 value={alertDay}
                                 onChange={(e) => setAlertDay(e.target.value)}
