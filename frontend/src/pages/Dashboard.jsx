@@ -10,6 +10,7 @@ import {
     CheckCircle, Loader2, Mail
 } from "lucide-react";
 import Navbar from "../components/Navbar";
+import { getJSON, postJSON } from "../api";
 
 // ─── Custom Tooltip ────────────────────────────────────────────────────────────
 function CustomTooltip({ active, payload, label }) {
@@ -79,18 +80,12 @@ export default function Dashboard() {
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const API_BASE = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
-                // Step A: Fetch all three endpoints at the exact same time
-                const [boardRes, trendsRes, settingsRes] = await Promise.all([
-                    fetch(`${API_BASE}/api/leaderboard`),
-                    fetch(`${API_BASE}/api/trends`),
-                    fetch(`${API_BASE}/api/settings`)
+                // Step A: Fetch all three endpoints at the same time (throws on any HTTP error)
+                const [rawBoard, rawTrends, rawSettings] = await Promise.all([
+                    getJSON("/api/leaderboard"),
+                    getJSON("/api/trends"),
+                    getJSON("/api/settings")
                 ]);
-
-                // Step B: Convert all three responses to JSON
-                const rawBoard = await boardRes.json();
-                const rawTrends = await trendsRes.json();
-                const rawSettings = await settingsRes.json();
 
                 // Step C: Format Trends for the Recharts graph
                 const formattedTrends = rawTrends.map(t => ({
@@ -136,18 +131,15 @@ export default function Dashboard() {
 
     const handleSaveSchedule = async () => {
         try {
-            const API_BASE = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
-            await fetch(`${API_BASE}/api/settings`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ frequency: alertFreq, day: alertDay, time: alertTime })
-            });
+            await postJSON("/api/settings", { frequency: alertFreq, day: alertDay, time: alertTime });
             setToastMessage("Alert schedule saved successfully.");
-            setShowToast(true);
-            setTimeout(() => setShowToast(false), 3000);
         } catch (e) {
+            // Previously the success toast showed even when the save failed.
             console.error("Failed to save schedule:", e);
+            setToastMessage(`Schedule not saved: ${e.message}`);
         }
+        setShowToast(true);
+        setTimeout(() => setShowToast(false), 3000);
     };
 
     const handleTestAlerts = async () => {
