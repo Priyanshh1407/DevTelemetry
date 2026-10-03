@@ -3,7 +3,9 @@ import sys
 
 # Ensure Python can find your AI and Notification modules
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from contextlib import closing
 from core.db import get_db_connection
+from core.queries import latest_day_rows
 from core.severity import severity_for_rank
 from ai.guide_generator import generate_team_report
 from notifications.email_report import send_daily_report, send_developer_alert
@@ -38,19 +40,8 @@ def run_weekly_telemetry_check():
     }
     
     # --- 1. CONNECT TO THE LIVE DATABASE ---
-    conn = get_db_connection()
-    cursor = conn.cursor()
-
-    cursor.execute("""
-        SELECT e.name, e.email, u.efficiency_score, u.estimated_cost_usd, u.user_id, u.opus_pct
-        FROM usage_metrics u
-        JOIN engineers e ON u.user_id = e.user_id
-        WHERE u.date = (SELECT MAX(date) FROM usage_metrics)
-        ORDER BY u.efficiency_score DESC
-    """)
-    
-    all_devs = [dict(row) for row in cursor.fetchall()]
-    conn.close()
+    with closing(get_db_connection()) as conn:
+        all_devs = latest_day_rows(conn)
     
     total_devs = len(all_devs)
     if total_devs == 0:
