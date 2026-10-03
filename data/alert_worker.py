@@ -1,3 +1,4 @@
+import logging
 import os
 import sys
 
@@ -9,6 +10,8 @@ from core.severity import severity_for_rank
 from ai.guide_generator import generate_team_report
 from notifications.email_report import send_daily_report, send_developer_alert, smtp_session
 from notifications.slack_post import send_slack_summary
+
+logger = logging.getLogger(__name__)
 
 def overall_status(summary):
     """Collapses a dispatch summary into one status: no_data, failed, skipped or success."""
@@ -29,7 +32,7 @@ def run_weekly_telemetry_check():
     {"engineers": 10, "developer_emails": {"sent": 9, "failed": 1, "skipped": 0},
      "failed_recipients": ["..."], "manager_digest": "sent", "slack": "skipped"}
     """
-    print("Initiating Industry-Grade Telemetry Review...\n")
+    logger.info("Starting telemetry review")
     summary = {
         "engineers": 0,
         "developer_emails": {"sent": 0, "failed": 0, "skipped": 0},
@@ -44,14 +47,13 @@ def run_weekly_telemetry_check():
     
     total_devs = len(all_devs)
     if total_devs == 0:
-        print("❌ No data found in the database. Aborting.")
+        logger.warning("No usage data in the database; nothing to send")
         return summary
 
-    print(f"✅ Successfully pulled live data for {total_devs} engineers.\n")
+    logger.info("Loaded the latest day for %s engineers", total_devs)
     summary["engineers"] = total_devs
 
     # --- 2. CLASSIFY EACH DEVELOPER BY SEVERITY TIER ---
-    print("--- CLASSIFYING DEVELOPERS BY SEVERITY ---")
     for rank_index, dev in enumerate(all_devs):
         rank = rank_index + 1
         dev["rank"] = rank
@@ -59,13 +61,12 @@ def run_weekly_telemetry_check():
         
         dev["severity"] = severity_for_rank(rank, total_devs)
         
-        icon = {"low": "🟢", "moderate": "🟡", "critical": "🔴"}[dev["severity"]]
-        print(f"   {icon} [{dev['severity'].upper():>8}] #{rank} {dev['name']} — Score: {dev['efficiency_score']:.1f}")
+        logger.info("#%s %s: score %.1f, severity %s", rank, dev["name"], dev["efficiency_score"], dev["severity"])
 
     # --- 3. DIAGNOSE WASTE PATTERNS FOR BOTTOM PERFORMERS ---
     # (Everything the emails need is prepared before the SMTP connection opens, so the
     # connection isn't held idle during the Gemini call.)
-    print("\n--- COMPILING MANAGER EXECUTIVE DIGEST ---")
+    logger.info("Compiling the manager digest")
     
     top_engineers = all_devs[:5] 
     bottom_engineers = all_devs[-2:] 
@@ -85,7 +86,7 @@ def run_weekly_telemetry_check():
     team_avg = total_score / total_devs
 
     # --- 5. GENERATE AI SUMMARY ---
-    print("🧠 Analyzing live telemetry via Gemini...")
+    logger.info("Requesting the AI team summary")
     team_summary_data = {
         "average_score": team_avg,
         "total_spend": total_cost,
@@ -94,14 +95,14 @@ def run_weekly_telemetry_check():
     ai_memo = generate_team_report(team_summary_data)
 
     # --- 6. SEND ALL EMAILS OVER ONE SMTP CONNECTION ---
-    print("\n--- DISPATCHING DEVELOPER ALERTS + MANAGER DIGEST ---")
+    logger.info("Sending developer alerts and the manager digest")
     with smtp_session() as smtp:
         for dev in all_devs:
             status = send_developer_alert(dev, session=smtp)
             summary["developer_emails"][status] += 1
             if status == "failed":
                 summary["failed_recipients"].append(dev["name"])
-        print(f"\nDeveloper alerts: {summary['developer_emails']}")
+        logger.info("Developer alerts: %s", summary["developer_emails"])
 
         summary["manager_digest"] = send_daily_report(
             top_engineers=top_engineers,
@@ -113,10 +114,10 @@ def run_weekly_telemetry_check():
         )
 
     # --- 7. SEND SLACK CHANNEL SUMMARY ---
-    print("\n--- POSTING SLACK CHANNEL SUMMARY ---")
+    logger.info("Posting the Slack summary")
     summary["slack"] = send_slack_summary(all_devs, team_avg, total_cost)
 
-    print(f"\n[DONE] Telemetry review complete: {overall_status(summary)} {summary}")
+    logger.info("Telemetry review complete: %s %s", overall_status(summary), summary)
     return summary
 
 if __name__ == "__main__":

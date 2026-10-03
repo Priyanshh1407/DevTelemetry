@@ -186,7 +186,7 @@ def test_slack_non_200_response_is_a_failure(slack_webhook, monkeypatch):
     assert slack_post.send_slack_summary([dict(DEV, rank=1)], 50.0, 10.0) == "failed"
 
 
-def test_slack_http_error_reports_the_response_body(slack_webhook, monkeypatch, capsys):
+def test_slack_http_error_reports_the_response_body(slack_webhook, monkeypatch, caplog):
     import io
 
     error = slack_post.urllib.error.HTTPError("https://hooks.example.test", 404, "Not Found", {},
@@ -194,7 +194,7 @@ def test_slack_http_error_reports_the_response_body(slack_webhook, monkeypatch, 
     monkeypatch.setattr(slack_post.urllib.request, "urlopen", MagicMock(side_effect=error))
 
     assert slack_post.send_slack_summary([dict(DEV, rank=1)], 50.0, 10.0) == "failed"
-    assert "no_service" in capsys.readouterr().out  # Slack's reason, e.g. a revoked webhook
+    assert "no_service" in caplog.text  # Slack's reason, e.g. a revoked webhook
 
 
 def test_slack_unexpected_error_does_not_crash_the_dispatch(slack_webhook, monkeypatch):

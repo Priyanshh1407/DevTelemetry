@@ -1,3 +1,4 @@
+import logging
 import os
 import smtplib
 from contextlib import contextmanager
@@ -7,6 +8,8 @@ from jinja2 import Environment, FileSystemLoader, select_autoescape
 from dotenv import load_dotenv
 
 load_dotenv()
+
+logger = logging.getLogger(__name__)
 
 # Email templates live in frontend/; resolve from this file, not the working directory.
 TEMPLATE_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "frontend")
@@ -128,7 +131,7 @@ class SmtpSession:
         self.broken = None  # the exception that made the session unusable
 
     def _connect(self):
-        print(f"⏳ Connecting to {SMTP_SERVER}:{SMTP_PORT}...")
+        logger.info("Connecting to %s:%s", SMTP_SERVER, SMTP_PORT)
         server = smtplib.SMTP(SMTP_SERVER, SMTP_PORT, timeout=10)
         server.ehlo()
         server.starttls()
@@ -188,10 +191,10 @@ def _deliver(session, to_address, msg, label):
         session = SmtpSession(sender, password)
     try:
         session.send(to_address, msg.as_string())
-        print(f"   📨 {label} sent to {to_address}")
+        logger.info("%s sent to %s", label, to_address)
         return "sent"
     except Exception as e:
-        print(f"   ❌ Failed to send {label}: {e}")
+        logger.error("Failed to send %s: %s", label, e)
         return "failed"
     finally:
         if own_session:
@@ -202,7 +205,7 @@ def send_daily_report(top_engineers, bottom_engineers, average_score, total_cost
     """Emails the manager digest. Returns "sent", "failed" or "skipped"."""
     sender, password, recipient = _smtp_credentials()
     if not all([sender, password, recipient]):
-        print("❌ SMTP Credentials missing in .env. Skipping email dispatch.")
+        logger.warning("SMTP credentials missing; skipping the manager digest")
         return "skipped"
 
     html_content = render_email_html(top_engineers, bottom_engineers, average_score, total_cost, ai_summary)
@@ -226,7 +229,7 @@ def send_developer_alert(dev_data, session=None):
     """
     sender, password, recipient = _smtp_credentials()
     if not all([sender, password, recipient]):
-        print(f"   ⚠️  SMTP credentials missing. Skipping email for {dev_data['name']}.")
+        logger.warning("SMTP credentials missing; skipping the alert for %s", dev_data["name"])
         return "skipped"
 
     html_content = render_developer_email(dev_data)

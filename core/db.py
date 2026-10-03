@@ -1,6 +1,9 @@
+import logging
 import sqlite3
 import os
 from contextlib import contextmanager
+
+logger = logging.getLogger(__name__)
 
 # Resolve paths from this file's location so the app works from any working directory.
 # DB_PATH can be overridden (e.g. tests point it at a temporary database).
@@ -112,7 +115,7 @@ def init_db():
         _add_missing_columns(conn)
         _migrate_data(conn)
 
-    print(f"Database initialized successfully at {db_path}")
+    logger.info("Database initialized at %s", db_path)
 
 
 if __name__ == "__main__":

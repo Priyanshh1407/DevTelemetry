@@ -1,3 +1,4 @@
+import logging
 import os
 from dataclasses import dataclass
 from google import genai
@@ -6,6 +7,8 @@ from ai.prompts import build_guide_prompt, build_team_report_prompt
 from dotenv import load_dotenv
 
 load_dotenv()
+
+logger = logging.getLogger(__name__)
 
 model_id = "gemini-2.5-flash"
 
@@ -87,7 +90,7 @@ def generate_efficiency_guide(engineer_data, severity="moderate"):
     except Exception as e:
         # 1. Handle Rate Limits Gracefully (typed check; the SDK has already retried with backoff)
         if isinstance(e, errors.APIError) and e.code == 429:
-            print("API Rate Limit Hit. Deploying fallback runbook...")
+            logger.warning("Gemini rate limit hit; serving the fallback runbook")
             return GuideResult(source="rate_limited", tasks=[
                 {"title": "System Notice: API Rate Limit", "desc": "Personalized generation is paused due to Gemini API limits. Showing standard procedures."},
                 {"title": "Audit Token Looping", "desc": "Check agent logs for repetitive, failing task loops."},
@@ -96,7 +99,7 @@ def generate_efficiency_guide(engineer_data, severity="moderate"):
             ])
 
         # 2. Handle Total API Failure (e.g., No Internet, no API key)
-        print(f"API Error: {type(e).__name__}: {e}")
+        logger.error("Gemini guide generation failed (%s): %s", type(e).__name__, e)
         return GuideResult(source="unavailable", tasks=[
             {"title": "AI Service Offline", "desc": "Unable to connect to the intelligence engine."},
             {"title": "Manual Intervention", "desc": "Please review the raw telemetry metrics directly."}
@@ -113,5 +116,5 @@ def generate_team_report(team_summary):
         ).text.replace('**', '')
     except Exception as e:
         # Previously swallowed silently; log it like generate_efficiency_guide does.
-        print(f"Team report API Error: {type(e).__name__}: {e}")
+        logger.error("Gemini team report failed (%s): %s", type(e).__name__, e)
         return "Error generating team report: System Offline." 

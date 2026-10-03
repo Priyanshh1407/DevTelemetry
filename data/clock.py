@@ -10,6 +10,7 @@ slot is sent at most once even if this and the GitHub cron both run. It replaces
 loop, which compared the server's local clock to the saved time, ignored Biweekly/Monthly,
 and kept "already ran today" only in memory.
 """
+import logging
 import os
 import sys
 import time
@@ -52,4 +53,5 @@ def run_scheduler():
 if __name__ == "__main__":
     # Ensure stdout can print emojis on Windows consoles
     sys.stdout.reconfigure(encoding="utf-8")
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
     run_scheduler()
