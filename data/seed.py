@@ -92,11 +92,17 @@ def daily_metrics(rng, persona, day):
     sessions = max(1, round(rng.gauss(persona["sessions"] * (1 if weekday_factor == 1 else 0.5), 1.0)))
     compacts = sum(rng.random() < persona["compact_rate"] for _ in range(sessions))  # binomial(sessions, rate)
 
+    # Split the day's prompt tokens the way Anthropic's usage object reports them:
+    # cache reads, cache writes, and the uncached rest (input_tokens).
+    output_tokens = int(prompt_tokens * persona["output_ratio"] * rng.uniform(0.8, 1.2))
+    cache_read = int(prompt_tokens * cache_hit)
+    cache_write = min(int(prompt_tokens * persona["write_ratio"] * rng.uniform(0.8, 1.2)), prompt_tokens - cache_read)
+
     return {
-        "input_tokens": prompt_tokens,  # includes cache reads (see core/pricing.py assumptions)
-        "output_tokens": int(prompt_tokens * persona["output_ratio"] * rng.uniform(0.8, 1.2)),
-        "cache_read_tokens": int(prompt_tokens * cache_hit),
-        "cache_write_tokens": int(prompt_tokens * persona["write_ratio"] * rng.uniform(0.8, 1.2)),
+        "input_tokens": prompt_tokens - cache_read - cache_write,  # uncached only
+        "output_tokens": output_tokens,
+        "cache_read_tokens": cache_read,
+        "cache_write_tokens": cache_write,
         "model_mix": {"opus_pct": opus_pct, "sonnet_pct": sonnet_pct, "haiku_pct": haiku_pct},
         "session_count": sessions,
         "compact_uses": compacts,

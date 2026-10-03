@@ -49,6 +49,12 @@ CREATE TABLE IF NOT EXISTS alert_settings (
 -- Insert default settings if the table is empty
 INSERT OR IGNORE INTO alert_settings (id, frequency, day, time) VALUES (1, 'Weekly', 'Friday', '17:00');
 
+-- Data-format markers used by init_db() migrations (core/db.py), e.g. token_semantics, scoring_version.
+CREATE TABLE IF NOT EXISTS schema_meta (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+);
+
 -- One row per alert dispatch (manual or scheduled). Replaces in-process locks so the
 -- guarantees hold across restarts and processes.
 CREATE TABLE IF NOT EXISTS dispatch_runs (

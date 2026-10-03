@@ -56,6 +56,45 @@ def _add_missing_columns(conn):
             conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
 
 
+def _set_meta(conn, key, value):
+    conn.execute("INSERT INTO schema_meta (key, value) VALUES (?, ?) "
+                 "ON CONFLICT(key) DO UPDATE SET value = excluded.value", (key, str(value)))
+
+
+def _rescore_all(conn):
+    """Recomputes every stored efficiency score with the current formula."""
+    from core.scorer import score_history  # local import: core.scorer has no DB dependency
+
+    user_ids = [r["user_id"] for r in conn.execute("SELECT DISTINCT user_id FROM usage_metrics")]
+    for user_id in user_ids:
+        days = [dict(r) for r in conn.execute(
+            "SELECT * FROM usage_metrics WHERE user_id = ? ORDER BY date", (user_id,))]
+        for day, score in zip(days, score_history(days), strict=True):
+            conn.execute("UPDATE usage_metrics SET efficiency_score = ? WHERE id = ?", (score, day["id"]))
+
+
+def _migrate_data(conn):
+    """One-time data conversions, tracked in schema_meta so each runs exactly once.
+
+    Runs inside init_db's transaction: either the whole migration applies or none of it.
+    """
+    from core.scorer import SCORING_VERSION
+
+    meta = dict(conn.execute("SELECT key, value FROM schema_meta").fetchall())
+
+    if meta.get("token_semantics") != "anthropic":
+        # Before ML-03a, input_tokens INCLUDED cache reads. Anthropic's usage object (and now this
+        # schema) counts only uncached tokens there. Cost is unaffected: it already billed the
+        # uncached part as input - cache_read, which is exactly the new input_tokens.
+        conn.execute("UPDATE usage_metrics SET input_tokens = MAX(input_tokens - cache_read_tokens, 0)")
+        _set_meta(conn, "token_semantics", "anthropic")
+        meta["scoring_version"] = None  # the hit ratio changed, so scores must be recomputed
+
+    if meta.get("scoring_version") != str(SCORING_VERSION):
+        _rescore_all(conn)
+        _set_meta(conn, "scoring_version", SCORING_VERSION)
+
+
 def init_db():
     """
     Initializes the database by running the schema.sql file.
@@ -71,6 +110,7 @@ def init_db():
         # executescript allows us to run multiple SQL commands at once
         conn.executescript(schema_script)
         _add_missing_columns(conn)
+        _migrate_data(conn)
 
     print(f"Database initialized successfully at {db_path}")
 

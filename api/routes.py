@@ -10,6 +10,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from data.alert_worker import overall_status, run_weekly_telemetry_check
 from api.security import require_admin
 from core.severity import severity_for_rank
+from core.scorer import cache_hit_ratio, total_prompt_tokens
 from core.queries import latest_day_rows, latest_metrics_for_user, without_pii
 from core.dispatch import (DispatchBusy, DispatchCoolingDown, SlotAlreadyDispatched, finish_run, get_run,
                            start_run)
@@ -43,7 +44,7 @@ def get_leaderboard():
 
         # 3. One window query for trends (no per-engineer queries): the latest day plus the 7 before it
         window = conn.execute("""
-            SELECT user_id, date, efficiency_score, input_tokens
+            SELECT user_id, date, efficiency_score, input_tokens, cache_read_tokens, cache_write_tokens
             FROM usage_metrics
             WHERE date BETWEEN date(?, '-7 days') AND ?
             ORDER BY date ASC
@@ -51,7 +52,7 @@ def get_leaderboard():
 
     history = {}
     for r in window:
-        history.setdefault(r["user_id"], []).append(r)
+        history.setdefault(r["user_id"], []).append(dict(r))
 
     for row in board:
         days = history.get(row["user_id"], [])
@@ -59,8 +60,8 @@ def get_leaderboard():
         # Latest score vs. the average of the previous 7 days; None when there is no history yet.
         row["score_change_7d"] = (round(row["efficiency_score"] - sum(previous) / len(previous), 2)
                                   if previous else None)
-        # Last 7 days of prompt tokens (oldest first) for the dashboard's activity sparkline
-        row["recent_activity"] = [d["input_tokens"] for d in days][-7:]
+        # Last 7 days of total prompt tokens (oldest first) for the dashboard's activity sparkline
+        row["recent_activity"] = [total_prompt_tokens(d) for d in days][-7:]
     return board
 
 @router.get("/trends")
@@ -309,9 +310,7 @@ def get_engineer_details(user_id: str):
         for r in rows:
             h_dict = dict(r)
             # calculate cache ratio for this record
-            input_toks = h_dict.get("input_tokens") or 0
-            cache_read = h_dict.get("cache_read_tokens") or 0
-            h_dict["cache_ratio"] = round(cache_read / input_toks, 4) if input_toks > 0 else 0.0
+            h_dict["cache_ratio"] = round(cache_hit_ratio(h_dict), 4)
             history.append(h_dict)
             
         if not history:
