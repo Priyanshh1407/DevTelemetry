@@ -57,3 +57,18 @@ describe('EngineerDetail page (TEST-01b)', { timeout: 30000 }, () => {
         expect(await screen.findByText('Engineer not found')).toBeInTheDocument();
     });
 });
+
+describe('EngineerDetail for someone not on today\'s leaderboard (BUG-08)', { timeout: 30000 }, () => {
+    it('says "Not ranked today" instead of inventing a rank', async () => {
+        vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+            ok: true, status: 200,
+            json: () => Promise.resolve({ ...DETAILS, current_rank: null, current_severity: null }),
+        }));
+
+        await renderDetail();
+
+        expect(await screen.findByText(/Not ranked today/)).toBeInTheDocument();
+        expect(screen.queryByText(/Rank #/)).not.toBeInTheDocument();
+        expect(screen.getByText(/no data today/i)).toBeInTheDocument();
+    });
+});

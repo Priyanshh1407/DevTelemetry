@@ -147,7 +147,7 @@ export default function EngineerDetail() {
                     </button>
 
                     <Link
-                        to={`/runbook/${current_severity}/${userId}`}
+                        to={`/runbook/${current_severity || "moderate"}/${userId}`}
                         className="inline-flex items-center justify-center gap-2 bg-primary text-on-primary-container px-5 py-2.5 rounded-lg font-mono text-xs font-bold hover:brightness-110 active:scale-[0.98] transition-all"
                     >
                         <BookOpen size={16} /> VIEW PERSONAL OPTIMIZATION RUNBOOK
@@ -178,10 +178,12 @@ export default function EngineerDetail() {
                                 </div>
                                 <div className="flex flex-wrap gap-2 mt-1">
                                     <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-surface-container border border-outline-variant font-mono text-xs text-on-surface">
-                                        <Award size={12} className="text-secondary" /> Rank #{current_rank}
+                                        <Award size={12} className="text-secondary" />
+                                        {current_rank ? `Rank #${current_rank}` : "Not ranked today"}
                                     </span>
                                     <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full border font-mono text-xs font-bold uppercase tracking-wider ${sevClass.bg}`}>
-                                        <span className={`w-1.5 h-1.5 rounded-full ${sevClass.dot}`} /> {current_severity} severity
+                                        <span className={`w-1.5 h-1.5 rounded-full ${sevClass.dot}`} />
+                                        {current_severity ? `${current_severity} severity` : "No data today"}
                                     </span>
                                 </div>
                             </div>

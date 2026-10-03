@@ -10,7 +10,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from data.alert_worker import overall_status, run_weekly_telemetry_check
 from api.security import require_admin
 from core.severity import severity_for_rank
-from core.queries import without_pii
+from core.queries import latest_day_rows, without_pii
 from core.dispatch import (DispatchBusy, DispatchCoolingDown, SlotAlreadyDispatched, finish_run, get_run,
                            start_run)
 from core.schedule import due_slot
@@ -296,29 +296,15 @@ def get_engineer_details(user_id: str):
         if not engineer:
             raise HTTPException(status_code=404, detail="Engineer not found")
         
-        # 2. Get the latest date in the DB to calculate rank
-        cursor.execute("SELECT MAX(date) as latest FROM usage_metrics")
-        latest_date = cursor.fetchone()["latest"]
-        
-        current_rank = 1
-        total_team_size = 10
-        current_severity = "moderate"
-        
-        if latest_date:
-            cursor.execute("""
-                SELECT user_id, efficiency_score 
-                FROM usage_metrics 
-                WHERE date = ? 
-                ORDER BY efficiency_score DESC
-            """, (latest_date,))
-            leaderboard = cursor.fetchall()
-            total_team_size = len(leaderboard)
-            for idx, row in enumerate(leaderboard):
-                if row["user_id"] == user_id:
-                    current_rank = idx + 1
-                    break
-            
+        # 2. Rank on the latest day, from the same query the leaderboard and alert worker use.
+        #    Someone without a row that day is not ranked (this used to default to "#1 / low").
+        ranked_ids = [row["user_id"] for row in latest_day_rows(conn)]
+        total_team_size = len(ranked_ids)
+        if user_id in ranked_ids:
+            current_rank = ranked_ids.index(user_id) + 1
             current_severity = severity_for_rank(current_rank, total_team_size)
+        else:
+            current_rank = current_severity = None
         
         # 3. Fetch the engineer's 30 most recent days, returned oldest-first
         cursor.execute("""

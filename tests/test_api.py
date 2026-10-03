@@ -320,3 +320,25 @@ def test_llm_prompts_contain_no_name_or_email(client, seeded_db, mock_gemini, pa
     assert "Engineer 04" not in prompt
     assert "@example.com" not in prompt
     assert "efficiency_score" in prompt  # the metrics are still there
+
+
+# ── BUG-08: an engineer missing from the latest day is not "Rank #1" ───────
+
+def test_engineer_absent_from_latest_day_is_not_ranked(client, seeded_db):
+    from core.db import db_session
+
+    # eng-00 is the worst engineer; remove their latest-day row (e.g. a missed sync).
+    with db_session() as conn:
+        conn.execute("DELETE FROM usage_metrics WHERE user_id = ? AND date = ?", (engineer_id(0), LATEST_DATE))
+
+    data = client.get(f"/api/engineer/{engineer_id(0)}/details").json()
+
+    assert data["current_rank"] is None        # was 1: the default when the loop didn't find them
+    assert data["current_severity"] is None    # was "low"
+    assert len(data["history"]) == 2           # their history is still shown
+
+
+def test_ranked_engineer_still_gets_rank_and_severity(client, seeded_db):
+    data = client.get(f"/api/engineer/{engineer_id(0)}/details").json()
+
+    assert (data["current_rank"], data["current_severity"]) == (10, "critical")
