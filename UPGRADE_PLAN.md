@@ -59,14 +59,14 @@ Risk / rollback:
 Goal: Close the public abuse path, make the AI feature work on the deployed site, and make cost a real computation.
 Why this order: SEC-01 and BUG-01 affect the live demo today. ML-01 changes data that Phase 2’s persona generator and UPG-02 build on. ERR-01, CONC-01, BUG-02, and BUG-03 are small, HIGH-risk, and touch the same files.
 Items:
-- [ ] SEC-01 Admin-token dependency on `POST /settings` and `POST /trigger-alerts`, plus a server-side cooldown on trigger; restrict CORS to `FRONTEND_URL`; set `PRODUCTION_MODE=false` on the demo and switch synthetic emails to `@example.com` — `api/main.py`, `api/routes.py`, `render.yaml`, `data/seed.py` — M (**touches auth: wait for “go”**)
-- [ ] BUG-01 Shared `frontend/src/api.js` (`API_BASE` + `getJSON` with `res.ok` check) used by all pages; error state in Runbook — `Runbook.jsx`, `Dashboard.jsx`, `EngineerDetail.jsx` — S
-- [ ] ML-01 `core/pricing.py` (per-model token prices with source URL and date) and `estimate_cost()`; seed uses it; unit tests with hand-computed values — `core/pricing.py`, `data/seed.py`, `tests/test_pricing.py` — M
-- [ ] ERR-01 Lazy Gemini client; app boots and non-AI endpoints work without `GEMINI_API_KEY` — `ai/guide_generator.py` — S
-- [ ] CONC-01 Runbook route no longer blocks the event loop (`def`, or async client) + LLM call timeout — `api/routes.py`, `ai/guide_generator.py` — S
-- [ ] BUG-02 Generator returns a typed result; only successes are cached; cache key includes latest data date — `ai/guide_generator.py`, `api/routes.py` — S
-- [ ] TEST-02 Read SMTP/Slack config at call time; fixtures clear real credentials (needed before BUG-03 tests touch senders) — `notifications/*`, `tests/conftest.py` — S
-- [ ] BUG-03 Senders return results; worker aggregates `{sent, failed}`; endpoint returns accurate status; UI checks `res.ok` and shows counts; no `str(e)` to clients — `notifications/*`, `data/alert_worker.py`, `api/routes.py`, `Dashboard.jsx` — S–M
+- [x] SEC-01 Admin-token dependency on `POST /settings` and `POST /trigger-alerts`, plus a server-side cooldown on trigger; restrict CORS to `FRONTEND_URL`; set `PRODUCTION_MODE=false` on the demo and switch synthetic emails to `@example.com` — `api/main.py`, `api/routes.py`, `render.yaml`, `data/seed.py` — M (**touches auth: wait for “go”**)
+- [x] BUG-01 Shared `frontend/src/api.js` (`API_BASE` + `getJSON` with `res.ok` check) used by all pages; error state in Runbook — `Runbook.jsx`, `Dashboard.jsx`, `EngineerDetail.jsx` — S
+- [x] ML-01 `core/pricing.py` (per-model token prices with source URL and date) and `estimate_cost()`; seed uses it; unit tests with hand-computed values — `core/pricing.py`, `data/seed.py`, `tests/test_pricing.py` — M
+- [x] ERR-01 Lazy Gemini client; app boots and non-AI endpoints work without `GEMINI_API_KEY` — `ai/guide_generator.py` — S
+- [x] CONC-01 Runbook route no longer blocks the event loop (`def`, or async client) + LLM call timeout — `api/routes.py`, `ai/guide_generator.py` — S
+- [x] BUG-02 Generator returns a typed result; only successes are cached; cache key includes latest data date — `ai/guide_generator.py`, `api/routes.py` — S
+- [x] TEST-02 Read SMTP/Slack config at call time; fixtures clear real credentials (needed before BUG-03 tests touch senders) — `notifications/*`, `tests/conftest.py` — S
+- [x] BUG-03 Senders return results; worker aggregates `{sent, failed}`; endpoint returns accurate status; UI checks `res.ok` and shows counts; no `str(e)` to clients — `notifications/*`, `data/alert_worker.py`, `api/routes.py`, `Dashboard.jsx` — S–M
 Acceptance criteria:
 - `POST /api/trigger-alerts` and `POST /api/settings` without the header → 401 (test).
 - No `127.0.0.1` in `frontend/src` outside `api.js`’s dev default (`grep`).
