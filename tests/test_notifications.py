@@ -101,3 +101,20 @@ def test_slack_sender_returns_sent_failed_skipped(monkeypatch):
 
     urlopen.side_effect = slack_post.urllib.error.URLError("unreachable")
     assert slack_post.send_slack_summary([dict(DEV, rank=1)], 50.0, 10.0) == "failed"
+
+
+# ── SEC-02: untrusted text is escaped in email HTML ─────────────────────────
+
+def test_llm_summary_is_escaped_in_manager_digest():
+    html = email_report.render_email_html(top_engineers=[], bottom_engineers=[], average_score=50.0,
+                                          total_cost=10.0, ai_summary='<img src=x onerror="alert(1)">')
+
+    assert "<img src=x" not in html
+    assert "&lt;img src=x" in html
+
+
+def test_engineer_name_is_escaped_in_developer_alert():
+    html = email_report.render_developer_email(dict(DEV, name="<script>steal()</script>"))
+
+    assert "<script>steal()" not in html
+    assert "&lt;script&gt;steal()" in html

@@ -2,13 +2,18 @@ import os
 import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
-from jinja2 import Environment, FileSystemLoader
+from jinja2 import Environment, FileSystemLoader, select_autoescape
 from dotenv import load_dotenv
 
 load_dotenv()
 
 # Email templates live in frontend/; resolve from this file, not the working directory.
 TEMPLATE_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "frontend")
+
+def _template_env():
+    # Autoescape: names and the LLM-written summary are untrusted text inside HTML emails.
+    return Environment(loader=FileSystemLoader(TEMPLATE_DIR), autoescape=select_autoescape(["html"]))
+
 
 SMTP_SERVER = "smtp.gmail.com"
 SMTP_PORT = 587
@@ -64,7 +69,7 @@ SEVERITY_THEMES = {
 def render_email_html(top_engineers, bottom_engineers, average_score, total_cost, ai_summary):
     """Loads the HTML template from the frontend folder and injects live data."""
     # Ensure 'email_template.html' is saved directly inside your 'frontend' folder
-    env = Environment(loader=FileSystemLoader(TEMPLATE_DIR))
+    env = _template_env()
     template = env.get_template('email_template.html')
     
     return template.render(
@@ -79,7 +84,7 @@ def render_email_html(top_engineers, bottom_engineers, average_score, total_cost
 
 def render_developer_email(dev_data):
     """Renders a personalized alert email for an individual developer."""
-    env = Environment(loader=FileSystemLoader(TEMPLATE_DIR))
+    env = _template_env()
     template = env.get_template('dev_alert_template.html')
     
     severity = dev_data["severity"]
