@@ -34,6 +34,9 @@ function CustomTooltip({ active, payload, label }) {
     );
 }
 
+// The schedule is saved in the admin's own IANA timezone.
+const BROWSER_TZ = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+
 // ─── Trend + activity helpers ─────────────────────────────────────────────────
 // Changes smaller than this (in score points) are shown as flat.
 const TREND_EPSILON = 0.05;
@@ -78,6 +81,7 @@ export default function Dashboard() {
     const [alertFreq, setAlertFreq] = useState("Weekly");
     const [alertDay, setAlertDay] = useState("Friday");
     const [alertTime, setAlertTime] = useState("17:00");
+    const [alertTz, setAlertTz] = useState("UTC");
     const [isTestingAlerts, setIsTestingAlerts] = useState(false);
     const [showToast, setShowToast] = useState(false);
     const [toastMessage, setToastMessage] = useState("");
@@ -119,6 +123,7 @@ export default function Dashboard() {
                 setAlertFreq(rawSettings.frequency);
                 setAlertDay(rawSettings.day);
                 setAlertTime(rawSettings.time);
+                setAlertTz(rawSettings.timezone || "UTC");
 
                 setTrendData(formattedTrends);
                 setTeam(formattedBoard);
@@ -140,7 +145,9 @@ export default function Dashboard() {
 
     const handleSaveSchedule = async () => {
         try {
-            await adminPost("/api/settings", { frequency: alertFreq, day: alertDay, time: alertTime });
+            // Times are wall-clock in the admin's own timezone (the server used to compare against its UTC clock).
+            await adminPost("/api/settings", { frequency: alertFreq, day: alertDay, time: alertTime, timezone: BROWSER_TZ });
+            setAlertTz(BROWSER_TZ);
             setToastMessage("Alert schedule saved successfully.");
         } catch (e) {
             // Previously the success toast showed even when the save failed.
@@ -457,6 +464,12 @@ export default function Dashboard() {
                             onChange={(e) => setAlertTime(e.target.value)}
                             className="bg-surface-container-high border border-outline-variant rounded-lg px-3 py-2 text-sm font-mono text-on-surface focus:outline-none focus:border-primary cursor-pointer"
                         />
+                        <span
+                            className="font-mono text-[11px] text-on-surface-variant"
+                            title={alertTz === BROWSER_TZ ? "Schedule timezone" : `Saving will switch the schedule to ${BROWSER_TZ}`}
+                        >
+                            {alertTz}
+                        </span>
 
                         <button
                             onClick={handleSaveSchedule}

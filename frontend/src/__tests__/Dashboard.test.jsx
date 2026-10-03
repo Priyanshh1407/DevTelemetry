@@ -40,3 +40,30 @@ describe('Dashboard leaderboard trends (BUG-07)', { timeout: 30000 }, () => {
         expect(screen.getByText('0.0').className).not.toMatch(/emerald|rose/);
     });
 });
+
+describe('Dashboard alert schedule timezone (ARCH-02)', { timeout: 30000 }, () => {
+    it('shows the saved timezone and saves in the browser timezone', async () => {
+        const { fireEvent } = await import('@testing-library/react');
+        const posts = [];
+        vi.stubGlobal('fetch', vi.fn((url, options = {}) => {
+            if (options.method === 'POST') {
+                posts.push(JSON.parse(options.body));
+                return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({ status: 'success' }) });
+            }
+            const body = url.endsWith('/api/leaderboard') ? LEADERBOARD
+                : url.endsWith('/api/trends') ? [{ date: '2026-03-31', avg_score: 65, total_cost: 36.5 }]
+                : { frequency: 'Weekly', day: 'Friday', time: '17:00', timezone: 'Pacific/Auckland' };
+            return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(body) });
+        }));
+        vi.stubGlobal('prompt', () => 'admin-token');
+
+        const { default: Dashboard } = await import('../pages/Dashboard');
+        render(<MemoryRouter><Dashboard /></MemoryRouter>);
+
+        expect(await screen.findByText('Pacific/Auckland')).toBeInTheDocument();
+        fireEvent.click(screen.getByText('SAVE SYNC'));
+        await vi.waitFor(() => expect(posts).toHaveLength(1));
+
+        expect(posts[0].timezone).toBe(Intl.DateTimeFormat().resolvedOptions().timeZone);
+    });
+});

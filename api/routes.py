@@ -1,15 +1,19 @@
-from fastapi import APIRouter, BackgroundTasks, HTTPException, Depends
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Depends, Response
 from core.db import db_session
 from ai.guide_generator import generate_efficiency_guide
 from typing import Literal
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 import asyncio
 import logging
 import os
+from datetime import datetime, timedelta, timezone
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from data.alert_worker import overall_status, run_weekly_telemetry_check
 from api.security import require_admin
 from core.severity import severity_for_rank
-from core.dispatch import DispatchBusy, DispatchCoolingDown, finish_run, get_run, start_run
+from core.dispatch import (DispatchBusy, DispatchCoolingDown, SlotAlreadyDispatched, finish_run, get_run,
+                           start_run)
+from core.schedule import due_slot
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -115,32 +119,47 @@ Weekday = Literal["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Satur
 Severity = Literal["low", "moderate", "critical"]
 
 
+DEFAULT_SCHEDULE = {"frequency": "Weekly", "day": "Friday", "time": "17:00", "timezone": "UTC"}
+
+
 class AlertSchedule(BaseModel):
     # Only frequencies the scheduler actually implements (Biweekly/Monthly never fired anywhere).
     frequency: Literal["Daily", "Weekly"]
     day: Weekday  # ignored for Daily
     time: str = Field(pattern=r"^([01]\d|2[0-3]):[0-5]\d$", description="24-hour HH:MM")
+    # Wall-clock times are in this IANA zone. Defaults to UTC for clients that don't send it.
+    timezone: str = "UTC"
+
+    @field_validator("timezone")
+    @classmethod
+    def _known_timezone(cls, value):
+        try:
+            ZoneInfo(value)
+        except (ZoneInfoNotFoundError, ValueError):
+            raise ValueError(f"Unknown IANA timezone: {value!r}")
+        return value
+
+
+def _read_schedule():
+    with db_session() as conn:
+        row = conn.execute("SELECT frequency, day, time, timezone FROM alert_settings WHERE id = 1").fetchone()
+    return dict(row) if row else dict(DEFAULT_SCHEDULE)
+
 
 @router.get("/settings")
 def get_alert_settings():
-    with db_session() as conn:
-        cursor = conn.cursor()
-        cursor.execute("SELECT frequency, day, time FROM alert_settings WHERE id = 1")
-        settings = cursor.fetchone()
-        if settings:
-            return dict(settings)
-        return {"frequency": "Weekly", "day": "Friday", "time": "17:00"}
+    return _read_schedule()
+
 
 @router.post("/settings", dependencies=[Depends(require_admin)])
 def update_alert_settings(schedule: AlertSchedule):
     with db_session() as conn:
-        cursor = conn.cursor()
-        cursor.execute("""
-            UPDATE alert_settings 
-            SET frequency = ?, day = ?, time = ? 
-            WHERE id = 1
-        """, (schedule.frequency, schedule.day, schedule.time))
-        conn.commit()
+        # Upsert: also works if the singleton row was ever deleted.
+        conn.execute("""
+            INSERT INTO alert_settings (id, frequency, day, time, timezone) VALUES (1, ?, ?, ?, ?)
+            ON CONFLICT(id) DO UPDATE SET frequency = excluded.frequency, day = excluded.day,
+                                          time = excluded.time, timezone = excluded.timezone
+        """, (schedule.frequency, schedule.day, schedule.time, schedule.timezone))
     return {"status": "success", "message": "Schedule updated"}
 
 def _dispatch_message(summary):
@@ -216,6 +235,54 @@ def get_dispatch_run(run_id: int):
         raise HTTPException(status_code=404, detail="Dispatch run not found")
     run["message"] = _describe_run(run)
     return run
+
+
+def _utcnow():
+    return datetime.now(timezone.utc)
+
+
+def _schedule_grace():
+    # GitHub's cron can start runs late, and Render's free tier needs ~1 min to wake up.
+    return timedelta(minutes=int(os.getenv("SCHEDULE_GRACE_MINUTES", "120")))
+
+
+def start_scheduled_dispatch():
+    """The scheduling decision, shared by the tick endpoint and data/clock.py.
+
+    Returns {"status": ...}; when it is "started", the caller must run run_dispatch(run_id).
+    Safe to call any number of times: each slot is sent at most once (UNIQUE slot).
+    """
+    schedule = _read_schedule()
+    slot = due_slot(schedule["frequency"], schedule["day"], schedule["time"], schedule["timezone"],
+                    now_utc=_utcnow(), grace=_schedule_grace())
+    if slot is None:
+        return {"status": "not_due"}
+    slot_key = slot.isoformat()
+    if not _has_usage_data():
+        return {"status": "no_data", "slot": slot_key}
+    try:
+        # Scheduled runs skip the manual cooldown: the per-slot uniqueness is their guard.
+        run_id = start_run("schedule", slot=slot_key)
+    except SlotAlreadyDispatched:
+        return {"status": "already_sent", "slot": slot_key}
+    except DispatchBusy:
+        # A manual dispatch is running. The slot wasn't consumed, so the next tick retries.
+        return {"status": "busy", "slot": slot_key}
+    return {"status": "started", "run_id": run_id, "slot": slot_key, "status_url": f"/api/dispatch-runs/{run_id}"}
+
+
+@router.post("/scheduled-tick", dependencies=[Depends(require_admin)])
+def scheduled_tick(background_tasks: BackgroundTasks, response: Response):
+    """Called every ~15 minutes by an external cron (.github/workflows/scheduled-alerts.yml).
+
+    Starts the scheduled dispatch if a slot is due. "Nothing to do" outcomes answer 200 so
+    the cron job doesn't report failures for normal ticks; a started dispatch answers 202.
+    """
+    result = start_scheduled_dispatch()
+    if result["status"] == "started":
+        background_tasks.add_task(run_dispatch, result["run_id"])
+        response.status_code = 202
+    return result
 
 @router.get("/engineer/{user_id}/details")
 def get_engineer_details(user_id: str):

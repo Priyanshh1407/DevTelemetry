@@ -124,7 +124,7 @@ def test_details_history_averages_and_patterns(client, seeded_db, query):
 # ── /api/settings ───────────────────────────────────────────────────────────
 
 def test_settings_default_row_from_schema(client):
-    assert client.get("/api/settings").json() == {"frequency": "Weekly", "day": "Friday", "time": "17:00"}
+    assert client.get("/api/settings").json() == {"frequency": "Weekly", "day": "Friday", "time": "17:00", "timezone": "UTC"}
 
 
 def test_settings_falls_back_when_row_missing(client, empty_db):
@@ -135,7 +135,7 @@ def test_settings_falls_back_when_row_missing(client, empty_db):
     conn.commit()
     conn.close()
 
-    assert client.get("/api/settings").json() == {"frequency": "Weekly", "day": "Friday", "time": "17:00"}
+    assert client.get("/api/settings").json() == {"frequency": "Weekly", "day": "Friday", "time": "17:00", "timezone": "UTC"}
 
 
 def test_settings_update_round_trip(client, admin_headers):
@@ -145,7 +145,7 @@ def test_settings_update_round_trip(client, admin_headers):
 
     assert response.status_code == 200
     assert response.json() == {"status": "success", "message": "Schedule updated"}
-    assert client.get("/api/settings").json() == new
+    assert client.get("/api/settings").json() == {**new, "timezone": "UTC"}  # timezone added in ARCH-02
 
 
 def test_settings_missing_field_is_rejected(client, admin_headers):
@@ -174,7 +174,7 @@ def test_settings_each_invalid_field_is_rejected_and_not_saved(client, admin_hea
     response = client.post("/api/settings", json=payload, headers=admin_headers)
 
     assert response.status_code == 422
-    assert client.get("/api/settings").json() == {"frequency": "Weekly", "day": "Friday", "time": "17:00"}
+    assert client.get("/api/settings").json() == {"frequency": "Weekly", "day": "Friday", "time": "17:00", "timezone": "UTC"}
 
 
 @pytest.mark.parametrize("payload", [
