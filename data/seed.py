@@ -4,6 +4,7 @@ Usage:
     python data/seed.py                 # add data (idempotent: same engineers, existing days kept)
     python data/seed.py --reset         # wipe engineers/usage/guides first (keeps alert settings)
     python data/seed.py --seed 7 --days 60 --engineers 12
+    python data/seed.py --if-empty      # container start: seed only a fresh database
 """
 import argparse
 import random
@@ -103,6 +104,12 @@ def daily_metrics(rng, persona, day):
     }
 
 
+def has_usage_data():
+    init_db()
+    with db_session() as conn:
+        return conn.execute("SELECT 1 FROM usage_metrics LIMIT 1").fetchone() is not None
+
+
 def reset_data(conn):
     """Removes generated data. Alert settings are configuration, not data, so they stay."""
     for table in ("ai_guides", "usage_metrics", "engineers"):
@@ -173,7 +180,12 @@ def main(argv=None):
     parser.add_argument("--seed", type=int, default=DEFAULT_SEED, help="RNG seed (same seed = same data)")
     parser.add_argument("--days", type=int, default=30)
     parser.add_argument("--engineers", type=int, default=10)
+    parser.add_argument("--if-empty", action="store_true",
+                        help="do nothing if the database already has usage data (for container start)")
     args = parser.parse_args(argv)
+    if args.if_empty and has_usage_data():
+        print("Database already has usage data; skipping seed.")
+        return
     generate_historical_data(days_back=args.days, num_engineers=args.engineers, seed=args.seed, reset=args.reset)
 
 
