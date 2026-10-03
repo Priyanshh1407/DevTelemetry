@@ -201,3 +201,13 @@ def test_slack_unexpected_error_does_not_crash_the_dispatch(slack_webhook, monke
     monkeypatch.setattr(slack_post.urllib.request, "urlopen", MagicMock(side_effect=ValueError("bad url")))
 
     assert slack_post.send_slack_summary([dict(DEV, rank=1)], 50.0, 10.0) == "failed"
+
+
+def test_rank_colour_follows_the_severity_tier_not_its_own_rank_rule():
+    # The template used `rank <= 5` itself: a hidden second copy of the tier rule.
+    colours = {}
+    for tier in ("low", "moderate", "critical"):
+        html = email_report.render_developer_email(dict(DEV, rank=3, severity=tier))
+        colours[tier] = [c for c in ("#16a34a", "#d97706", "#dc2626") if f"color: {c}" in html]
+
+    assert colours == {"low": ["#16a34a"], "moderate": ["#d97706"], "critical": ["#dc2626"]}
