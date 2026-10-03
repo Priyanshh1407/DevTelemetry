@@ -41,29 +41,65 @@ def make_engineers(rng, fake, num_engineers):
     return engineers
 
 
-def daily_metrics(rng):
-    """One engineer-day of usage."""
-    input_tokens = rng.randint(50000, 400000)
-    cache_read_tokens = rng.randint(0, int(input_tokens * 0.9))
+# ── Persona model ───────────────────────────────────────────────────────────
+# Each engineer has stable habits (drawn once) and each day adds noise around them, so
+# rankings and "waste patterns" persist the way real habits do. Calibrated against
+# https://code.claude.com/docs/en/costs: ~$13 per developer per active day on average,
+# below $30 per active day for 90% of users. Claude Code traffic is dominated by cache
+# reads (each request re-sends the conversation), hence high hit ratios and large volumes.
+# These are simulation assumptions, not measurements.
 
-    # Model mix generation
-    opus_raw = rng.uniform(0.0, 0.4)
-    sonnet_raw = rng.uniform(0.3, 0.8)
-    haiku_raw = rng.uniform(0.1, 0.5)
-    total = opus_raw + sonnet_raw + haiku_raw
-    opus_pct = round(opus_raw / total, 2)
-    sonnet_pct = round(sonnet_raw / total, 2)
+# Median prompt tokens (incl. cache reads) per weekday. Tuned so the simulated weekday
+# mean cost lands near the $13 benchmark with ML-01's price table.
+BASE_DAILY_PROMPT_TOKENS = 9_000_000
+WEEKEND_ACTIVITY = 0.35  # weekends have rows, at reduced volume
+
+
+def make_persona(rng):
+    """Latent habits for one engineer."""
+    return {
+        "volume": rng.lognormvariate(0, 0.45),     # relative activity level
+        "cache_hit": rng.uniform(0.45, 0.93),      # share of prompt tokens served from cache
+        "opus_share": rng.uniform(0.05, 0.60),
+        "haiku_share": rng.uniform(0.03, 0.35),
+        "compact_rate": rng.uniform(0.0, 0.9),     # chance a session uses /compact
+        "sessions": rng.uniform(2.0, 7.0),         # mean sessions per day
+        "output_ratio": rng.uniform(0.006, 0.02),  # output tokens per prompt token
+        "write_ratio": rng.uniform(0.02, 0.06),    # cache-write tokens per prompt token
+        "commit_rate": rng.uniform(0.3, 2.0),      # commits per session
+    }
+
+
+def _clip(value, low, high):
+    return max(low, min(high, value))
+
+
+def daily_metrics(rng, persona, day):
+    """One engineer-day: the persona's habits plus day-to-day noise."""
+    weekday_factor = 1.0 if day.weekday() < 5 else WEEKEND_ACTIVITY
+    prompt_tokens = int(BASE_DAILY_PROMPT_TOKENS * persona["volume"] * weekday_factor * rng.lognormvariate(0, 0.3))
+    cache_hit = _clip(rng.gauss(persona["cache_hit"], 0.04), 0.0, 0.97)
+
+    # Model mix: persona shares jittered multiplicatively, then normalized and rounded so they sum to 1
+    sonnet_share = max(0.05, 1.0 - persona["opus_share"] - persona["haiku_share"])
+    raw = [s * rng.lognormvariate(0, 0.15) for s in (persona["opus_share"], sonnet_share, persona["haiku_share"])]
+    total = sum(raw)
+    opus_pct = round(raw[0] / total, 2)
+    sonnet_pct = round(raw[1] / total, 2)
     haiku_pct = round(1.0 - opus_pct - sonnet_pct, 2)
 
+    sessions = max(1, round(rng.gauss(persona["sessions"] * (1 if weekday_factor == 1 else 0.5), 1.0)))
+    compacts = sum(rng.random() < persona["compact_rate"] for _ in range(sessions))  # binomial(sessions, rate)
+
     return {
-        "input_tokens": input_tokens,
-        "output_tokens": rng.randint(10000, 80000),
-        "cache_read_tokens": cache_read_tokens,
-        "cache_write_tokens": rng.randint(5000, 50000),
+        "input_tokens": prompt_tokens,  # includes cache reads (see core/pricing.py assumptions)
+        "output_tokens": int(prompt_tokens * persona["output_ratio"] * rng.uniform(0.8, 1.2)),
+        "cache_read_tokens": int(prompt_tokens * cache_hit),
+        "cache_write_tokens": int(prompt_tokens * persona["write_ratio"] * rng.uniform(0.8, 1.2)),
         "model_mix": {"opus_pct": opus_pct, "sonnet_pct": sonnet_pct, "haiku_pct": haiku_pct},
-        "session_count": rng.randint(1, 8),
-        "compact_uses": rng.randint(0, 5),
-        "git_commits": rng.randint(0, 12),
+        "session_count": sessions,
+        "compact_uses": compacts,
+        "git_commits": max(0, round(sessions * persona["commit_rate"] * rng.uniform(0.5, 1.5))),
     }
 
 
@@ -82,6 +118,7 @@ def generate_historical_data(days_back=30, num_engineers=10, seed=DEFAULT_SEED, 
     fake = Faker()
     fake.seed_instance(seed)
     engineers = make_engineers(rng, fake, num_engineers)
+    personas = {eng["user_id"]: make_persona(rng) for eng in engineers}
     end_date = end_date or date.today()
 
     with get_db_connection() as conn:
@@ -95,10 +132,11 @@ def generate_historical_data(days_back=30, num_engineers=10, seed=DEFAULT_SEED, 
             )
 
         for day_offset in range(days_back):
-            current_date = (end_date - timedelta(days=days_back - day_offset - 1)).isoformat()
+            day = end_date - timedelta(days=days_back - day_offset - 1)
+            current_date = day.isoformat()
 
             for eng in engineers:
-                metrics = daily_metrics(rng)
+                metrics = daily_metrics(rng, personas[eng["user_id"]], day)
                 # Cost is derived from the usage above (was random.uniform(5, 30), unrelated to tokens)
                 metrics["estimated_cost_usd"] = round(estimate_cost(
                     input_tokens=metrics["input_tokens"],

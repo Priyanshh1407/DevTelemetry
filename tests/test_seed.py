@@ -51,3 +51,68 @@ def test_same_seed_produces_identical_data(tmp_path, monkeypatch):
 
     assert snapshot("a.db", seed=7) == snapshot("b.db", seed=7)
     assert snapshot("c.db", seed=7) != snapshot("d.db", seed=8)
+
+
+# ── ML-02: persona-based simulation ─────────────────────────────────────────
+
+def _simulated_rows(query, days=30, engineers=10, seed=42):
+    generate_historical_data(days_back=days, num_engineers=engineers, seed=seed,
+                             end_date=__import__("datetime").date(2026, 3, 31))
+    return query("SELECT * FROM usage_metrics ORDER BY date, user_id")
+
+
+def bottom2_stability(rows):
+    """Share of daily bottom-2 slots held by the two engineers with the lowest mean score."""
+    from collections import defaultdict
+    by_day, scores = defaultdict(list), defaultdict(list)
+    for r in rows:
+        by_day[r["date"]].append(r)
+        scores[r["user_id"]].append(r["efficiency_score"])
+    chronic = set(sorted(scores, key=lambda u: sum(scores[u]) / len(scores[u]))[:2])
+    hits = sum(len({r["user_id"] for r in sorted(day, key=lambda r: r["efficiency_score"])[:2]} & chronic)
+               for day in by_day.values())
+    return hits / (2 * len(by_day))
+
+
+def test_engineers_have_stable_habits(empty_db, query):
+    # Chance level for 10 engineers is 0.20; the old i.i.d. generator scored 0.27 on seed 42.
+    # Averaged over seeds so the assertion is about the model, not one lucky draw. A 30-seed
+    # sweep gave median 0.65: most of the remaining daily rank noise comes from the score's
+    # compact/sessions term (binomial ratio of 2-7 sessions), tracked as an ML-03 finding.
+    from core.db import get_db_connection
+
+    values = []
+    for seed in range(1, 6):
+        conn = get_db_connection()
+        conn.execute("DELETE FROM usage_metrics")
+        conn.execute("DELETE FROM engineers")
+        conn.commit()
+        conn.close()
+        values.append(bottom2_stability(_simulated_rows(query, seed=seed)))
+    mean = sum(values) / len(values)
+    print(f"bottom-2 stability per seed: {[round(v, 2) for v in values]}, mean {mean:.2f}")
+    assert mean >= 0.55
+    assert min(values) > 0.27  # every seed beats the old generator
+
+
+def test_weekday_cost_matches_published_claude_code_benchmark(empty_db, query):
+    # https://code.claude.com/docs/en/costs: ~$13 per developer per active day on average,
+    # below $30 per active day for 90% of users.
+    from datetime import date
+    rows = _simulated_rows(query, days=60, engineers=20)
+    weekday_costs = sorted(r["estimated_cost_usd"] for r in rows if date.fromisoformat(r["date"]).weekday() < 5)
+    mean = sum(weekday_costs) / len(weekday_costs)
+    p90 = weekday_costs[int(0.9 * len(weekday_costs))]
+    print(f"weekday cost mean ${mean:.2f}, p90 ${p90:.2f}")
+    assert 9 <= mean <= 17
+    assert p90 < 30
+
+
+def test_simulated_rows_are_internally_consistent(empty_db, query):
+    for r in _simulated_rows(query):
+        assert 0 <= r["cache_read_tokens"] <= r["input_tokens"]
+        assert abs(r["opus_pct"] + r["sonnet_pct"] + r["haiku_pct"] - 1.0) <= 0.011
+        assert 0 <= r["compact_uses"] <= r["session_count"]
+        assert r["session_count"] >= 1
+        assert min(r["output_tokens"], r["cache_write_tokens"], r["git_commits"]) >= 0
+        assert 0 <= r["efficiency_score"] <= 100
