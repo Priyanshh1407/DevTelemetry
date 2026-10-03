@@ -10,7 +10,7 @@ import {
     CheckCircle, Loader2, Mail
 } from "lucide-react";
 import Navbar from "../components/Navbar";
-import { adminPost, getJSON } from "../api";
+import { adminPost, getJSON, waitForDispatch } from "../api";
 
 // ─── Custom Tooltip ────────────────────────────────────────────────────────────
 function CustomTooltip({ active, payload, label }) {
@@ -154,9 +154,10 @@ export default function Dashboard() {
     const handleTestAlerts = async () => {
         setIsTestingAlerts(true);
         try {
-            // The server reports real delivery counts; there is no default success message.
-            const data = await adminPost("/api/trigger-alerts");
-            setToastMessage(data.message);
+            // 202: the dispatch runs server-side; poll it for the real delivery counts.
+            const started = await adminPost("/api/trigger-alerts");
+            const run = await waitForDispatch(started.status_url);
+            setToastMessage(run.status === "success" ? run.message : `Alerts not fully sent: ${run.message}`);
         } catch (e) {
             console.error("Failed to trigger alerts:", e);
             setToastMessage(`Alerts not fully sent: ${e.message}`);

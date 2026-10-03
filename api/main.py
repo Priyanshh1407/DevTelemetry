@@ -1,4 +1,5 @@
 import os
+from contextlib import asynccontextmanager
 
 from dotenv import load_dotenv
 from fastapi import FastAPI
@@ -7,8 +8,18 @@ from fastapi.middleware.cors import CORSMiddleware
 load_dotenv()
 
 from api.routes import router  # noqa: E402
+from core.db import init_db  # noqa: E402
 
-app = FastAPI(title="DevTelemetry API")
+
+@asynccontextmanager
+async def lifespan(app):
+    # The schema is idempotent (CREATE ... IF NOT EXISTS), so applying it at startup upgrades
+    # databases created by older versions (e.g. adds dispatch_runs) without a migration tool.
+    init_db()
+    yield
+
+
+app = FastAPI(title="DevTelemetry API", lifespan=lifespan)
 
 # Only the dashboard may call this API from a browser. FRONTEND_URL is the deployed
 # dashboard (comma-separated for several); the Vite dev server is always allowed.
