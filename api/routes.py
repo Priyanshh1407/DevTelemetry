@@ -265,7 +265,10 @@ def get_engineer_details(user_id: str):
 ai_task_cache = {}
 
 @router.get("/runbook-tasks/{severity}/{user_id}")
-async def get_personalized_tasks(severity: str, user_id: str):
+# Deliberately sync: the DB and Gemini calls below block, and FastAPI runs plain `def`
+# handlers in a threadpool. As `async def`, they ran on the event loop and stalled every
+# other request for the length of the LLM call.
+def get_personalized_tasks(severity: str, user_id: str):
     # 2. Check the cache FIRST. If we already generated this user's tasks, return them instantly!
     cache_key = f"{user_id}_{severity}"
     if cache_key in ai_task_cache:
