@@ -3,6 +3,11 @@ import random
 from faker import Faker
 from datetime import date
 import os
+import sys
+
+# Allow `python core/scorer.py` as well as `import core.scorer`
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from core.pricing import estimate_cost  # noqa: E402
 
 fake = Faker()
 
@@ -69,8 +74,14 @@ def generate_mock_data(num_engineers=10):
             "session_count": random.randint(1, 8),
             "compact_uses": random.randint(0, 5),
             "git_commits": random.randint(0, 12),
-            "estimated_cost_usd": round(random.uniform(5.0, 30.0), 2)
         }
+        engineer["estimated_cost_usd"] = round(estimate_cost(
+            input_tokens=engineer["input_tokens"],
+            output_tokens=engineer["output_tokens"],
+            cache_read_tokens=engineer["cache_read_tokens"],
+            cache_write_tokens=engineer["cache_write_tokens"],
+            model_mix=engineer["model_mix"],
+        ), 4)
         data.append(engineer)
     
     # Save to the root directory for easy access in Phase 1
