@@ -38,15 +38,18 @@ def get_leaderboard():
 def get_team_trends():
     with get_db_connection() as conn:
         cursor = conn.cursor()
-        # Calculate daily averages for the chart
+        # Daily averages for the chart: the 30 MOST RECENT days, returned oldest-first.
+        # (ORDER BY date ASC LIMIT 30 alone kept the 30 oldest days.)
         cursor.execute("""
-            SELECT date, 
-                   ROUND(AVG(efficiency_score), 2) as avg_score, 
-                   ROUND(SUM(estimated_cost_usd), 2) as total_cost
-            FROM usage_metrics
-            GROUP BY date
-            ORDER BY date ASC
-            LIMIT 30
+            SELECT * FROM (
+                SELECT date,
+                       ROUND(AVG(efficiency_score), 2) as avg_score,
+                       ROUND(SUM(estimated_cost_usd), 2) as total_cost
+                FROM usage_metrics
+                GROUP BY date
+                ORDER BY date DESC
+                LIMIT 30
+            ) ORDER BY date ASC
         """)
         return [dict(row) for row in cursor.fetchall()]
 
@@ -199,15 +202,17 @@ def get_engineer_details(user_id: str):
             else:
                 current_severity = "moderate"
         
-        # 3. Fetch 30-day history for the engineer
+        # 3. Fetch the engineer's 30 most recent days, returned oldest-first
         cursor.execute("""
-            SELECT date, efficiency_score, estimated_cost_usd, input_tokens, output_tokens,
-                   cache_read_tokens, cache_write_tokens, opus_pct, sonnet_pct, haiku_pct,
-                   session_count, compact_uses, git_commits
-            FROM usage_metrics
-            WHERE user_id = ?
-            ORDER BY date ASC
-            LIMIT 30
+            SELECT * FROM (
+                SELECT date, efficiency_score, estimated_cost_usd, input_tokens, output_tokens,
+                       cache_read_tokens, cache_write_tokens, opus_pct, sonnet_pct, haiku_pct,
+                       session_count, compact_uses, git_commits
+                FROM usage_metrics
+                WHERE user_id = ?
+                ORDER BY date DESC
+                LIMIT 30
+            ) ORDER BY date ASC
         """, (user_id,))
         rows = cursor.fetchall()
         
