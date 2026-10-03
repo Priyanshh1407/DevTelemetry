@@ -5,13 +5,8 @@ from unittest.mock import MagicMock
 
 import pytest
 
-# ai/guide_generator.py builds the Gemini client at import time and raises without a key
-# (audit ERR-01). Force a dummy key before anything imports it, so tests never pick up
-# a real key from .env (load_dotenv does not override variables that are already set).
-os.environ["GEMINI_API_KEY"] = "test-dummy-key"
-
-from core.db import init_db  # noqa: E402
-from core.scorer import calculate_efficiency_score  # noqa: E402
+from core.db import init_db
+from core.scorer import calculate_efficiency_score
 
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 REAL_DB = os.path.join(PROJECT_ROOT, "data", "usage.db")
@@ -49,12 +44,16 @@ def no_network(monkeypatch):
 
 @pytest.fixture(autouse=True)
 def mock_gemini(monkeypatch):
-    """Replaces the Gemini client with a mock that returns a fixed numbered list."""
+    """Replaces the Gemini client with a mock that returns a fixed numbered list.
+
+    The real key (possibly loaded from .env) is removed, so any path that bypasses
+    the mock fails with AIUnavailableError instead of calling the real API."""
     import ai.guide_generator as gg
 
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
     client = MagicMock()
     client.models.generate_content.return_value.text = "1. Mock tip one\n2. Mock tip two"
-    monkeypatch.setattr(gg, "client", client)
+    monkeypatch.setattr(gg, "_client", client)
     return client
 
 
