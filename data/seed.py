@@ -21,8 +21,9 @@ def generate_historical_data(days_back=30, num_engineers=10):
     engineers = []
     for _ in range(num_engineers):
         name = fake.name()
-        # Creates a realistic email like "john.smith@company.com"
-        email = f"{name.lower().replace(' ', '.')}@company.com" 
+        # example.com is reserved for documentation (RFC 2606), so these synthetic addresses
+        # can never reach a real inbox. (company.com is a real, third-party domain.)
+        email = f"{name.lower().replace(' ', '.')}@example.com"
         engineers.append({
             "user_id": fake.uuid4(), 
             "name": name, 

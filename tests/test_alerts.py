@@ -4,7 +4,12 @@ import smtplib
 import pytest
 
 import api.routes as routes
-from tests.conftest import NUM_ENGINEERS
+from tests.conftest import ADMIN_TOKEN, NUM_ENGINEERS
+
+
+@pytest.fixture(autouse=True)
+def _admin(admin_token):
+    """All dispatch tests act as the admin; auth itself is covered in test_security.py."""
 
 
 @pytest.fixture
@@ -26,7 +31,7 @@ def smtp_server(monkeypatch):
 
 
 def trigger(client):
-    return client.post("/api/trigger-alerts")
+    return client.post("/api/trigger-alerts", headers={"X-Admin-Token": ADMIN_TOKEN})
 
 
 def test_all_sends_succeed_reports_counts(client, seeded_db, email_env, smtp_server):

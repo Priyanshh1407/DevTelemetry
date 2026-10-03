@@ -51,3 +51,38 @@ describe('api client', () => {
         expect(JSON.parse(options.body)).toEqual({ frequency: 'Daily' });
     });
 });
+
+describe('adminPost (SEC-01)', () => {
+    afterEach(() => sessionStorage.clear());
+
+    it('asks for the token once, sends it, and remembers it for the session', async () => {
+        const { adminPost } = await import('../api');
+        const fetchMock = mockFetch(200, { status: 'success' });
+        const ask = vi.fn().mockReturnValue('secret-token');
+
+        await adminPost('/api/trigger-alerts', undefined, ask);
+        await adminPost('/api/trigger-alerts', undefined, ask);
+
+        expect(ask).toHaveBeenCalledTimes(1);
+        expect(fetchMock.mock.calls[1][1].headers['X-Admin-Token']).toBe('secret-token');
+    });
+
+    it('forgets a rejected token so the next attempt asks again', async () => {
+        const { adminPost } = await import('../api');
+        mockFetch(401, { detail: 'Missing or invalid admin token.' });
+        const ask = vi.fn().mockReturnValue('wrong');
+
+        await expect(adminPost('/api/settings', {}, ask)).rejects.toThrow('Missing or invalid admin token.');
+        await expect(adminPost('/api/settings', {}, ask)).rejects.toThrow();
+
+        expect(ask).toHaveBeenCalledTimes(2);
+    });
+
+    it('does not call the API when no token is entered', async () => {
+        const { adminPost } = await import('../api');
+        const fetchMock = mockFetch(200, {});
+
+        await expect(adminPost('/api/settings', {}, () => null)).rejects.toThrow('Admin token required');
+        expect(fetchMock).not.toHaveBeenCalled();
+    });
+});
