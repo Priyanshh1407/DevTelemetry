@@ -161,3 +161,102 @@ Stated assumptions: `input_tokens` includes cache reads (matching how the scorer
 Verification: 11 tests with hand-computed values (e.g. a 50/50 Opus/Haiku day = 0.5×1.32 + 0.5×0.335). After: Spearman **+0.613** vs tokens, **+0.742** vs uncached input + output, **+0.184** vs Opus share (was +0.015).
 Consequence worth knowing: Daily costs are now **$0.26–$1.75** per engineer, not $5–$30, because that's what the simulated token volumes cost. The README's "$13/developer/day" benchmark therefore doesn't match the generator (see the audit report addendum).
 Interview version: "The cost column in my dashboard was literally a random number. I replaced it with a dated per-model price table that bills uncached input, output, and cache reads and writes separately. Correlation between cost and usage went from essentially zero to 0.74. It also exposed that my synthetic data produced about a dollar a day, not the thirteen my README claimed, so I'm fixing the data rather than the claim."
+
+---
+
+## Phase 2 — Correctness & Resilience (2026-10-03, branch `phase-2-correctness`)
+
+Baseline (end of Phase 1) → after:
+
+| Check | Before | After |
+|---|---|---|
+| Backend tests | 78 passed, 2 xfailed | 168 passed, 0 xfailed |
+| Frontend tests | 13 | 18 |
+| Coverage (core, api, ai, notifications, data, main) | 90% (no data/main) | 94% |
+| `/trends` with 40 days of data ends at | 2026-01-30 (oldest window) | 2026-02-09 (latest) |
+| Engineers after running `seed.py` twice | 20 | 10 (deterministic IDs) |
+| Bottom-2 stability (mean, seeds 1–5; chance = 0.20) | 0.24 | 0.71 (30-seed median 0.65) |
+| Simulated weekday cost per engineer | mean $0.81 | mean $13.68, p90 $23.42 (published: ~$13, 90% < $30) |
+| Spearman(cost, tokens) on seeded data | +0.613 | +0.895 (+0.938 vs uncached input + output) |
+| Fresh clone `python data/seed.py --reset && python main.py` | FileNotFoundError | exit 0 |
+| `POST /api/trigger-alerts` latency (dispatch takes 3 s) | ≈ the whole dispatch | 41 ms (202, then poll) |
+| SMTP logins per dispatch (10 engineers) | 11 | 1 |
+| Scheduled alerts in production | never fired | GitHub Actions tick → idempotent endpoint (needs merge to main + secrets) |
+| DB connections left open per request | 1 (sqlite `with` never closes) | 0 |
+
+Decision recorded: **ARCH-02 uses a GitHub Actions cron** calling an authenticated tick endpoint (chosen by the developer over APScheduler, a Render Cron Job, or removing scheduling).
+
+### BUG-05 — the dashboard showed the oldest month, not the latest (commit e4ef771)
+Symptom: On the local DB (2026-04-30 → 07-01), `/trends` returned 04-30 → 05-29, so the "latest" KPI was a month stale.
+Root cause: `ORDER BY date ASC LIMIT 30` keeps the first 30 rows. Same bug in engineer history.
+Fix: Select the newest 30 in a subquery (`ORDER BY date DESC LIMIT 30`), then re-sort ascending for the chart.
+Verification: The strict xfail from Phase 0 flipped to XPASS (so pytest failed until the marker was removed), plus a new history test.
+Interview version: "Classic LIMIT bug: ascending order plus LIMIT gives you the oldest rows. I'd recorded it as an expected failure in strict mode before fixing anything, so the fix had to flip that test, and it now guards against regression."
+
+### VAL-01 — any string was accepted as a schedule or severity (commit 93c455c)
+Symptom: `{"frequency":"Hourly","day":"Funday","time":"99:99"}` was saved. Every made-up severity in the runbook URL was a new cache entry and a new paid Gemini call.
+Fix: `Literal` types for frequency, weekday and severity, plus a 24-hour `HH:MM` pattern, so these return 422 before any work. **Biweekly/Monthly were removed** from the UI and API, because no scheduler ever implemented them. The frontend renders FastAPI's 422 detail list as "field: message".
+Interview version: "Validation at the boundary is also cost control: an unvalidated path parameter let anyone mint new cache keys, and each one was a paid LLM call."
+
+### BUG-06 — every seed run added a new team (commit f67af7f)
+Symptom: The local DB had grown to 30 engineers over 63 dates.
+Root cause: Fresh random UUIDs on every run; `INSERT OR IGNORE` never collided.
+Fix: A seeded RNG (`random.Random` + `Faker.seed_instance`, default 42), deterministic IDs, `--reset` (keeps alert settings), and CLI flags. Email local parts are sanitized.
+Verification: `tests/test_seed.py`: run twice gives 10 engineers, the same seed gives identical rows, and a different seed gives different rows.
+
+### ML-02 — rankings were noise; the README benchmark was off by 15× (commit dd119f6)
+Symptom: Every engineer-day was an independent uniform draw. The "bottom 2" matched the chronic worst performers at chance level (0.24 vs 0.20). Cost was $0.81/day against the $13/day the README cites. Rows were inconsistent, e.g. **4 /compact uses in a 2-session day** (hidden by the scorer's `min(ratio, 1)` cap).
+Investigation: Fetched the source the README cites (https://code.claude.com/docs/en/costs): "~$13 per developer per active day … below $30 per active day for 90% of users". The claim was legitimate; the generator was wrong.
+Fix: Each engineer gets persona habits drawn once (activity, cache hit ratio, Opus/Haiku share, /compact rate, sessions, output/write ratios, commit rate). Days add noise around them, weekends run at 35% volume, and /compact uses are binomial(sessions, rate). Volume is calibrated to the published figure.
+Result: weekday mean $13.68, p90 $23.42. Bottom-2 stability is 0.71 averaged over seeds 1–5 (each seed 0.57–0.87).
+**Finding, not tuned away:** A 30-seed sweep gave median stability 0.65. Almost all the remaining daily rank noise comes from the score's `compacts / sessions` term (within-engineer daily SD 7.1 points vs 1.6 for cache and 0.7 for mix). A binomial ratio over 2–7 sessions is genuinely that noisy, so this is a **scoring-formula issue for ML-03** (pool over a window), not something to hide by making the simulator less noisy. The stability test asserts the honest property (mean over 5 seeds ≥ 0.55, every seed above the old generator's 0.27) rather than one lucky seed ≥ 0.70.
+Interview version: "My leaderboard ranked random noise. The 'worst performers' changed every day because each day was an independent random draw. I modeled engineers as personas with stable habits, calibrated volume to Anthropic's published $13-per-day figure, and measured rank stability. That measurement told me something I didn't expect: most of the remaining noise comes from my own scoring formula, which scores a ratio of tiny daily counts. That's a scoring fix, so I logged it instead of fudging the simulator to pass a threshold."
+
+### ARCH-01 (partial, pulled forward) — one severity rule (commit 5c82a18)
+The top-5/bottom-2 rule existed in `routes.py`, `alert_worker.py`, an unused copy in `Dashboard.jsx`, and a different rule in `main.py`. `core/severity.py` now owns it. Behavior is unchanged (the Phase 0 boundary tests stayed green), plus unit tests that document the small-team quirk (≤ 6 engineers: nobody is critical). Done now so BUG-04 wouldn't add a fifth copy.
+
+### BUG-04 — the "daily agent" ranked people who don't exist (commit acdd3f3)
+Symptom: `python main.py` (README step 6) seeded SQLite, then opened `engineers_data.json` and crashed on every fresh clone. When the JSON existed (locally, untracked), it came from a different generator, so the agent ranked different people than the dashboard (red test: printed "Randy Perry", not the DB's best engineer).
+Fix: `core/queries.latest_day_rows()` is shared by the agent and the alert worker. `without_pii()` strips email before anything goes to the LLM (tested). The JSON path and `generate_mock_data` are deleted.
+Verification: an in-process ranking test, and a subprocess "fresh clone" test from an empty directory with no key: exit 0 with fallback guides. Also verified on a `git archive` copy.
+Note: your local `engineers_data.json` is now unused; delete it whenever you like.
+
+### ERR-02 — connections leaked; templates depended on the working directory (commit b967d84)
+Symptom: The audit claimed `with sqlite3.connect()` doesn't close. My first test said it did. I investigated instead of accepting either result: handlers run in a worker thread, and sqlite checks the *creating thread before the closed state*, so touching a closed connection from the test thread raised the thread error, which the test misread. With connections tracked using `check_same_thread=False`, 6 endpoints were confirmed leaking (Python 3.14 still doesn't close in `__exit__`).
+Fix: `db_session()` commits on success, rolls back on error, and always closes. Every caller uses it. `/guide` now calls the LLM *after* its DB session ends instead of holding a connection open during generation. Email templates resolve from the module's location. The dead `get_daily_records` (it queried a non-existent table) is removed.
+Interview version: "A test that passes for the wrong reason is worse than no test. My leak test passed because of an unrelated sqlite threading error. I proved the leak by making the closed state observable, then fixed it with a session context manager."
+
+### SEC-02 — HTML injection in emails (commit 9c75cd9)
+Jinja had no autoescape, so the LLM-written summary and engineer names went into email HTML raw (red: `<img onerror>` and `<script>` came through). Fixed with `select_autoescape(["html"])`; no template uses `|safe`.
+
+### BUG-07 — fake trend arrows and random sparklines (commit 0237063)
+Symptom: The top 3 always showed "up" and everyone else "down". The Activity bars were `Math.random()`.
+Fix: `/api/leaderboard` adds `score_change_7d` (latest minus the previous 7-day average; null without history) and `recent_activity` (7 days of prompt tokens) from **one window query**, not one query per engineer. The Dashboard shows the signed change and scales bars to the team's busiest day. The Phase 0 key-set characterization test caught the shape change and was updated on purpose.
+
+### PERF-02 — background dispatch on a DB-enforced ledger (commits 193ec20, 90c914a, e1f2c3f)
+Situation: Sending about a dozen emails (one SMTP login each, 10 s timeouts), a Slack post and a Gemini call happened inside the HTTP request, past typical proxy timeouts. A retry after a timeout would have sent everything twice. The Phase 1 single-flight lock lived in process memory.
+Fix:
+1. A `dispatch_runs` table. A **partial unique index** (`WHERE status = 'running'`) lets the database reject a second concurrent run (8-thread race: exactly 1). `UNIQUE(slot)` gives at-most-once per scheduled slot. The cooldown is measured from the last delivering run, so it survives restarts. A `running` row older than 15 minutes is marked `abandoned`. Check-and-insert happens under `BEGIN IMMEDIATE`.
+2. `POST /api/trigger-alerts` returns **202 in 41 ms** with a `status_url`. The work runs as a BackgroundTask, and the Dashboard polls `GET /api/dispatch-runs/{id}` (1.5 s interval, 3 min cap). The startup lifespan applies the idempotent schema so older databases gain the table.
+3. `SmtpSession`: **one login per dispatch** (was 11). A dropped connection is reopened once and the email retried. A connect/login failure fails the remaining emails fast instead of repeating a bad login against Gmail, but a single refused recipient still fails only that email. (I caught my own bug here: `SMTPException` subclasses `OSError`, so my first version would have broken the whole batch on one bad address.) Slack has a 10 s timeout.
+
+Trade-offs: `BackgroundTasks` runs in the web process. If the process dies mid-dispatch, the run becomes `abandoned`, not retried, because email at-most-once beats duplicates. At higher volume this would move to a real job queue.
+Interview version: "The send button did a minute of work inside one HTTP request, and a retry could double-send. I moved the work to a background task tracked in a dispatch table, and let the database enforce the invariants: a partial unique index means only one run can be 'running', even across processes, and a unique slot column means a scheduled alert can't go out twice. The endpoint went from blocking for the whole dispatch to answering in 41 milliseconds."
+
+### ARCH-02 — scheduled alerts that actually fire (commit f14ae39)
+Situation: The saved schedule never fired in production. `clock.py` wasn't deployed, couldn't be imported from the package, compared the server's clock (UTC on Render) to the saved time, and kept "already ran" in memory. Render's free tier sleeps, so an in-process scheduler would miss its times.
+Decision (developer's choice): a **GitHub Actions cron** every 15 minutes calls `POST /api/scheduled-tick`.
+Fix:
+- An IANA `timezone` in settings (validated with zoneinfo; defaults to UTC for older clients). `init_db` adds the column to existing DBs via an idempotent `ALTER TABLE`.
+- `core/schedule.due_slot()`: the most recent occurrence in that timezone, if no older than a grace window (default 120 min) for late cron runs. DST moves the UTC time, not the wall-clock time (tested across the 2026-11-01 US change).
+- The tick endpoint starts a `schedule` run for the due slot. Repeated ticks return `already_sent`. A tick during a manual dispatch returns `busy` without consuming the slot, so the next tick retries. Scheduled runs skip the manual cooldown.
+- `.github/workflows/scheduled-alerts.yml` (no repo permissions; curl retries are safe because the endpoint is idempotent). `data/clock.py` is now a local runner of the same decision function. The Dashboard saves in the browser's timezone and shows it. `tzdata` is pinned.
+Not verifiable from here: the workflow only runs from the default branch with the two secrets set (see "Before you deploy" in the report).
+Interview version: "The free tier sleeps, so I made the scheduler external and the endpoint idempotent: GitHub pings it every 15 minutes, the API works out whether a slot in the admin's timezone is due, and a unique constraint guarantees each slot sends at most once, even if GitHub retries or runs late."
+
+### DX-01 — Docker data handling (commit 19ee73c)
+- The image seeded at **build** time (data aged until the next deploy). It now seeds at container start with `--if-empty`, which never touches existing data.
+- Compose's bind mount of `./data/usage.db` made Docker create a *directory* when the file was missing. The DB is now at `DB_PATH=/app/db/usage.db` on a named volume.
+- New finding, fixed: `.dockerignore` didn't exclude `*.db`, so a local `docker build` copied the developer's own database into the image.
+- Runs as non-root, honors `$PORT`, takes the frontend `VITE_API_URL` as a build arg.
+Verified: `docker compose config` is valid, and a simulated double start seeds once and skips once. **Not verified:** an actual image build/run, because the Docker daemon wasn't running.

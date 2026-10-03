@@ -300,8 +300,16 @@ Not run: the live Render deployment (I didn’t want to trigger side effects on 
 ### Status after Phase 1 (2026-10-03)
 - **Fixed** (red→green tests, see FIX_LOG.md): SEC-01, ML-01, BUG-01, ERR-01, CONC-01, BUG-02, BUG-03, TEST-02. Remaining P0: none. Remaining P1: BUG-04, ML-02, BUG-05, ARCH-02 (Phase 2), TEST-01 (Phase 3).
 - **New, fixed in TEST-02:** the Slack "Open Dashboard" button was hardcoded to `http://localhost:5173` (`notifications/slack_post.py`).
-- **New, open (adds to ML-02 / DOC-01):** with real prices, the generator’s token volumes cost **$0.26–$1.75 per engineer-day**. The README’s “$13/developer/active day” benchmark and its sample output ($1.84–$14.20) don’t match the simulated data. Fix the persona generator’s volumes in ML-02 (with a source for them), or change the claim.
+- ~~New, open: generator volumes cost $0.26–$1.75/day vs the README's $13/day~~ → resolved in ML-02 (the README's figure is the published Claude Code number; the generator is now calibrated to it).
 - **Operational, not code:** existing databases (your local `data/usage.db` and the deployed one) still contain the old random costs and `@company.com` emails until they are reseeded (`seed.py --reset` arrives with BUG-06). Before redeploying, set `ADMIN_TOKEN` and `FRONTEND_URL` on the Render backend and `VITE_API_URL` on the Render frontend. Without `FRONTEND_URL`, CORS will block the deployed dashboard.
+
+### Status after Phase 2 (2026-10-03)
+- **Fixed** (red→green tests, see FIX_LOG.md): BUG-04, BUG-05, BUG-06, BUG-07, ML-02, VAL-01, ERR-02, SEC-02, PERF-02, ARCH-02, DX-01; ARCH-01 partly (shared severity rule and latest-day query). Remaining P0/P1: TEST-01 (CI, Phase 3). No open P0.
+- **New, fixed in ML-02:** the old generator produced impossible rows (more /compact uses than sessions), hidden by the scorer's `min(ratio, 1)` cap.
+- **New, fixed in ERR-02:** `/guide` held a DB connection open for the whole LLM call.
+- **New, fixed in DX-01:** `.dockerignore` didn't exclude `*.db`, so a local `docker build` baked the developer's database into the image.
+- **New, open → ML-03 (P2, Interview Risk HIGH, CONFIRMED by a 30-seed sweep):** the score's `compacts / sessions` term carries almost all day-to-day rank noise (within-engineer daily SD 7.1 points vs 1.6 cache, 0.7 mix), because it scores a ratio of 2–7 daily events. The leaderboard's bottom 2 therefore churn more than habits do. Fix: pool over a rolling window or shrink toward the engineer's mean.
+- **Not verified:** a real Docker image build/run (daemon not running); the GitHub Actions schedule (runs only from the default branch with secrets set).
 
 ---
 
@@ -335,11 +343,11 @@ Not run: the live Render deployment (I didn’t want to trigger side effects on 
 
 - “It’s fully tested” or “it has CI.” *(updated after Phase 1)* There are now 78 backend tests (90% coverage of core/api/ai/notifications) and 13 frontend tests, but no CI runs them yet (Phase 3).
 - “It shows how much each engineer spends.” *(updated after Phase 1)* Cost is now computed from token usage with dated list prices (ML-01 fixed), but the usage itself is synthetic, and the per-model split is an assumption (tokens allocated by model mix). Say “estimated from usage with list prices”.
-- “It tracks Claude Code usage.” Nothing ingests real telemetry. All data is synthetic, and the generator produces i.i.d. noise, not benchmark-modeled behavior (ML-02).
-- “Weekly alerts are scheduled in production.” The scheduler isn’t deployed (ARCH-02).
+- “It tracks Claude Code usage.” *(updated after Phase 2)* Nothing ingests real telemetry yet (UPG-02). Data is a persona-based simulation calibrated to Anthropic’s published ~$13/developer/day figure. Say “simulated, calibrated to published costs”.
+- “Scheduled alerts run in production.” *(updated after Phase 2)* The mechanism exists and is tested (GitHub Actions tick → idempotent endpoint), but it only runs once merged to the default branch with the two secrets set. Don’t claim it’s live until you’ve seen a scheduled run in the Actions tab.
 - “AI guides are persisted.” *(updated after Phase 1)* Only successful guides are cached now (BUG-02 fixed), but in process memory: lost on restart, not shared between workers. The `ai_guides` table is still unused (UPG-01).
 - “Production-ready” or “it has user authentication.” *(updated after Phase 1)* Mutating endpoints now need a shared admin token (SEC-01 fixed), but there are no user accounts or roles, and the token sits in sessionStorage (XSS-readable).
 - “Switching to Claude takes 5 minutes.” There’s no provider abstraction, and the referenced doc doesn’t exist.
 - “Uses Gemini 1.5 Flash / Chart.js / React 18.” It doesn’t (DOC-01).
-- “The trend arrows / sparklines show performance trends.” They’re hardcoded and random (BUG-07).
+- ~~“The trend arrows / sparklines show performance trends.”~~ *(fixed in BUG-07: they now come from a real 7-day score change and daily token volume)*
 - Any percentage like “reduces cost by X%”. Nothing has been measured.
