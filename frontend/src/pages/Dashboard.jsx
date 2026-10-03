@@ -50,16 +50,6 @@ function Sparkline({ bars, faded }) {
     );
 }
 
-// Determine severity based on efficiency score
-// Low Severity = Good (Healthy score)
-// Critical Severity = Bad (Low score requiring intervention)
-// Determine severity based on relative leaderboard ranking
-const getSeverityTier = (rank, totalTeamSize) => {
-    if (rank <= 5) return "low";                      // Top 5 get Maintenance/Low
-    if (rank >= totalTeamSize - 1) return "critical"; // Bottom 2 get Critical
-    return "moderate";                                // Middle tier gets Moderate
-};
-
 // ─── Dashboard ────────────────────────────────────────────────────────────────
 export default function Dashboard() {
     const [hoveredRow, setHoveredRow] = useState(null);

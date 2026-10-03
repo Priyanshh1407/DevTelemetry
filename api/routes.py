@@ -7,6 +7,7 @@ import asyncio
 import logging
 from data.alert_worker import overall_status, run_weekly_telemetry_check
 from api.security import DispatchGuard, require_admin
+from core.severity import severity_for_rank
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -200,13 +201,7 @@ def get_engineer_details(user_id: str):
                     current_rank = idx + 1
                     break
             
-            # Severity logic
-            if current_rank <= 5:
-                current_severity = "low"
-            elif current_rank >= total_team_size - 1:
-                current_severity = "critical"
-            else:
-                current_severity = "moderate"
+            current_severity = severity_for_rank(current_rank, total_team_size)
         
         # 3. Fetch the engineer's 30 most recent days, returned oldest-first
         cursor.execute("""
