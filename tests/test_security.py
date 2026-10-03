@@ -52,7 +52,7 @@ def test_admin_actions_fail_closed_when_server_has_no_token(client, stub_dispatc
 
 def test_valid_token_is_accepted(client, admin_headers):
     assert client.post("/api/settings", json=NEW_SCHEDULE, headers=admin_headers).status_code == 200
-    assert client.get("/api/settings").json() == NEW_SCHEDULE
+    assert client.get("/api/settings").json() == {**NEW_SCHEDULE, "timezone": "UTC"}
 
 
 def test_reading_settings_stays_public(client, admin_token):

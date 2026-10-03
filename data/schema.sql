@@ -42,7 +42,8 @@ CREATE TABLE IF NOT EXISTS alert_settings (
     id INTEGER PRIMARY KEY CHECK (id = 1), -- Ensures only one settings row exists
     frequency TEXT NOT NULL,
     day TEXT,
-    time TEXT NOT NULL
+    time TEXT NOT NULL,
+    timezone TEXT NOT NULL DEFAULT 'UTC'  -- IANA name; schedule times are wall-clock in this zone
 );
 
 -- Insert default settings if the table is empty

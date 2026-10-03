@@ -1,62 +1,55 @@
-import sqlite3
-import time
-from datetime import datetime
+"""Local stand-in for the production scheduler.
+
+In production, .github/workflows/scheduled-alerts.yml calls POST /api/scheduled-tick every
+15 minutes. Locally, run this instead:
+
+    python data/clock.py
+
+It ticks the same decision code (api.routes.start_scheduled_dispatch) once a minute, so a
+slot is sent at most once even if this and the GitHub cron both run. It replaces the old
+loop, which compared the server's local clock to the saved time, ignored Biweekly/Monthly,
+and kept "already ran today" only in memory.
+"""
 import os
-import alert_worker  # We import your worker script directly!
+import sys
+import time
+
+# Ensure Python can find the project packages when run as a script
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from dotenv import load_dotenv  # noqa: E402
+
+load_dotenv()
+
+from api.routes import run_dispatch, start_scheduled_dispatch  # noqa: E402
+from core.db import init_db  # noqa: E402
+
+TICK_SECONDS = 60
+
+
+def tick_once():
+    """One scheduler tick: start and run the dispatch if a slot is due."""
+    result = start_scheduled_dispatch()
+    if result["status"] == "started":
+        print(f"⚡ Slot {result['slot']} is due: dispatching (run {result['run_id']})...")
+        run_dispatch(result["run_id"])
+    return result
+
 
 def run_scheduler():
-    print("🕰️ DevTelemetry Clock Started. Running in background...")
-    
-    db_path = os.path.join(os.path.dirname(__file__), 'usage.db')
-    
-    # We keep track of the last time we ran the job so we don't spam 
-    # the team 60 times within the same scheduled minute!
-    last_run_date = None 
-
+    init_db()
+    print(f"🕰️ DevTelemetry clock started; checking the schedule every {TICK_SECONDS}s.")
     while True:
         try:
-            # 1. Check the current real-world time
-            now = datetime.now()
-            current_day = now.strftime("%A")  # e.g., "Friday"
-            current_time = now.strftime("%H:%M")  # e.g., "17:00"
-            current_date_str = now.strftime("%Y-%m-%d")
-
-            # 2. Check the database for the Manager's schedule
-            conn = sqlite3.connect(db_path)
-            conn.row_factory = sqlite3.Row
-            cursor = conn.cursor()
-            
-            cursor.execute("SELECT frequency, day, time FROM alert_settings WHERE id = 1")
-            settings = cursor.fetchone()
-            conn.close()
-
-            if settings:
-                db_freq = settings['frequency']
-                db_day = settings['day']
-                db_time = settings['time']
-
-                # 3. Evaluate the Schedule
-                should_run = False
-                
-                if db_freq == "Daily" and current_time == db_time:
-                    should_run = True
-                elif db_freq == "Weekly" and current_day == db_day and current_time == db_time:
-                    should_run = True
-                # (You can easily add Biweekly or Monthly logic here later)
-
-                # 4. Pull the Trigger!
-                if should_run and last_run_date != current_date_str:
-                    print(f"\n⚡ [SYSTEM TRIGGER] Schedule matched: {db_freq} at {db_time}")
-                    alert_worker.run_weekly_telemetry_check()
-                    last_run_date = current_date_str  # Mark as done for today
-                    print("✅ Job Complete. Resuming standby...\n")
-
-            # Sleep for 30 seconds before checking the clock again
-            time.sleep(30)
-
+            result = tick_once()
+            if result["status"] not in ("not_due", "already_sent"):
+                print(f"[tick] {result}")
         except Exception as e:
-            print(f"Clock Error: {e}")
-            time.sleep(30) # If the DB is locked, wait and try again
+            print(f"Clock error: {e}")
+        time.sleep(TICK_SECONDS)
+
 
 if __name__ == "__main__":
+    # Ensure stdout can print emojis on Windows consoles
+    sys.stdout.reconfigure(encoding="utf-8")
     run_scheduler()

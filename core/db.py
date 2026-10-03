@@ -42,6 +42,20 @@ def db_session():
         conn.close()
 
 
+# Columns added after the first release. CREATE TABLE IF NOT EXISTS never alters an existing
+# table, so databases created earlier get these via ALTER TABLE (additive and idempotent).
+ADDED_COLUMNS = [
+    ("alert_settings", "timezone", "TEXT NOT NULL DEFAULT 'UTC'"),
+]
+
+
+def _add_missing_columns(conn):
+    for table, column, definition in ADDED_COLUMNS:
+        existing = {row["name"] for row in conn.execute(f"PRAGMA table_info({table})")}
+        if column not in existing:
+            conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
+
+
 def init_db():
     """
     Initializes the database by running the schema.sql file.
@@ -56,6 +70,7 @@ def init_db():
     with db_session() as conn:
         # executescript allows us to run multiple SQL commands at once
         conn.executescript(schema_script)
+        _add_missing_columns(conn)
 
     print(f"Database initialized successfully at {db_path}")
 

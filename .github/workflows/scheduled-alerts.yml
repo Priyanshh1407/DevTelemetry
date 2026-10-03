@@ -1,0 +1,48 @@
+# Production scheduler for DevTelemetry alerts (ARCH-02).
+#
+# Every 15 minutes this asks the API "is a scheduled alert slot due?". The API decides
+# using the schedule saved in the dashboard (frequency, day, time, timezone) and sends each
+# slot at most once (UNIQUE slot in dispatch_runs), so extra or retried calls are harmless.
+#
+# Setup (repository Settings -> Secrets and variables -> Actions):
+#   DEVTELEMETRY_API_URL     e.g. https://<your-backend>.onrender.com  (no trailing slash)
+#   DEVTELEMETRY_ADMIN_TOKEN the backend's ADMIN_TOKEN
+#
+# Notes:
+# - GitHub runs scheduled workflows only from the default branch, may start them late
+#   (the API's SCHEDULE_GRACE_MINUTES window absorbs that), and pauses them in repositories
+#   with no activity for 60 days.
+# - Each call also wakes Render's free-tier backend if it is asleep.
+name: Scheduled alerts tick
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch: {}
+
+permissions: {}  # the job needs no access to the repository
+
+concurrency:
+  group: scheduled-alerts
+  cancel-in-progress: false
+
+jobs:
+  tick:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Call the scheduler endpoint
+        env:
+          API_URL: ${{ secrets.DEVTELEMETRY_API_URL }}
+          ADMIN_TOKEN: ${{ secrets.DEVTELEMETRY_ADMIN_TOKEN }}
+        run: |
+          if [ -z "$API_URL" ] || [ -z "$ADMIN_TOKEN" ]; then
+            echo "::warning::DEVTELEMETRY_API_URL / DEVTELEMETRY_ADMIN_TOKEN are not set; skipping."
+            exit 0
+          fi
+          # Retries are safe because the endpoint is idempotent per slot. A sleeping Render
+          # instance can take about a minute to answer the first request.
+          curl --fail-with-body --silent --show-error \
+            --retry 3 --retry-delay 20 --retry-all-errors --max-time 120 \
+            -X POST "$API_URL/api/scheduled-tick" \
+            -H "X-Admin-Token: $ADMIN_TOKEN"
