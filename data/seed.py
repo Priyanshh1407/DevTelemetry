@@ -17,7 +17,7 @@ import sys
 # Ensure Python can find our core modules
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from core.db import get_db_connection, init_db
+from core.db import db_session, init_db
 from core.scorer import calculate_efficiency_score
 from core.pricing import estimate_cost
 
@@ -121,7 +121,7 @@ def generate_historical_data(days_back=30, num_engineers=10, seed=DEFAULT_SEED, 
     personas = {eng["user_id"]: make_persona(rng) for eng in engineers}
     end_date = end_date or date.today()
 
-    with get_db_connection() as conn:
+    with db_session() as conn:
         if reset:
             reset_data(conn)
 

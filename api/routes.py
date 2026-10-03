@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException,Depends
-from core.db import get_db_connection
+from core.db import db_session
 from ai.guide_generator import generate_efficiency_guide
 from typing import Literal
 from pydantic import BaseModel, Field
@@ -14,7 +14,7 @@ router = APIRouter()
 
 @router.get("/leaderboard")
 def get_leaderboard():
-    with get_db_connection() as conn:
+    with db_session() as conn:
         cursor = conn.cursor()
         
         # 1. Find the most recent date in the database
@@ -38,7 +38,7 @@ def get_leaderboard():
 
 @router.get("/trends")
 def get_team_trends():
-    with get_db_connection() as conn:
+    with db_session() as conn:
         cursor = conn.cursor()
         # Daily averages for the chart: the 30 MOST RECENT days, returned oldest-first.
         # (ORDER BY date ASC LIMIT 30 alone kept the 30 oldest days.)
@@ -57,7 +57,7 @@ def get_team_trends():
 
 @router.get("/guide/{user_id}")
 def get_user_guide(user_id: str):
-    with get_db_connection() as conn:
+    with db_session() as conn:
         cursor = conn.cursor()
         
         # Get the user's most recent metrics
@@ -76,16 +76,16 @@ def get_user_guide(user_id: str):
         
         # Convert sqlite3.Row to a standard dictionary for the AI generator
         eng_dict = dict(engineer_data)
-        
-        # Generate the guide dynamically
-        result = generate_efficiency_guide(eng_dict, severity="moderate")
 
-        return {
-            "name": eng_dict["name"],
-            "date": eng_dict["date"],
-            "guide": result.tasks,
-            "source": result.source
-        }
+    # Generate after the DB session closes: don't hold a connection open during an LLM call
+    result = generate_efficiency_guide(eng_dict, severity="moderate")
+
+    return {
+        "name": eng_dict["name"],
+        "date": eng_dict["date"],
+        "guide": result.tasks,
+        "source": result.source
+    }
     
 # Defines the shape of the data coming from React
 Weekday = Literal["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
@@ -100,7 +100,7 @@ class AlertSchedule(BaseModel):
 
 @router.get("/settings")
 def get_alert_settings():
-    with get_db_connection() as conn:
+    with db_session() as conn:
         cursor = conn.cursor()
         cursor.execute("SELECT frequency, day, time FROM alert_settings WHERE id = 1")
         settings = cursor.fetchone()
@@ -110,7 +110,7 @@ def get_alert_settings():
 
 @router.post("/settings", dependencies=[Depends(require_admin)])
 def update_alert_settings(schedule: AlertSchedule):
-    with get_db_connection() as conn:
+    with db_session() as conn:
         cursor = conn.cursor()
         cursor.execute("""
             UPDATE alert_settings 
@@ -170,7 +170,7 @@ def trigger_alerts():
 
 @router.get("/engineer/{user_id}/details")
 def get_engineer_details(user_id: str):
-    with get_db_connection() as conn:
+    with db_session() as conn:
         cursor = conn.cursor()
         
         # 1. Fetch engineer info
@@ -322,17 +322,12 @@ ai_task_cache = {}
 @router.get("/runbook-tasks/{severity}/{user_id}")
 def get_personalized_tasks(severity: Severity, user_id: str):
     # 1. Get the latest metrics for this dev (cheap; needed for the cache key)
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    
-    cursor.execute("""
-        SELECT * FROM usage_metrics 
-        WHERE user_id = ? 
-        ORDER BY date DESC LIMIT 1
-    """, (user_id,))
-    
-    row = cursor.fetchone()
-    conn.close()
+    with db_session() as conn:
+        row = conn.execute("""
+            SELECT * FROM usage_metrics
+            WHERE user_id = ?
+            ORDER BY date DESC LIMIT 1
+        """, (user_id,)).fetchone()
 
     if not row:
         return {"tasks": [{"title": "Data Missing", "desc": "No telemetry found for this user."}], "source": "none"}

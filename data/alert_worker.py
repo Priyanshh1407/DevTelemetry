@@ -3,8 +3,7 @@ import sys
 
 # Ensure Python can find your AI and Notification modules
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from contextlib import closing
-from core.db import get_db_connection
+from core.db import db_session
 from core.queries import latest_day_rows
 from core.severity import severity_for_rank
 from ai.guide_generator import generate_team_report
@@ -40,7 +39,7 @@ def run_weekly_telemetry_check():
     }
     
     # --- 1. CONNECT TO THE LIVE DATABASE ---
-    with closing(get_db_connection()) as conn:
+    with db_session() as conn:
         all_devs = latest_day_rows(conn)
     
     total_devs = len(all_devs)
