@@ -10,7 +10,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from data.alert_worker import overall_status, run_weekly_telemetry_check
 from api.security import require_admin
 from core.severity import severity_for_rank
-from core.scorer import cache_hit_ratio, total_prompt_tokens
+from core.scorer import cache_hit_ratio, score_breakdown, total_prompt_tokens
 from core.queries import latest_day_rows, latest_metrics_for_user, without_pii
 from core.dispatch import (DispatchBusy, DispatchCoolingDown, SlotAlreadyDispatched, finish_run, get_run,
                            start_run)
@@ -343,7 +343,10 @@ def get_engineer_details(user_id: str):
             "cache_ratio": latest_record["cache_ratio"],
             "opus_pct": latest_record["opus_pct"],
             "sonnet_pct": latest_record["sonnet_pct"],
-            "haiku_pct": latest_record["haiku_pct"]
+            "haiku_pct": latest_record["haiku_pct"],
+            # Points per part (cache / model mix / discipline), computed on the same trailing
+            # window as the stored score, so the dashboard can explain it.
+            "score_breakdown": score_breakdown(latest_record, history[:-1]),
         }
         
         # 6. Generate threshold-based insights (patterns)

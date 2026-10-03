@@ -345,3 +345,15 @@ def test_ranked_engineer_still_gets_rank_and_severity(client, seeded_db):
     data = client.get(f"/api/engineer/{engineer_id(0)}/details").json()
 
     assert (data["current_rank"], data["current_severity"]) == (10, "critical")
+
+
+# ── ML-03b: the API explains the score ─────────────────────────────────────
+
+def test_details_include_a_score_breakdown_matching_the_stored_score(client, empty_db):
+    seed_db(num_days=10)
+
+    latest = client.get(f"/api/engineer/{engineer_id(6)}/details").json()["latest"]
+
+    parts = latest["score_breakdown"]
+    assert set(parts) == {"cache", "model_mix", "discipline", "total"}
+    assert parts["total"] == latest["efficiency_score"]   # stored score == formula on the same window
