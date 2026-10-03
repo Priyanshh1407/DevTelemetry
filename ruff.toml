@@ -1,6 +1,6 @@
 # Project lint rules. CI and local runs both use this file, so a personal/global ruff config
 # can't make "passes on my machine" differ from CI.
-target-version = "py310"  # matches Dockerfile.backend and CI
+target-version = "py313"  # matches Dockerfile.backend and CI
 extend-exclude = ["venv", "frontend"]
 
 [lint]
