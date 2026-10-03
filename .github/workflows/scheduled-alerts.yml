@@ -8,6 +8,12 @@
 #   DEVTELEMETRY_API_URL     e.g. https://<your-backend>.onrender.com  (no trailing slash)
 #   DEVTELEMETRY_ADMIN_TOKEN the backend's ADMIN_TOKEN
 #
+# Turning it off (see README "Turning GitHub Actions off"):
+# - Soft: set the repository variable SCHEDULED_ALERTS_ENABLED to `false` (Settings -> Secrets
+#   and variables -> Actions -> Variables). The 15-minute runs are skipped; "Run workflow"
+#   still works. Delete the variable to turn it back on (unset = on).
+# - Hard: Actions tab -> this workflow -> "..." -> Disable workflow.
+#
 # Notes:
 # - GitHub runs scheduled workflows only from the default branch, may start them late
 #   (the API's SCHEDULE_GRACE_MINUTES window absorbs that), and pauses them in repositories
@@ -28,6 +34,8 @@ concurrency:
 
 jobs:
   tick:
+    # Off switch (OPS-01). tests/test_workflows.py checks every job has exactly this line.
+    if: vars.SCHEDULED_ALERTS_ENABLED != 'false' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:

@@ -1,0 +1,95 @@
+# Continuous integration for DevTelemetry (TEST-01c).
+#
+# On every push and pull request: lint + test the backend (two Python versions) and the
+# frontend, each on a fresh Ubuntu machine. No secrets are needed: the tests mock Gemini,
+# SMTP and Slack, and tests/conftest.py blocks outbound network, so runs are free and
+# deterministic.
+#
+# Turning it off (see README "Turning GitHub Actions off"):
+# - Soft: set the repository variable CI_ENABLED to `false` (Settings -> Secrets and
+#   variables -> Actions -> Variables). Push/PR runs are skipped; "Run workflow" still works.
+# - Hard: Actions tab -> CI -> "..." -> Disable workflow.
+# - One push only: put [skip ci] in the commit message.
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch: {}
+
+permissions:
+  contents: read  # only needs to read the code
+
+concurrency:
+  # A newer push to the same branch cancels the now-outdated run.
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    # Off switch (OPS-01). tests/test_workflows.py checks every job has exactly this line.
+    if: vars.CI_ENABLED != 'false' || github.event_name == 'workflow_dispatch'
+    name: Backend (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false  # report both versions even if one fails
+      matrix:
+        # 3.10: what Dockerfile.backend ships. 3.14: the local development interpreter.
+        python-version: ["3.10", "3.14"]
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            requirements-dev.txt
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt -r requirements-dev.txt
+
+      - name: Lint (ruff, rules in ruff.toml)
+        run: ruff check .
+
+      - name: Tests with coverage
+        run: >-
+          pytest -q
+          --cov=core --cov=api --cov=ai --cov=notifications --cov=data --cov=main
+          --cov-report=term-missing --cov-fail-under=85
+
+      - name: Coverage summary on the run page
+        if: success() || failure()
+        run: coverage report --format=markdown >> "$GITHUB_STEP_SUMMARY"
+
+  frontend:
+    # Off switch (OPS-01). tests/test_workflows.py checks every job has exactly this line.
+    if: vars.CI_ENABLED != 'false' || github.event_name == 'workflow_dispatch'
+    name: Frontend
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22  # current LTS; Node 20 reached end-of-life in April 2026
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies (exactly as locked)
+        run: npm ci
+
+      - name: Lint (ESLint)
+        run: npm run lint
+
+      - name: Tests (Vitest)
+        run: npm test
+
+      - name: Production build
+        run: npm run build
