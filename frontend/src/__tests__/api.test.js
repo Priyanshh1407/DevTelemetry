@@ -99,3 +99,36 @@ describe('validation errors (VAL-01)', () => {
         expect(error.message).toBe('time: String should match pattern HH:MM; day: Input should be a weekday');
     });
 });
+
+describe('waitForDispatch (PERF-02)', () => {
+    afterEach(() => vi.unstubAllGlobals());
+
+    it('polls the run until it is no longer running', async () => {
+        const { waitForDispatch } = await import('../api');
+        const responses = [
+            { id: 7, status: 'running', message: 'Sending alerts...' },
+            { id: 7, status: 'running', message: 'Sending alerts...' },
+            { id: 7, status: 'failed', message: 'Some notifications failed. Developer alerts: 9 sent, 1 failed' },
+        ];
+        const fetchMock = vi.fn(() => Promise.resolve({
+            ok: true, status: 200, json: () => Promise.resolve(responses.shift()),
+        }));
+        vi.stubGlobal('fetch', fetchMock);
+
+        const run = await waitForDispatch('/api/dispatch-runs/7', { intervalMs: 0 });
+
+        expect(run.status).toBe('failed');
+        expect(fetchMock).toHaveBeenCalledTimes(3);
+        expect(fetchMock.mock.calls[0][0]).toBe(`${API_BASE}/api/dispatch-runs/7`);
+    });
+
+    it('gives up after the timeout instead of polling forever', async () => {
+        const { waitForDispatch } = await import('../api');
+        vi.stubGlobal('fetch', vi.fn(() => Promise.resolve({
+            ok: true, status: 200, json: () => Promise.resolve({ status: 'running' }),
+        })));
+
+        await expect(waitForDispatch('/api/dispatch-runs/7', { intervalMs: 1, timeoutMs: 20 }))
+            .rejects.toThrow('still running');
+    });
+});

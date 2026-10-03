@@ -59,13 +59,13 @@ def test_reading_settings_stays_public(client, admin_token):
     assert client.get("/api/settings").status_code == 200
 
 
-# ── Dispatch abuse protection ───────────────────────────────────────────────
+# ── Dispatch abuse protection (single flight + cooldown, enforced by the dispatch_runs table) ──
 
-def test_second_dispatch_within_cooldown_is_rejected(client, admin_headers, stub_dispatch):
+def test_second_dispatch_within_cooldown_is_rejected(client, seeded_db, admin_headers, stub_dispatch):
     first = client.post("/api/trigger-alerts", headers=admin_headers)
     second = client.post("/api/trigger-alerts", headers=admin_headers)
 
-    assert first.status_code == 200
+    assert first.status_code == 202
     assert second.status_code == 429
     assert int(second.headers["Retry-After"]) > 0
     assert len(stub_dispatch) == 1
@@ -73,23 +73,23 @@ def test_second_dispatch_within_cooldown_is_rejected(client, admin_headers, stub
 
 def test_skipped_dispatch_does_not_start_cooldown(client, seeded_db, admin_headers):
     # Nothing configured -> nothing delivered -> the admin can fix config and retry immediately.
-    assert client.post("/api/trigger-alerts", headers=admin_headers).json()["status"] == "skipped"
-    assert client.post("/api/trigger-alerts", headers=admin_headers).status_code == 200
+    first = client.post("/api/trigger-alerts", headers=admin_headers).json()
+    assert client.get(first["status_url"]).json()["status"] == "skipped"
+    assert client.post("/api/trigger-alerts", headers=admin_headers).status_code == 202
 
 
-def test_dispatch_already_running_is_rejected(client, admin_headers, stub_dispatch):
-    held = routes.dispatch_guard.lock.acquire(blocking=False)
-    try:
-        response = client.post("/api/trigger-alerts", headers=admin_headers)
-    finally:
-        routes.dispatch_guard.lock.release()
+def test_dispatch_already_running_is_rejected(client, seeded_db, admin_headers, stub_dispatch):
+    from core.dispatch import start_run
 
-    assert held
+    start_run("manual")  # e.g. a scheduled or manual run still sending
+
+    response = client.post("/api/trigger-alerts", headers=admin_headers)
+
     assert response.status_code == 409
     assert stub_dispatch == []
 
 
-def test_concurrent_triggers_dispatch_once(client, admin_headers, monkeypatch):
+def test_concurrent_triggers_dispatch_once(client, seeded_db, admin_headers, monkeypatch):
     calls, release = [], threading.Event()
 
     def slow_run():
@@ -111,7 +111,9 @@ def test_concurrent_triggers_dispatch_once(client, admin_headers, monkeypatch):
         t.join()
 
     assert len(calls) == 1
-    assert sorted(results).count(200) == 1
+    assert results.count(202) == 1
+    # The rest are rejected as busy (409) or, if they arrive after it finished, by the cooldown (429).
+    assert set(results) - {202} <= {409, 429}
 
 
 # ── CORS ────────────────────────────────────────────────────────────────────

@@ -89,3 +89,19 @@ export async function adminPost(path, payload, askForToken = (msg) => window.pro
         throw e;
     }
 }
+
+// ── Background dispatch (PERF-02) ───────────────────────────────────────────
+// POST /api/trigger-alerts answers 202 with a status_url; the dispatch runs server-side.
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+export async function waitForDispatch(statusUrl, { intervalMs = 1500, timeoutMs = 180000 } = {}) {
+    const deadline = Date.now() + timeoutMs;
+    for (;;) {
+        const run = await getJSON(statusUrl);
+        if (run.status !== "running") return run;
+        if (Date.now() >= deadline) {
+            throw new Error("Dispatch is still running; check again in a minute.");
+        }
+        await sleep(intervalMs);
+    }
+}

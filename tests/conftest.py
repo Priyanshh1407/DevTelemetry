@@ -72,17 +72,13 @@ def mock_gemini(monkeypatch):
 
 @pytest.fixture(autouse=True)
 def reset_route_state():
-    """api.routes keeps module-level state (runbook cache, dispatch cooldown); reset it per test."""
+    """api.routes keeps a module-level runbook cache; reset it per test.
+    (Dispatch state lives in each test's own temporary database.)"""
     import api.routes as routes
 
     routes.ai_task_cache.clear()
-    guard = getattr(routes, "dispatch_guard", None)
-    if guard is not None:
-        guard.reset()
     yield
     routes.ai_task_cache.clear()
-    if guard is not None:
-        guard.reset()
 
 
 @pytest.fixture

@@ -1,13 +1,15 @@
-from fastapi import APIRouter, HTTPException,Depends
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Depends
 from core.db import db_session
 from ai.guide_generator import generate_efficiency_guide
 from typing import Literal
 from pydantic import BaseModel, Field
 import asyncio
 import logging
+import os
 from data.alert_worker import overall_status, run_weekly_telemetry_check
-from api.security import DispatchGuard, require_admin
+from api.security import require_admin
 from core.severity import severity_for_rank
+from core.dispatch import DispatchBusy, DispatchCoolingDown, finish_run, get_run, start_run
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -147,47 +149,73 @@ def _dispatch_message(summary):
             f"Manager digest: {summary['manager_digest']}. Slack: {summary['slack']}.")
 
 
-dispatch_guard = DispatchGuard()
+def _alert_cooldown_seconds():
+    return int(os.getenv("ALERT_COOLDOWN_SECONDS", "300"))
 
 
-@router.post("/trigger-alerts", dependencies=[Depends(require_admin)])
-def trigger_alerts():
-    # Single flight: a second click while emails are going out gets 409, not a second batch.
-    if not dispatch_guard.lock.acquire(blocking=False):
-        raise HTTPException(status_code=409, detail="An alert dispatch is already running.")
-    try:
-        wait = dispatch_guard.seconds_until_allowed()
-        if wait:
-            raise HTTPException(status_code=429, headers={"Retry-After": str(wait)},
-                                detail=f"Alerts were sent recently. Try again in {wait} seconds.")
-        try:
-            summary = run_weekly_telemetry_check()
-        except Exception:
-            # Log the details server-side; never echo internals (paths, SQL, credentials) to the client.
-            logger.exception("Alert dispatch crashed")
-            raise HTTPException(status_code=500, detail="Alert dispatch failed unexpectedly; see server logs.")
-        status = overall_status(summary)
-        # Cooldown only after a dispatch that delivered (or tried to deliver) something,
-        # so "nothing configured" can be fixed and retried immediately.
-        if status in ("success", "failed"):
-            dispatch_guard.mark_dispatched()
-    finally:
-        dispatch_guard.lock.release()
+def _has_usage_data():
+    with db_session() as conn:
+        return conn.execute("SELECT 1 FROM usage_metrics LIMIT 1").fetchone() is not None
 
-    if status == "no_data":
-        raise HTTPException(status_code=409, detail="No usage data to report yet.")
+
+def _describe_run(run):
+    """Human-readable message for a dispatch run, for the dashboard toast."""
+    status, summary = run["status"], run["summary"]
+    if status == "running":
+        return "Sending alerts..."
+    if status == "success":
+        return _dispatch_message(summary)
     if status == "failed":
-        # 502: the request was fine, but an upstream service (SMTP/Slack) failed.
-        raise HTTPException(status_code=502, detail={
-            "status": "failed",
-            "message": "Some notifications failed. " + _dispatch_message(summary),
-            "summary": summary,
-        })
+        return "Some notifications failed. " + _dispatch_message(summary)
     if status == "skipped":
-        message = "Nothing was sent: email and Slack are not configured on the server."
-    else:
-        message = _dispatch_message(summary)
-    return {"status": status, "message": message, "summary": summary}
+        return "Nothing was sent: email and Slack are not configured on the server."
+    if status == "no_data":
+        return "No usage data to report yet."
+    if status == "abandoned":
+        return "The dispatch was interrupted (server restart?) before it finished."
+    return "Alert dispatch failed unexpectedly; see server logs."
+
+
+def run_dispatch(run_id):
+    """Background job: sends everything, then records the outcome on the run."""
+    try:
+        summary = run_weekly_telemetry_check()
+    except Exception:
+        # Log the details server-side; never store or return internals (paths, SQL, credentials).
+        logger.exception("Alert dispatch %s crashed", run_id)
+        finish_run(run_id, "error")
+        return
+    finish_run(run_id, overall_status(summary), summary)
+
+
+@router.post("/trigger-alerts", status_code=202, dependencies=[Depends(require_admin)])
+def trigger_alerts(background_tasks: BackgroundTasks):
+    """Starts a dispatch and returns immediately; poll status_url for the outcome.
+
+    Sending ~a dozen emails can take a minute; doing it inside the request risked proxy
+    timeouts, and a client retry after a timeout would have sent everything twice.
+    """
+    if not _has_usage_data():
+        raise HTTPException(status_code=409, detail="No usage data to report yet.")
+    try:
+        run_id = start_run("manual", cooldown_seconds=_alert_cooldown_seconds())
+    except DispatchCoolingDown as e:
+        raise HTTPException(status_code=429, headers={"Retry-After": str(e.retry_after)},
+                            detail=f"Alerts were sent recently. Try again in {e.retry_after} seconds.")
+    except DispatchBusy:
+        raise HTTPException(status_code=409, detail="An alert dispatch is already running.")
+
+    background_tasks.add_task(run_dispatch, run_id)
+    return {"run_id": run_id, "status": "running", "status_url": f"/api/dispatch-runs/{run_id}"}
+
+
+@router.get("/dispatch-runs/{run_id}")
+def get_dispatch_run(run_id: int):
+    run = get_run(run_id)
+    if run is None:
+        raise HTTPException(status_code=404, detail="Dispatch run not found")
+    run["message"] = _describe_run(run)
+    return run
 
 @router.get("/engineer/{user_id}/details")
 def get_engineer_details(user_id: str):
