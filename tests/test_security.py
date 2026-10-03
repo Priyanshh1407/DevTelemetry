@@ -4,7 +4,6 @@ import threading
 import pytest
 
 import api.routes as routes
-from tests.conftest import ADMIN_TOKEN
 
 NEW_SCHEDULE = {"frequency": "Daily", "day": "Monday", "time": "09:30"}
 
