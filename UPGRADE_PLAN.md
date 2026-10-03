@@ -154,15 +154,18 @@ Risk / rollback:
 Goal: One source of truth per concept; remove what doesn’t exist; make the score defensible.
 Why this order: Refactoring is safe only once Phase 3 tests exist.
 Items:
-- [ ] ARCH-01 `core/severity.py` (single tier rule used by API, worker, and CLI); `core/queries.py`; delete empty `models.py`/`leaderboard.py` or implement them; delete `get_daily_records`; prompts move to `ai/prompts.py` — M
+- [x] ARCH-01 `core/severity.py` (single tier rule used by API, worker, and CLI); `core/queries.py`; delete empty `models.py`/`leaderboard.py` or implement them; delete `get_daily_records`; prompts move to `ai/prompts.py` — M
   - *Partly done in Phase 2:* `core/severity.py` (commit 5c82a18) and `core/queries.py` (BUG-04) exist and are used by the API, worker and CLI. Remaining: empty `models.py`/`leaderboard.py`, prompts into `ai/prompts.py`, other duplicated queries.
-- [ ] ML-03 Cache ratio on total prompt tokens (verify Anthropic semantics first), mix normalized/capped, sub-score breakdown returned by the API, rationale + limitations in `docs/scoring.md` — `core/scorer.py`, `api/routes.py` — S–M
+- [x] ML-03 Cache ratio on total prompt tokens (verify Anthropic semantics first), mix normalized/capped, sub-score breakdown returned by the API, rationale + limitations in `docs/scoring.md` — `core/scorer.py`, `api/routes.py` — S–M
+  - *Decisions (2026-10-03, developer):* token fields match Anthropic's `usage` semantics (with a data migration); the `/compact` term is pooled over 7 days. Result: bottom-2 stability median 0.65 → 0.82 over 30 seeds; property tests in place.
   - *New input from ML-02:* the `compacts / sessions` term causes almost all daily rank noise (within-engineer daily SD 7.1 pts vs 1.6 cache, 0.7 mix). Score it over a rolling window (pooled compacts / pooled sessions over 7 days) or shrink it toward the engineer's mean; re-measure bottom-2 stability (Phase 2: 5-seed mean 0.71, 30-seed median 0.65).
-- [ ] Hygiene bundle: unused imports, `logging` instead of print, bare excepts, stray files (`test.txt`, `api/guide.txt`, Vite README) — S
+- [x] Hygiene bundle: unused imports, `logging` instead of print, bare excepts, stray files (`test.txt`, `api/guide.txt`, Vite README) — S
   - *Partly done in Phase 3:* unused imports (ruff + ESLint now 0, enforced by CI), the swallowed team-report error, bare excepts in the SMTP code (PERF-02). Remaining: `logging` instead of print, stray files (`test.txt`, `api/guide.txt`, Vite README).
-- [ ] SEC-03 / DX-02 `npm audit fix` + re-test; pinned Python deps; one stated Python version (3.12 recommended) in README, Dockerfile, CI — S
+- [x] SEC-03 / DX-02 `npm audit fix` + re-test; pinned Python deps; one stated Python version (3.12 recommended) in README, Dockerfile, CI — S
+  - *Result:* npm audit 0 (shipped and dev), pip-audit clean; Python 3.13 chosen over 3.12 (support until Oct 2029).
 Acceptance criteria:
 - `grep -rn '"critical"' --include=*.py` shows tier logic only in `core/severity.py`.
+  - *Result:* tier **decisions** live only in `core/severity.py`; other matches only consume the tier (email colours, Slack emoji, prompt tone, validation). The email template's hidden `rank <= 5` copy was found by this check and removed.
 - Score tests updated, including property tests (score ∈ [0, 100]; monotonic non-decreasing in cache ratio).
 - `npm audit --omit=dev` shows 0 high.
 Verification commands:
