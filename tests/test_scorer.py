@@ -1,4 +1,3 @@
-import pytest
 from core.scorer import calculate_efficiency_score
 
 def test_efficiency_score_perfect():

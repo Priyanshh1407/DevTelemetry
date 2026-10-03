@@ -112,7 +112,7 @@ def test_details_history_averages_and_patterns(client, seeded_db, query):
     assert [h["date"] for h in data["history"]] == ["2026-01-01", "2026-01-02", LATEST_DATE]
 
     rows = query("SELECT * FROM usage_metrics WHERE user_id = ? ORDER BY date", (engineer_id(3),))
-    for h, row in zip(data["history"], rows):
+    for h, row in zip(data["history"], rows, strict=True):
         assert h["cache_ratio"] == round(row["cache_read_tokens"] / row["input_tokens"], 4)
 
     assert data["averages"]["avg_score"] == round(sum(r["efficiency_score"] for r in rows) / 3, 2)

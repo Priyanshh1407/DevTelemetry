@@ -3,7 +3,6 @@ from core.db import db_session
 from ai.guide_generator import generate_efficiency_guide
 from typing import Literal
 from pydantic import BaseModel, Field, field_validator
-import asyncio
 import logging
 import os
 from datetime import datetime, timedelta, timezone
@@ -136,7 +135,7 @@ class AlertSchedule(BaseModel):
         try:
             ZoneInfo(value)
         except (ZoneInfoNotFoundError, ValueError):
-            raise ValueError(f"Unknown IANA timezone: {value!r}")
+            raise ValueError(f"Unknown IANA timezone: {value!r}") from None
         return value
 
 
@@ -220,9 +219,9 @@ def trigger_alerts(background_tasks: BackgroundTasks):
         run_id = start_run("manual", cooldown_seconds=_alert_cooldown_seconds())
     except DispatchCoolingDown as e:
         raise HTTPException(status_code=429, headers={"Retry-After": str(e.retry_after)},
-                            detail=f"Alerts were sent recently. Try again in {e.retry_after} seconds.")
-    except DispatchBusy:
-        raise HTTPException(status_code=409, detail="An alert dispatch is already running.")
+                            detail=f"Alerts were sent recently. Try again in {e.retry_after} seconds.") from e
+    except DispatchBusy as e:
+        raise HTTPException(status_code=409, detail="An alert dispatch is already running.") from e
 
     background_tasks.add_task(run_dispatch, run_id)
     return {"run_id": run_id, "status": "running", "status_url": f"/api/dispatch-runs/{run_id}"}

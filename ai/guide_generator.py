@@ -142,4 +142,6 @@ def generate_team_report(team_summary):
             contents=prompt
         ).text.replace('**', '')
     except Exception as e:
-        return f"Error generating team report: System Offline." 
+        # Previously swallowed silently; log it like generate_efficiency_guide does.
+        print(f"Team report API Error: {type(e).__name__}: {e}")
+        return "Error generating team report: System Offline." 
