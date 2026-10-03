@@ -131,6 +131,7 @@ def seed_db(num_days, start_date="2026-01-01"):
                 "INSERT INTO engineers (user_id, name, email) VALUES (?, ?, ?)",
                 (engineer_id(i), f"Engineer {i:02d}", f"engineer{i:02d}@example.com"),
             )
+            earlier = []
             for d in range(num_days):
                 m = make_metrics(i, d)
                 mix = m["model_mix"]
@@ -145,9 +146,10 @@ def seed_db(num_days, start_date="2026-01-01"):
                         m["input_tokens"], m["output_tokens"], m["cache_read_tokens"], m["cache_write_tokens"],
                         mix["opus_pct"], mix["sonnet_pct"], mix["haiku_pct"],
                         m["session_count"], m["compact_uses"], m["git_commits"],
-                        m["estimated_cost_usd"], calculate_efficiency_score(m),
+                        m["estimated_cost_usd"], calculate_efficiency_score(m, earlier[-6:]),
                     ),
                 )
+                earlier.append(m)
         conn.commit()
     finally:
         conn.close()

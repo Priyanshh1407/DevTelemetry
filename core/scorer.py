@@ -5,14 +5,14 @@ cache_read_tokens and cache_write_tokens are separate, so a day's total prompt i
 
 - Cache hit ratio (40 pts): cache_read / total prompt tokens
 - Model mix (30 pts): Haiku 1.0, Sonnet 0.6, Opus 0.1 weights
-- Session discipline (30 pts): /compact uses per session
+- Session discipline (30 pts): /compact uses per session, pooled over the last 7 days
 """
 
 # Bump whenever the formula changes: init_db() recomputes stored scores when the version
 # recorded in the database differs (see core/db.py).
-SCORING_VERSION = 2
+SCORING_VERSION = 3  # 3: /compact term pooled over 7 days; model mix normalized
 
-# The discipline term may look back over this many days (including the scored day).
+# The discipline term pools this many days (the scored day plus up to 6 before it).
 POOL_DAYS = 7
 
 MODEL_WEIGHTS = {"haiku_pct": 1.0, "sonnet_pct": 0.6, "opus_pct": 0.1}
@@ -37,24 +37,39 @@ def cache_hit_ratio(day):
     return (day.get("cache_read_tokens") or 0) / total if total > 0 else 0.0
 
 
-def calculate_efficiency_score(day, recent=()):
-    """Score for `day`. `recent` holds up to POOL_DAYS - 1 earlier days for the same engineer
-    (oldest first); terms that pool over time use it."""
+def score_breakdown(day, recent=()):
+    """Points per part for `day`, plus the total. `recent` holds earlier days for the same
+    engineer (oldest first); only the last POOL_DAYS - 1 of them are used."""
     # 1. Cache hit ratio (40 pts)
-    cache_score = cache_hit_ratio(day) * 40
+    cache_points = cache_hit_ratio(day) * 40
 
-    # 2. Model mix (30 pts)
+    # 2. Model mix (30 pts). Shares are normalized so rounding or bad data (e.g. 0.33 x 3, or a
+    #    share above 1) can't push the score past its 30 points.
     mix = _model_mix(day)
-    mix_ratio = sum((mix.get(key) or 0) * weight for key, weight in MODEL_WEIGHTS.items())
-    model_score = mix_ratio * 30
+    share_total = sum((mix.get(key) or 0) for key in MODEL_WEIGHTS)
+    mix_ratio = (sum((mix.get(key) or 0) * weight for key, weight in MODEL_WEIGHTS.items()) / share_total
+                 if share_total > 0 else 0.0)
+    model_points = mix_ratio * 30
 
-    # 3. Session discipline (30 pts): /compact uses per session
-    sessions = day["session_count"]
-    compacts = day["compact_uses"]
-    compact_ratio = compacts / sessions if sessions > 0 else 0
-    discipline_score = min(compact_ratio, 1.0) * 30
+    # 3. Session discipline (30 pts): /compact uses per session, pooled over the trailing week.
+    #    A single day has only a handful of sessions, so its ratio is mostly luck (0/2, 1/2, 2/2
+    #    for the same habit); pooling 7 days measures the habit instead of the dice roll.
+    window = list(recent)[-(POOL_DAYS - 1):] + [day] if POOL_DAYS > 1 else [day]
+    sessions = sum(d.get("session_count") or 0 for d in window)
+    compacts = sum(d.get("compact_uses") or 0 for d in window)
+    discipline_points = min(compacts / sessions, 1.0) * 30 if sessions > 0 else 0.0
 
-    return round(cache_score + model_score + discipline_score, 2)
+    return {
+        "cache": round(cache_points, 2),
+        "model_mix": round(model_points, 2),
+        "discipline": round(discipline_points, 2),
+        "total": round(cache_points + model_points + discipline_points, 2),
+    }
+
+
+def calculate_efficiency_score(day, recent=()):
+    """Score (0-100) for `day`; see score_breakdown for the parts."""
+    return score_breakdown(day, recent)["total"]
 
 
 def score_history(days):

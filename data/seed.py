@@ -19,7 +19,7 @@ import sys
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from core.db import db_session, init_db
-from core.scorer import calculate_efficiency_score
+from core.scorer import POOL_DAYS, calculate_efficiency_score
 from core.pricing import estimate_cost
 
 DEFAULT_SEED = 42
@@ -132,6 +132,7 @@ def generate_historical_data(days_back=30, num_engineers=10, seed=DEFAULT_SEED, 
     fake.seed_instance(seed)
     engineers = make_engineers(rng, fake, num_engineers)
     personas = {eng["user_id"]: make_persona(rng) for eng in engineers}
+    history = {eng["user_id"]: [] for eng in engineers}  # earlier days, for the pooled score terms
     end_date = end_date or date.today()
 
     with db_session() as conn:
@@ -158,7 +159,9 @@ def generate_historical_data(days_back=30, num_engineers=10, seed=DEFAULT_SEED, 
                     cache_write_tokens=metrics["cache_write_tokens"],
                     model_mix=metrics["model_mix"],
                 ), 4)
-                efficiency_score = calculate_efficiency_score(metrics)
+                recent = history[eng["user_id"]]
+                efficiency_score = calculate_efficiency_score(metrics, recent[-(POOL_DAYS - 1):])
+                recent.append(metrics)
                 mix = metrics["model_mix"]
 
                 # INSERT OR IGNORE + UNIQUE(user_id, date): existing days are kept, so a re-run is a no-op

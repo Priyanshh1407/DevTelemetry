@@ -75,10 +75,10 @@ def bottom2_stability(rows):
 
 
 def test_engineers_have_stable_habits(empty_db, query):
-    # Chance level for 10 engineers is 0.20; the old i.i.d. generator scored 0.27 on seed 42.
-    # Averaged over seeds so the assertion is about the model, not one lucky draw. A 30-seed
-    # sweep gave median 0.65: most of the remaining daily rank noise comes from the score's
-    # compact/sessions term (binomial ratio of 2-7 sessions), tracked as an ML-03 finding.
+    # Chance level for 10 engineers is 0.20; the old i.i.d. generator scored 0.24 (seeds 1-5).
+    # Personas (ML-02) reached 0.71; pooling the /compact term over 7 days (ML-03b) took the
+    # 30-seed median from 0.65 to 0.82 (worst seed 0.33 -> 0.60). Averaged over seeds so the
+    # assertion is about the model, not one lucky draw.
     from core.db import get_db_connection
 
     values = []
@@ -91,8 +91,8 @@ def test_engineers_have_stable_habits(empty_db, query):
         values.append(bottom2_stability(_simulated_rows(query, seed=seed)))
     mean = sum(values) / len(values)
     print(f"bottom-2 stability per seed: {[round(v, 2) for v in values]}, mean {mean:.2f}")
-    assert mean >= 0.55
-    assert min(values) > 0.27  # every seed beats the old generator
+    assert mean >= 0.75
+    assert min(values) >= 0.60  # every seed well above chance and the old generator
 
 
 def test_weekday_cost_matches_published_claude_code_benchmark(empty_db, query):
