@@ -1,4 +1,0 @@
-To start the server use any of the 2 commands 
-
-python -m uvicorn api.main:app --reload
-uvicorn api.main:app --reload
