@@ -4,6 +4,7 @@ import sys
 # Ensure Python can find your AI and Notification modules
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from core.db import get_db_connection
+from core.severity import severity_for_rank
 from ai.guide_generator import generate_team_report
 from notifications.email_report import send_daily_report, send_developer_alert
 from notifications.slack_post import send_slack_summary
@@ -66,13 +67,7 @@ def run_weekly_telemetry_check():
         dev["rank"] = rank
         dev["total_devs"] = total_devs
         
-        # Apply the exact 5/3/2 ranking logic from your React dashboard
-        if rank <= 5:
-            dev["severity"] = "low"
-        elif rank >= (total_devs - 1):
-            dev["severity"] = "critical"
-        else:
-            dev["severity"] = "moderate"
+        dev["severity"] = severity_for_rank(rank, total_devs)
         
         icon = {"low": "🟢", "moderate": "🟡", "critical": "🔴"}[dev["severity"]]
         print(f"   {icon} [{dev['severity'].upper():>8}] #{rank} {dev['name']} — Score: {dev['efficiency_score']:.1f}")
