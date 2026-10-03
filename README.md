@@ -239,6 +239,36 @@ uvicorn api.main:app --reload
 
 ---
 
+## GitHub Actions (CI and scheduled alerts)
+
+Two workflows live in `.github/workflows/`:
+
+| Workflow | Runs when | What it does |
+|---|---|---|
+| **CI** (`ci.yml`) | every push and pull request | Backend: ruff + pytest (Python 3.10 and 3.14, coverage must stay ≥ 85%). Frontend: ESLint + Vitest + production build. Needs no secrets. |
+| **Scheduled alerts tick** (`scheduled-alerts.yml`) | every 15 minutes (only from the default branch) | Calls `POST /api/scheduled-tick`; the API sends the saved alert schedule at most once per slot. Needs the repository secrets `DEVTELEMETRY_API_URL` and `DEVTELEMETRY_ADMIN_TOKEN`. |
+
+### Turning GitHub Actions off
+
+| How | Stops | Manual "Run workflow" |
+|---|---|---|
+| **Repository variable** (soft switch): Settings → Secrets and variables → Actions → **Variables** → set `CI_ENABLED` or `SCHEDULED_ALERTS_ENABLED` to exactly `false`. Delete it (or set `true`) to turn it back on. | Automatic runs of that workflow (they show as *skipped*) | Still works |
+| **Disable button** (hard switch): Actions tab → pick the workflow → `...` → **Disable workflow** (**Enable workflow** to undo). Everything: Settings → Actions → General → **Disable actions**. | All runs of that workflow (or all workflows) | Blocked |
+| **One push only:** put `[skip ci]` in the commit message. | CI for that push | n/a |
+
+From a terminal with the GitHub CLI:
+
+```bash
+gh variable set SCHEDULED_ALERTS_ENABLED --body false   # soft off
+gh variable delete SCHEDULED_ALERTS_ENABLED             # back on (unset = on)
+gh workflow disable "CI"                                # hard off
+gh workflow enable "CI"
+```
+
+Notes: the value must be exactly `false` (other spellings count as on). If CI is a *required* check for merging, GitHub treats skipped jobs as passing, so only switch CI off temporarily. `tests/test_workflows.py` fails if any workflow job is missing its switch.
+
+---
+
 ## Switching to Claude API
 
 DevTelemetry is built to switch AI providers in under 5 minutes. Only `ai/guide_generator.py` changes — the client setup and response parsing. All prompts, scoring logic, database, and frontend are completely untouched.
