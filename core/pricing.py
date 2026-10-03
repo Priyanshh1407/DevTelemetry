@@ -7,10 +7,11 @@ page for cache multipliers), as of PRICE_TABLE_VERSION. Update the version when 
 Cache pricing: 5-minute cache writes cost 1.25x the input price. Cache reads cost 0.1x
 input, except Claude Opus 5.5 whose cache reads are $0.20 (0.05x).
 
-Assumptions (the telemetry is per engineer per day, not per request):
-- input_tokens INCLUDES cache reads, matching how core/scorer.py computes the cache hit
-  ratio (cache_read / input). So uncached input = input - cache_read. (Revisit with ML-03.)
-- cache_write_tokens are billed separately at the cache-write price.
+Token fields follow Anthropic's usage object: input_tokens = uncached prompt tokens
+(`input_tokens`), cache_read_tokens = `cache_read_input_tokens`, cache_write_tokens =
+`cache_creation_input_tokens`. Each kind is billed once, at its own price.
+
+Assumption (the telemetry is per engineer per day, not per request):
 - The day's tokens are split across models in proportion to the model mix
   (opus_pct / sonnet_pct / haiku_pct, normalized to sum to 1).
 """
@@ -44,13 +45,10 @@ def estimate_cost(input_tokens, output_tokens, cache_read_tokens, cache_write_to
     if total_share <= 0:
         raise ValueError(f"Model mix must have at least one positive share: {model_mix}")
 
-    # Reads beyond the reported input can only come from inconsistent data; don't bill negative input.
-    uncached_input = max(input_tokens - cache_read_tokens, 0)
-
     cost = 0.0
     for model, share in shares.items():
         price = PRICES[model]
-        model_cost = (uncached_input * price["input"]
+        model_cost = (input_tokens * price["input"]
                       + output_tokens * price["output"]
                       + cache_read_tokens * price["cache_read"]
                       + cache_write_tokens * price["cache_write"]) / PER_MILLION

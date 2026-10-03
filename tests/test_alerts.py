@@ -125,7 +125,11 @@ def test_startup_upgrades_a_database_created_before_dispatch_runs(tmp_path, monk
     conn = sqlite3.connect(old_db)
     conn.executescript("""
         CREATE TABLE engineers (user_id TEXT PRIMARY KEY, name TEXT NOT NULL, email TEXT NOT NULL);
-        CREATE TABLE usage_metrics (id INTEGER PRIMARY KEY, user_id TEXT, date TEXT, efficiency_score REAL);
+        CREATE TABLE usage_metrics (id INTEGER PRIMARY KEY, user_id TEXT, date TEXT, input_tokens INTEGER,
+                                    output_tokens INTEGER, cache_read_tokens INTEGER, cache_write_tokens INTEGER,
+                                    opus_pct REAL, sonnet_pct REAL, haiku_pct REAL, session_count INTEGER,
+                                    compact_uses INTEGER, git_commits INTEGER, estimated_cost_usd REAL,
+                                    efficiency_score REAL);
         CREATE TABLE alert_settings (id INTEGER PRIMARY KEY CHECK (id = 1), frequency TEXT, day TEXT, time TEXT);
     """)
     conn.close()

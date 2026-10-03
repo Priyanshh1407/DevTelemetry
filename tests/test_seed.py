@@ -110,7 +110,9 @@ def test_weekday_cost_matches_published_claude_code_benchmark(empty_db, query):
 
 def test_simulated_rows_are_internally_consistent(empty_db, query):
     for r in _simulated_rows(query):
-        assert 0 <= r["cache_read_tokens"] <= r["input_tokens"]
+        # Anthropic semantics: three separate, non-negative parts of the prompt
+        assert min(r["input_tokens"], r["cache_read_tokens"], r["cache_write_tokens"]) >= 0
+        assert r["input_tokens"] + r["cache_read_tokens"] + r["cache_write_tokens"] > 0
         assert abs(r["opus_pct"] + r["sonnet_pct"] + r["haiku_pct"] - 1.0) <= 0.011
         assert 0 <= r["compact_uses"] <= r["session_count"]
         assert r["session_count"] >= 1

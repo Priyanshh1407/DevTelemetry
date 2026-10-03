@@ -113,7 +113,8 @@ def test_details_history_averages_and_patterns(client, seeded_db, query):
 
     rows = query("SELECT * FROM usage_metrics WHERE user_id = ? ORDER BY date", (engineer_id(3),))
     for h, row in zip(data["history"], rows, strict=True):
-        assert h["cache_ratio"] == round(row["cache_read_tokens"] / row["input_tokens"], 4)
+        total = row["input_tokens"] + row["cache_read_tokens"] + row["cache_write_tokens"]
+        assert h["cache_ratio"] == round(row["cache_read_tokens"] / total, 4)  # Anthropic semantics
 
     assert data["averages"]["avg_score"] == round(sum(r["efficiency_score"] for r in rows) / 3, 2)
     assert data["averages"]["total_commits"] == 3 * 3
@@ -263,12 +264,13 @@ def test_leaderboard_reports_real_7_day_score_change_and_activity(client, empty_
     rows = {r["user_id"]: r for r in client.get("/api/leaderboard").json()}
 
     for user_id, row in rows.items():
-        history = query("SELECT date, efficiency_score, input_tokens FROM usage_metrics "
+        history = query("SELECT date, efficiency_score, input_tokens + cache_read_tokens + cache_write_tokens "
+                        "AS prompt_tokens FROM usage_metrics "
                         "WHERE user_id = ? ORDER BY date", (user_id,))
         latest = history[-1]["efficiency_score"]
         previous_week = [h["efficiency_score"] for h in history if "2026-01-03" <= h["date"] <= "2026-01-09"]
         assert row["score_change_7d"] == pytest.approx(round(latest - sum(previous_week) / 7, 2))
-        assert row["recent_activity"] == [h["input_tokens"] for h in history[-7:]]
+        assert row["recent_activity"] == [h["prompt_tokens"] for h in history[-7:]]
 
 
 def test_leaderboard_trend_is_null_without_history(client, empty_db):
@@ -289,8 +291,9 @@ def _insights_for(client, opus_pct, cache_read, compact_uses):
         conn.execute("INSERT INTO engineers (user_id, name, email) VALUES ('x', 'X', 'x@example.com')")
         conn.execute("""INSERT INTO usage_metrics (user_id, date, input_tokens, cache_read_tokens, opus_pct,
                         sonnet_pct, haiku_pct, session_count, compact_uses, git_commits, estimated_cost_usd,
-                        efficiency_score) VALUES ('x', '2026-01-01', 1000, ?, ?, 0.5, ?, 4, ?, 1, 1.0, 50)""",
-                     (cache_read, opus_pct, round(0.5 - opus_pct, 2), compact_uses))
+                        efficiency_score) VALUES ('x', '2026-01-01', ?, ?, ?, 0.5, ?, 4, ?, 1, 1.0, 50)""",
+                     # a 1,000-token prompt: `cache_read` from cache, the rest uncached (input_tokens)
+                     (1000 - cache_read, cache_read, opus_pct, round(0.5 - opus_pct, 2), compact_uses))
     return {p["label"]: p["insight"] for p in client.get("/api/engineer/x/details").json()["patterns"]}
 
 

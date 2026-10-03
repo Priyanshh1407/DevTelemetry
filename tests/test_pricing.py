@@ -21,16 +21,16 @@ def test_uncached_input_and_output_at_list_price():
 
 
 def test_cached_input_is_billed_at_cache_read_price():
-    # input_tokens includes cache reads: 1M input, all of it read from cache at $0.10/M
-    assert estimate_cost(input_tokens=M, output_tokens=0, cache_read_tokens=M,
+    # Anthropic semantics: input_tokens is uncached only. 1M prompt tokens, all read from cache at $0.10/M.
+    assert estimate_cost(input_tokens=0, output_tokens=0, cache_read_tokens=M,
                          cache_write_tokens=0, model_mix=HAIKU_ONLY) == pytest.approx(0.10)
 
 
 def test_mixed_models_hand_computed():
-    # 200k input (100k cached), 40k output, 20k cache writes, split 50/50 Opus/Haiku.
+    # 100k uncached input + 100k cache reads, 40k output, 20k cache writes, split 50/50 Opus/Haiku.
     # Opus:  100k*$4 + 100k*$0.20 + 20k*$5 + 40k*$20     = 0.40 + 0.02 + 0.10 + 0.80   = 1.32
     # Haiku: 100k*$1 + 100k*$0.10 + 20k*$1.25 + 40k*$5   = 0.10 + 0.01 + 0.025 + 0.20  = 0.335
-    cost = estimate_cost(input_tokens=200_000, output_tokens=40_000, cache_read_tokens=100_000,
+    cost = estimate_cost(input_tokens=100_000, output_tokens=40_000, cache_read_tokens=100_000,
                          cache_write_tokens=20_000,
                          model_mix={"opus_pct": 0.5, "sonnet_pct": 0.0, "haiku_pct": 0.5})
     assert cost == pytest.approx(0.5 * 1.32 + 0.5 * 0.335)
@@ -50,10 +50,11 @@ def test_mix_is_normalized_when_rounding_leaves_it_off_one():
     assert rounded == pytest.approx(exact)
 
 
-def test_cache_reads_above_input_never_produce_negative_cost():
+def test_each_token_kind_is_billed_once_at_its_own_price():
+    # Cache reads are not also billed as input (they're separate fields, like Anthropic's usage object).
     cost = estimate_cost(input_tokens=1_000, output_tokens=0, cache_read_tokens=5_000,
                          cache_write_tokens=0, model_mix=SONNET_ONLY)
-    assert cost == pytest.approx(5_000 * 0.20 / M)
+    assert cost == pytest.approx((1_000 * 2.00 + 5_000 * 0.20) / M)
 
 
 @pytest.mark.parametrize("kwargs", [
