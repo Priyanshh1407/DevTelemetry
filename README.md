@@ -2,7 +2,7 @@
 
 > AI-powered usage analytics agent that tracks Claude Code token efficiency across engineering teams, scores developer habits, and auto-generates personalised cost-reduction guides.
 
-![Python](https://img.shields.io/badge/Python-3.11-blue?style=flat-square&logo=python)
+![Python](https://img.shields.io/badge/Python-3.13-blue?style=flat-square&logo=python)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.104-green?style=flat-square&logo=fastapi)
 ![Gemini](https://img.shields.io/badge/Gemini-1.5_Flash-orange?style=flat-square&logo=google)
 ![SQLite](https://img.shields.io/badge/SQLite-3-lightgrey?style=flat-square&logo=sqlite)
@@ -201,7 +201,7 @@ devtelemetry/
 
 ### Prerequisites
 
-- Python 3.11+
+- Python 3.13+ (3.13 in Docker; CI also tests 3.14)
 - A free Gemini API key from [aistudio.google.com](https://aistudio.google.com)
 
 ### Installation
@@ -245,7 +245,7 @@ Two workflows live in `.github/workflows/`:
 
 | Workflow | Runs when | What it does |
 |---|---|---|
-| **CI** (`ci.yml`) | every push and pull request | Backend: ruff + pytest (Python 3.10 and 3.14, coverage must stay ≥ 85%). Frontend: ESLint + Vitest + production build. Needs no secrets. |
+| **CI** (`ci.yml`) | every push and pull request | Backend: ruff + pytest (Python 3.13 and 3.14, coverage must stay ≥ 85%). Frontend: ESLint + Vitest + production build. Needs no secrets. |
 | **Scheduled alerts tick** (`scheduled-alerts.yml`) | every 15 minutes (only from the default branch) | Calls `POST /api/scheduled-tick`; the API sends the saved alert schedule at most once per slot. Needs the repository secrets `DEVTELEMETRY_API_URL` and `DEVTELEMETRY_ADMIN_TOKEN`. |
 
 ### Turning GitHub Actions off
@@ -290,7 +290,7 @@ ANTHROPIC_API_KEY=sk-ant-...
 
 | Layer | Technology |
 |---|---|
-| Language | Python 3.11 |
+| Language | Python 3.13 |
 | AI Guide Generation | Google Gemini 1.5 Flash (free tier) |
 | Web API | FastAPI + Uvicorn |
 | Database | SQLite (built-in) |
