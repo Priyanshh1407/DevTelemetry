@@ -12,3 +12,10 @@ README.md
 engineers_data.json
 docker-compose.yml
 Dockerfile*
+
+# Never bake a local database or test/tooling artifacts into the image
+*.db
+data/*.db
+.coverage
+.pytest_cache/
+.github/

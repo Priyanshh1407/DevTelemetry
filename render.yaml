@@ -23,9 +23,11 @@ services:
       # Demo data uses synthetic @example.com addresses: keep every email routed to EMAIL_RECIPIENT.
       - key: PRODUCTION_MODE
         value: "false"
-    # Because Render restarts containers, we'll run the seed script
-    # to populate the SQLite DB each time for the demo.
-    # We could attach a disk, but a demo DB is fine to reset.
+    # Storage: the free tier has an ephemeral filesystem, so the SQLite DB (DB_PATH, set in
+    # Dockerfile.backend) starts empty on every deploy/restart and is seeded at container start.
+    # Saved schedules and dispatch history reset too. For persistence, attach a Render disk at
+    # /app/db (paid) -- the start command only seeds an empty database.
+    # Scheduled alerts are triggered by .github/workflows/scheduled-alerts.yml (needs ADMIN_TOKEN).
 
   # Frontend React Service
   - type: web

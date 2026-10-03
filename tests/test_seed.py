@@ -116,3 +116,24 @@ def test_simulated_rows_are_internally_consistent(empty_db, query):
         assert r["session_count"] >= 1
         assert min(r["output_tokens"], r["cache_write_tokens"], r["git_commits"]) >= 0
         assert 0 <= r["efficiency_score"] <= 100
+
+
+# ── DX-01: container start seeds only an empty database ─────────────────────
+
+def test_if_empty_seeds_an_empty_database(empty_db, query):
+    from data.seed import main
+
+    main(["--if-empty", "--days", "3", "--engineers", "4"])
+
+    assert count(query, "SELECT COUNT(*) AS n FROM engineers") == 4
+
+
+def test_if_empty_leaves_existing_data_alone(empty_db, query):
+    from data.seed import main
+
+    main(["--days", "3", "--engineers", "4", "--seed", "1"])
+    before = query("SELECT * FROM usage_metrics ORDER BY id")
+
+    main(["--if-empty", "--days", "5", "--engineers", "10", "--seed", "2"])
+
+    assert query("SELECT * FROM usage_metrics ORDER BY id") == before
