@@ -319,3 +319,80 @@ Off switches (developer request: "turn the GitHub Actions off"):
 **Not yet verified on GitHub:** CI hasn't run on github.com, because nothing has been pushed. Every step was reproduced locally on clean environments (see the table). The first real run happens when the branch is pushed.
 Trade-offs: the 3.10 + 3.14 matrix doubles backend minutes (free for public repos) in exchange for testing both what ships and what you develop on. Push + pull_request means a branch with an open PR runs CI twice per push; accepted for simplicity.
 Interview version: "CI runs both test suites on clean machines, on the Python version I ship and the one I develop on, with a coverage gate. It needs no secrets because every external service is mocked at the boundary. Each workflow has an off switch, a repository variable that skips automatic runs but still allows manual ones, and a test that parses the workflow files fails if a new job forgets the switch."
+
+---
+
+## Phase 4 — Architecture & Code Quality (2026-10-03, branch `phase-4-architecture`)
+
+Decisions (developer): **token fields match Anthropic's `usage` semantics** (with a data migration), and the **`/compact` term is pooled over 7 days** (option 1, chosen after a walkthrough of the noise problem).
+
+Baseline (end of Phase 3) → after:
+
+| Check | Before | After |
+|---|---|---|
+| Backend tests | 192 | 220 (incl. 3 property tests × 2,000 random cases, 4 golden-prompt tests, 6 migration tests) |
+| Frontend tests | 23 | 24 |
+| Coverage | 96.4% | 96% (919 statements) |
+| Bottom-2 stability, 30 simulated teams (median / worst) | 0.65 / 0.33 | **0.82 / 0.60** |
+| Within-engineer daily SD of the discipline term | 7.07 pts | **2.44 pts** |
+| Simulated weekday cost (mean / p90) | $13.68 / $23.42 | $12.73 / $22.19 (published: ~$13 / < $30) |
+| `npm audit` | 5 shipped (4 high) + 6 dev | **0** |
+| `pip-audit` (pinned runtime + dev, incl. transitive) | never run | **no known vulnerabilities** |
+| Python in Docker / CI | 3.10 (EOL Oct 2026) / 3.10 + 3.14 | **3.13** / 3.13 + 3.14 |
+| `print()` in server code | 29 calls | 0 (ruff `T20` enforces it) |
+
+### ARCH-01 — prompts module and shared queries (commits 697a76f, cfd33bb, 108047a)
+- **Golden-file tests first:** the exact text of all four prompts (three severities plus the team report) was snapshotted from the old code. The prompts then moved **verbatim** into `ai/prompts.py`, and the snapshots prove they're byte-identical. Changing a prompt is now a reviewed diff (`UPDATE_GOLDEN=1`), never a refactoring side effect. The snapshot also documents a quirk: top performers ("low") get the "slightly below average" nudge. That's left for UPG-01.
+- `core/queries.latest_metrics_for_user()` replaces two copies of the same query. The empty `core/models.py` and `core/leaderboard.py` are deleted.
+- The email template coloured the rank with its own `rank <= 5` rule, a hidden copy of the tier logic. It now follows the severity from `core/severity.py` (red test: a "moderate" engineer at rank 3 showed green).
+
+### Privacy — the LLM gets metrics, never identity (commit 0dcd82b)
+Found while consolidating queries: `/api/guide` and the CLI agent sent the engineer's **name** to Gemini (only email was stripped, and only in the CLI). `without_pii()` now removes name and email on every path to the LLM. The tests assert the prompts contain the metrics but no name or email (red before).
+
+### BUG-08 — "Rank #1" for someone with no data today (commit a4b713e)
+Symptom: an engineer with history but no row on the latest day (a new hire, a missed sync) showed **Rank #1, low severity** on their details page.
+Root cause: `current_rank = 1` was a default that was only overwritten if the loop found them.
+Fix: rank comes from the shared `latest_day_rows()` query. Someone absent from that day gets `null`, and the page says "Not ranked today" / "No data today".
+
+### ML-03a — token fields match Anthropic's API (commit 3fe9b67)
+Situation: in Anthropic's `usage` object, `input_tokens` counts **uncached** tokens only (`cache_read_input_tokens` and `cache_creation_input_tokens` are separate). This schema stored "prompt tokens including cache reads" in `input_tokens`, so the hit ratio and any future real-data ingestion didn't line up.
+Fix:
+- `input_tokens` is now uncached; total prompt = input + cache_read + cache_write; hit ratio = cache_read / total prompt.
+- **Cache writes now count as misses.** Previously a day with half its prompt in cache writes still got all 40 cache points.
+- Pricing bills each kind once at its own price. **Cost values are unchanged**, because the old code already billed `input − cache_read`, which is exactly the new `input_tokens`.
+- **Data migration:** `schema_meta` markers drive one-time conversions inside `init_db`'s transaction. Old rows get `input -= cache_read`, then every score is recomputed whenever `SCORING_VERSION` differs.
+- Dry run on a **copy of the developer's real database**: 900 rows converted, no negatives, costs unchanged, scores recomputed, the missing `timezone` column and new tables added, and a second run a no-op.
+
+Interview version: "My schema used a different meaning for input tokens than Anthropic's API, which would have made real data ingestion subtly wrong. I aligned the fields and wrote a versioned, idempotent migration that runs on startup inside one transaction. I tested it on a copy of real data before trusting it, and it's tracked in a meta table so it can never run twice."
+
+### ML-03b — measure the habit, not the dice roll (commit 78eb2d4)
+Situation: the discipline term scored one day's `compacts / sessions`. With 2–7 sessions a day that's mostly luck (0/2, 1/2, 2/2 for the same habit). It carried almost all day-to-day rank noise, and the bottom 2 get "critical" emails.
+Fix:
+- The discipline term is pooled over the scored day plus up to 6 earlier days.
+- Model-mix shares are normalized, so the score can't exceed 100 (Phase 0 had documented 106).
+- `score_breakdown()` is returned by the details API, computed on the same window as the stored score (test: the parts' total equals the stored score).
+- `SCORING_VERSION 3` makes existing databases rescore on startup.
+
+Measured:
+- discipline daily SD 7.07 → 2.44;
+- bottom-2 stability over 30 simulated teams: median 0.65 → 0.82, worst 0.33 → 0.60;
+- seeds 1–5 mean: 0.71 → 0.85 (the test threshold was raised to ≥ 0.75).
+
+Property tests (2,000 random cases each): the score stays in [0, 100]; moving tokens from uncached to cache never lowers it; using `/compact` more never lowers it.
+Trade-off: a real change in habit takes about a week to show fully.
+Interview version: "I measured that one score component carried almost all the day-to-day ranking noise. It was a ratio of two to seven events a day, so the same habit could score 0, 15 or 30. Pooling it over a week cut that noise by two thirds and made the bottom-two list match the genuinely worst engineers 82% of the time instead of 65%. I fixed it in the formula, not by making the simulation less random, and the stability test now guards it."
+
+`docs/scoring.md` (commit a2de67a) explains the formula, the field mapping, why the weights are judgment calls, and the known limitations (model mix ignores task difficulty, Goodhart's law for `/compact`, no outcome measure, simulated data).
+
+### Hygiene — logging, not printing (commits 68eed08, f061e50)
+Symptom (seen twice during Phases 2 and 4): under `pytest -s` some dispatch tests ended in `error`.
+Root cause: the worker and notifiers `print()`ed emoji. On a console or redirected output using cp1252 that raised `UnicodeEncodeError` **inside the dispatch**, so nothing was sent. It would also hit anyone running the API on Windows with output redirected. Red test: a cp1252 stdout reproduced the crash.
+Fix: server modules use loggers (a handler that can't encode a character reports it instead of raising into the caller). The CLIs keep `print` for their own output and configure logging. Ruff `T20` forbids `print` elsewhere. Stray notes and the Vite template README were removed.
+
+### SEC-03 / DX-02 — dependencies and Python version (commits 77d8bad, e7b3b19)
+- **npm:**
+  - `npm audit fix` and `npm update` crashed with an internal error in npm 10.9.2 (`Cannot read properties of null (reading 'edgesOut')`), even after a clean `npm ci`.
+  - Workaround: installed react-router-dom 7.18.4 and vite 8.3.2 explicitly, and applied the in-range transitive updates with npm 11 via `npx`.
+  - Verified that `npm ci` with npm 10 (what CI uses) accepts the lockfile.
+  - Result: **0 vulnerabilities**, shipped and dev.
+- **Python:** `pip-audit` (first ever run, via `uvx`) found **no known vulnerabilities** in the pinned runtime and dev requirements. Docker moves to **python:3.13-slim**, because 3.10 reaches end-of-life in October 2026. 3.13 was chosen over the plan's 3.12 because it's supported until 2029. CI tests 3.13 and 3.14, and ruff targets py313. A clean 3.13 environment from the pinned requirements runs 219 passed at 96.4% coverage.

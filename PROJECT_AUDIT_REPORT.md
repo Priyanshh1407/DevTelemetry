@@ -316,6 +316,11 @@ Not run: the live Render deployment (I didn’t want to trigger side effects on 
 - **New, fixed:** a personal user-level ruff config made local lint differ from CI (now pinned in `ruff.toml`); `generate_team_report` swallowed errors without logging; the Dashboard rendered an empty leaderboard when the API was down; the frontend image used Node 20, which is end-of-life.
 - **Open P0/P1:** none. CI has been verified locally on clean environments but not yet run on github.com (nothing pushed).
 
+### Status after Phase 4 (2026-10-03)
+- **Fixed:** ARCH-01 (prompts module with golden tests, shared queries, empty modules removed), ML-03 (Anthropic token semantics + data migration; `/compact` term pooled over 7 days; normalized mix; score breakdown in the API; docs/scoring.md), hygiene (logging, stray files), SEC-03/DX-02 (npm audit 0, pip-audit clean, Python 3.13).
+- **New, fixed:** BUG-08 (an engineer absent from the latest day showed "Rank #1, low"); LLM prompts included engineer **names** (privacy); `print()` with emoji crashed the dispatch on cp1252 output; the email template kept a hidden copy of the tier rule; npm 10.9.2 can't run `audit fix` here (worked around).
+- **Open P0/P1:** none. Remaining work is Phase 6 (interview upgrades) and Phase 7 (README rewrite, deploy).
+
 ---
 
 ## 5. Hygiene Bundle (P3)
@@ -352,7 +357,9 @@ Not run: the live Render deployment (I didn’t want to trigger side effects on 
 - “Scheduled alerts run in production.” *(updated after Phase 2)* The mechanism exists and is tested (GitHub Actions tick → idempotent endpoint), but it only runs once merged to the default branch with the two secrets set. Don’t claim it’s live until you’ve seen a scheduled run in the Actions tab.
 - “AI guides are persisted.” *(updated after Phase 1)* Only successful guides are cached now (BUG-02 fixed), but in process memory: lost on restart, not shared between workers. The `ai_guides` table is still unused (UPG-01).
 - “Production-ready” or “it has user authentication.” *(updated after Phase 1)* Mutating endpoints now need a shared admin token (SEC-01 fixed), but there are no user accounts or roles, and the token sits in sessionStorage (XSS-readable).
-- “Switching to Claude takes 5 minutes.” There’s no provider abstraction, and the referenced doc doesn’t exist.
+- “Switching to Claude takes 5 minutes.” There’s still no provider abstraction (UPG-01 adds one), and the referenced doc doesn’t exist.
 - “Uses Gemini 1.5 Flash / Chart.js / React 18.” It doesn’t (DOC-01).
 - ~~“The trend arrows / sparklines show performance trends.”~~ *(fixed in BUG-07: they now come from a real 7-day score change and daily token volume)*
 - Any percentage like “reduces cost by X%”. Nothing has been measured.
+
+- *(added after Phase 4)* “The score is objective” or “the weights are optimal.” The weights are judgment calls (see docs/scoring.md); UPG-03 measures how sensitive the ranking is to them. You *can* say: “token fields match Anthropic’s usage API, and the ranking is stable: the bottom two match the habitually worst engineers 82% of the time in simulation.”
