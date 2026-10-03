@@ -18,4 +18,4 @@ def test_db_path_points_at_tmp_db(empty_db):
 def test_gemini_client_is_mocked(mock_gemini):
     import ai.guide_generator as gg
 
-    assert gg.client is mock_gemini
+    assert gg.get_client() is mock_gemini

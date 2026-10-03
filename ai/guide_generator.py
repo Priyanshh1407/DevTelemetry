@@ -4,10 +4,26 @@ from google import genai
 from dotenv import load_dotenv
 
 load_dotenv()
-client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 
-# Initialize model once to reuse
 model_id = "gemini-2.5-flash"
+
+# Created on first use, not at import: a missing key must only disable AI features,
+# not stop the whole API from starting.
+_client = None
+
+
+class AIUnavailableError(RuntimeError):
+    """Raised when the AI provider cannot be used (e.g. no API key configured)."""
+
+
+def get_client():
+    global _client
+    if _client is None:
+        api_key = os.getenv("GEMINI_API_KEY")
+        if not api_key:
+            raise AIUnavailableError("GEMINI_API_KEY is not set")
+        _client = genai.Client(api_key=api_key)
+    return _client
 
 def generate_efficiency_guide(engineer_data, severity="moderate"):
     """
@@ -35,7 +51,7 @@ def generate_efficiency_guide(engineer_data, severity="moderate"):
     """
     
     try:
-        response_text = client.models.generate_content(
+        response_text = get_client().models.generate_content(
             model=model_id,
             contents=prompt
         ).text
@@ -96,7 +112,7 @@ def generate_team_report(team_summary):
     """
     
     try:
-        return client.models.generate_content(
+        return get_client().models.generate_content(
             model=model_id,
             contents=prompt
         ).text.replace('**', '')
