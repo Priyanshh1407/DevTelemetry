@@ -169,3 +169,35 @@ def test_slack_request_has_a_timeout(monkeypatch):
     slack_post.send_slack_summary([dict(DEV, rank=1)], 50.0, 10.0)
 
     assert urlopen.call_args.kwargs.get("timeout") == slack_post.SLACK_TIMEOUT_SECONDS
+
+
+# ── TEST-01a: Slack failure modes are reported, never raised ────────────────
+
+@pytest.fixture
+def slack_webhook(monkeypatch):
+    monkeypatch.setenv("SLACK_WEBHOOK_URL", "https://hooks.example.test/T000/B000")
+
+
+def test_slack_non_200_response_is_a_failure(slack_webhook, monkeypatch):
+    urlopen = MagicMock()
+    urlopen.return_value.__enter__.return_value = MagicMock(status=204)
+    monkeypatch.setattr(slack_post.urllib.request, "urlopen", urlopen)
+
+    assert slack_post.send_slack_summary([dict(DEV, rank=1)], 50.0, 10.0) == "failed"
+
+
+def test_slack_http_error_reports_the_response_body(slack_webhook, monkeypatch, capsys):
+    import io
+
+    error = slack_post.urllib.error.HTTPError("https://hooks.example.test", 404, "Not Found", {},
+                                              io.BytesIO(b"no_service"))
+    monkeypatch.setattr(slack_post.urllib.request, "urlopen", MagicMock(side_effect=error))
+
+    assert slack_post.send_slack_summary([dict(DEV, rank=1)], 50.0, 10.0) == "failed"
+    assert "no_service" in capsys.readouterr().out  # Slack's reason, e.g. a revoked webhook
+
+
+def test_slack_unexpected_error_does_not_crash_the_dispatch(slack_webhook, monkeypatch):
+    monkeypatch.setattr(slack_post.urllib.request, "urlopen", MagicMock(side_effect=ValueError("bad url")))
+
+    assert slack_post.send_slack_summary([dict(DEV, rank=1)], 50.0, 10.0) == "failed"

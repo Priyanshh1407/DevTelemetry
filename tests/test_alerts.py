@@ -133,3 +133,18 @@ def test_startup_upgrades_a_database_created_before_dispatch_runs(tmp_path, monk
 
     with TestClient(app) as client:  # the context manager runs the app's startup
         assert client.get("/api/dispatch-runs/1").status_code == 404  # table exists; just no such run
+
+
+@pytest.mark.parametrize("status, expected", [
+    ("running", "Sending alerts..."),
+    ("no_data", "No usage data to report yet."),
+    ("abandoned", "The dispatch was interrupted (server restart?) before it finished."),
+])
+def test_dispatch_run_messages_for_every_state(client, seeded_db, status, expected):
+    from core.dispatch import finish_run, start_run
+
+    run_id = start_run("manual")
+    if status != "running":
+        finish_run(run_id, status)
+
+    assert client.get(f"/api/dispatch-runs/{run_id}").json()["message"] == expected

@@ -278,3 +278,33 @@ def test_leaderboard_trend_is_null_without_history(client, empty_db):
 
     assert row["score_change_7d"] is None
     assert len(row["recent_activity"]) == 1
+
+
+# ── TEST-01a: engineer-detail insights on both sides of each threshold ──────
+
+def _insights_for(client, opus_pct, cache_read, compact_uses):
+    from core.db import db_session
+
+    with db_session() as conn:
+        conn.execute("INSERT INTO engineers (user_id, name, email) VALUES ('x', 'X', 'x@example.com')")
+        conn.execute("""INSERT INTO usage_metrics (user_id, date, input_tokens, cache_read_tokens, opus_pct,
+                        sonnet_pct, haiku_pct, session_count, compact_uses, git_commits, estimated_cost_usd,
+                        efficiency_score) VALUES ('x', '2026-01-01', 1000, ?, ?, 0.5, ?, 4, ?, 1, 1.0, 50)""",
+                     (cache_read, opus_pct, round(0.5 - opus_pct, 2), compact_uses))
+    return {p["label"]: p["insight"] for p in client.get("/api/engineer/x/details").json()["patterns"]}
+
+
+def test_insights_flag_habits_outside_team_targets(client, empty_db):
+    insights = _insights_for(client, opus_pct=0.40, cache_read=300, compact_uses=1)
+
+    assert "above team target" in insights["Model Usage"]
+    assert "room to improve" in insights["Cache Efficiency"]
+    assert "recommend using /compact more often" in insights["Session Discipline"]
+
+
+def test_insights_praise_habits_within_team_targets(client, empty_db):
+    insights = _insights_for(client, opus_pct=0.10, cache_read=700, compact_uses=3)
+
+    assert "within team target" in insights["Model Usage"]
+    assert "strong reuse" in insights["Cache Efficiency"]
+    assert "strong context management" in insights["Session Discipline"]
