@@ -42,6 +42,18 @@ def no_network(monkeypatch):
     monkeypatch.setattr(socket.socket, "connect", _guarded_connect)
 
 
+NOTIFICATION_ENV = ("EMAIL_SENDER", "EMAIL_PASSWORD", "EMAIL_RECIPIENT", "SLACK_WEBHOOK_URL",
+                    "PRODUCTION_MODE", "FRONTEND_URL")
+
+
+@pytest.fixture(autouse=True)
+def no_real_notification_credentials(monkeypatch):
+    """Importing the app runs load_dotenv(), which may put real SMTP/Slack credentials in
+    os.environ. Remove them so a test can only send through config it set up itself."""
+    for name in NOTIFICATION_ENV:
+        monkeypatch.delenv(name, raising=False)
+
+
 @pytest.fixture(autouse=True)
 def mock_gemini(monkeypatch):
     """Replaces the Gemini client with a mock that returns a fixed numbered list.

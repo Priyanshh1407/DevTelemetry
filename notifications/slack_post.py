@@ -6,8 +6,15 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-SLACK_WEBHOOK_URL = os.getenv("SLACK_WEBHOOK_URL")
-DASHBOARD_URL = "http://localhost:5173"
+
+# Read at call time (not import) so tests and runtime config decide where messages go.
+def _webhook_url():
+    return os.getenv("SLACK_WEBHOOK_URL")
+
+
+def _dashboard_url():
+    # Previously hardcoded to localhost, so the deployed Slack button pointed at the reader's own machine.
+    return os.getenv("FRONTEND_URL", "http://localhost:5173")
 
 
 def _build_slack_blocks(all_devs, average_score, total_cost):
@@ -78,7 +85,7 @@ def _build_slack_blocks(all_devs, average_score, total_cost):
                         "text": ":chart_with_upwards_trend: Open Dashboard",
                         "emoji": True
                     },
-                    "url": DASHBOARD_URL,
+                    "url": _dashboard_url(),
                     "style": "primary"
                 }
             ]
@@ -103,7 +110,8 @@ def send_slack_summary(all_devs, average_score, total_cost):
     Gracefully skips if SLACK_WEBHOOK_URL is not set.
     """
 
-    if not SLACK_WEBHOOK_URL:
+    webhook_url = _webhook_url()
+    if not webhook_url:
         print("[SLACK] No SLACK_WEBHOOK_URL configured in .env — skipping Slack notification.")
         return False
 
@@ -111,7 +119,7 @@ def send_slack_summary(all_devs, average_score, total_cost):
     json_data = json.dumps(payload).encode("utf-8")
 
     req = urllib.request.Request(
-        SLACK_WEBHOOK_URL,
+        webhook_url,
         data=json_data,
         headers={"Content-Type": "application/json"},
         method="POST"
