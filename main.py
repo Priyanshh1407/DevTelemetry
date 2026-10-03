@@ -3,10 +3,9 @@
 Reads the same SQLite database as the dashboard (DB_PATH). If it is empty, seeds it first.
 """
 import sys
-from contextlib import closing
 
 from ai.guide_generator import generate_efficiency_guide, generate_team_report
-from core.db import get_db_connection, init_db
+from core.db import db_session, init_db
 from core.queries import latest_day_rows, without_pii
 from core.severity import severity_for_rank
 from data.seed import generate_historical_data
@@ -16,12 +15,12 @@ COACHED = 5  # how many of the lowest-ranked engineers get an individual guide
 
 def load_latest_day():
     init_db()
-    with closing(get_db_connection()) as conn:
+    with db_session() as conn:
         engineers = latest_day_rows(conn)
     if not engineers:
         print("No usage data found. Generating synthetic telemetry...")
         generate_historical_data()
-        with closing(get_db_connection()) as conn:
+        with db_session() as conn:
             engineers = latest_day_rows(conn)
     return engineers
 
