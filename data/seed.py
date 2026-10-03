@@ -9,6 +9,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from core.db import get_db_connection, init_db
 from core.scorer import calculate_efficiency_score
+from core.pricing import estimate_cost
 
 fake = Faker()
 
@@ -74,9 +75,16 @@ def generate_historical_data(days_back=30, num_engineers=10):
                     "session_count": random.randint(1, 8),
                     "compact_uses": random.randint(0, 5),
                     "git_commits": random.randint(0, 12),
-                    "estimated_cost_usd": round(random.uniform(5.0, 30.0), 2)
                 }
-                
+                # Cost is derived from the usage above (was random.uniform(5, 30), unrelated to tokens)
+                metrics["estimated_cost_usd"] = round(estimate_cost(
+                    input_tokens=metrics["input_tokens"],
+                    output_tokens=metrics["output_tokens"],
+                    cache_read_tokens=metrics["cache_read_tokens"],
+                    cache_write_tokens=metrics["cache_write_tokens"],
+                    model_mix=metrics["model_mix"],
+                ), 4)
+
                 # 3. Calculate the score BEFORE saving to DB
                 efficiency_score = calculate_efficiency_score(metrics)
                 
