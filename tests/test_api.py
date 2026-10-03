@@ -49,13 +49,23 @@ def test_trends_returns_daily_team_aggregates(client, seeded_db, query):
     assert [d["date"] for d in data] == ["2026-01-01", "2026-01-02", LATEST_DATE]
 
 
-@pytest.mark.xfail(strict=True, reason="BUG-05: ORDER BY date ASC LIMIT 30 returns the oldest 30 days")
 def test_trends_window_ends_at_latest_date(client, empty_db):
     seed_db(num_days=40)
     data = client.get("/api/trends").json()
 
     assert len(data) == 30
     assert data[-1]["date"] == "2026-02-09"
+
+
+def test_details_history_is_latest_30_days_in_order(client, empty_db):
+    seed_db(num_days=40)
+    data = client.get(f"/api/engineer/{engineer_id(3)}/details").json()
+
+    dates = [h["date"] for h in data["history"]]
+    assert len(dates) == 30
+    assert dates[0] == "2026-01-11" and dates[-1] == "2026-02-09"
+    assert dates == sorted(dates)
+    assert data["latest"]["efficiency_score"] == data["history"][-1]["efficiency_score"]
 
 
 # ── /api/engineer/{id}/details ──────────────────────────────────────────────
