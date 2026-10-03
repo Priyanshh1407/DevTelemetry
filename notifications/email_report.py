@@ -104,7 +104,8 @@ def render_developer_email(dev_data):
         score=round(dev_data["efficiency_score"], 1),
         cost=round(dev_data["estimated_cost_usd"], 2),
         severity=severity.upper(),
-        rank_color="#16a34a" if dev_data["rank"] <= 5 else "#dc2626" if severity == "critical" else "#d97706",
+        # Colour follows the tier from core/severity.py (this used its own `rank <= 5` rule).
+        rank_color={"low": "#16a34a", "critical": "#dc2626"}.get(severity, "#d97706"),
         tip=dev_data.get("tip", theme["default_tip"]),
         runbook_url=f"{_dashboard_url()}/runbook/{severity}/{dev_data['user_id']}",
         dashboard_url=_dashboard_url(),
