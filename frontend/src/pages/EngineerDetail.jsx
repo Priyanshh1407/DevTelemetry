@@ -6,8 +6,8 @@ import {
     PieChart, Pie, Cell
 } from "recharts";
 import {
-    ArrowLeft, Calendar, User, Mail, Award, AlertTriangle, CheckCircle, Info,
-    Activity, Bot, BookOpen, Compass, Code, Cpu, RefreshCw, BarChart2, Coins
+    ArrowLeft, Mail, Award, AlertTriangle, Info,
+    Activity, Bot, BookOpen, Code, Cpu, RefreshCw
 } from "lucide-react";
 import Navbar from "../components/Navbar";
 import { getJSON } from "../api";

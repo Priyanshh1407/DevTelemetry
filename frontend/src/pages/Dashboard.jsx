@@ -512,7 +512,7 @@ export default function Dashboard() {
                     null,
                     { icon: Bot, label: "AI", active: false },
                     { icon: Settings, label: "Setup", active: false },
-                ].map((item, i) =>
+                ].map((item) =>
                     item === null ? (
                         <div
                             key="fab"

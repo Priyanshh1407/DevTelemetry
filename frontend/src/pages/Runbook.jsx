@@ -1,12 +1,12 @@
 import { useState, useEffect } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import {
-    AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, LineChart, Line,
+    ResponsiveContainer, LineChart, Line,
 } from "recharts";
 import {
     Search, Bell, Settings, History, Timer, Code, Zap,
     TrendingDown, TrendingUp, AlertTriangle, CheckCircle,
-    Star, Check, Users, Terminal, Play, ExternalLink, Plus,
+    Star, Users, Terminal, Play, ExternalLink, Plus,
     ArrowLeft, Coins, ArrowRight, Info, Loader2
 } from "lucide-react";
 
@@ -56,7 +56,7 @@ function RunbookHeader() {
 }
 
 // ─── Reusable Task List Component ─────────────────────────────────────────
-function TaskList({ tasks, toggleTask, themeClass, isCritical }) {
+function TaskList({ tasks, toggleTask, themeClass }) {
     const checkedCount = tasks.filter(t => t.checked).length;
 
     return (
@@ -187,7 +187,7 @@ function CriticalRunbook({ tasks, toggleTask }) {
 
                 <div className="flex flex-col lg:flex-row gap-6">
                     <div className="flex-1">
-                        <TaskList tasks={tasks} toggleTask={toggleTask} themeClass="text-error" isCritical={true} />
+                        <TaskList tasks={tasks} toggleTask={toggleTask} themeClass="text-error" />
                         <div className="mt-6 p-4 bg-primary-container/10 border border-primary-container/20 rounded-lg flex items-center gap-4">
                             <Info size={24} className="text-primary-container" />
                             <p className="text-xs text-on-surface-variant font-medium">Completing 3/5 tasks will automatically downgrade severity to 'Moderate'.</p>
