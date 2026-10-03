@@ -1,16 +1,3 @@
-import json
-import random
-from faker import Faker
-from datetime import date
-import os
-import sys
-
-# Allow `python core/scorer.py` as well as `import core.scorer`
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from core.pricing import estimate_cost  # noqa: E402
-
-fake = Faker()
-
 def calculate_efficiency_score(engineer_data):
     """
     Calculates efficiency score (0-100) based on:
@@ -43,54 +30,3 @@ def calculate_efficiency_score(engineer_data):
     
     total_score = cache_score + model_score + discipline_score
     return round(total_score, 2)
-
-def generate_mock_data(num_engineers=10):
-    data = []
-    for _ in range(num_engineers):
-        input_tokens = random.randint(50000, 400000)
-        # Cap cache reads to maintain a realistic upper bound against input tokens
-        cache_read_tokens = random.randint(0, int(input_tokens * 0.9))
-        
-        # Calculate realistic model mix summing to ~1.0
-        opus = random.uniform(0.0, 0.4)
-        sonnet = random.uniform(0.3, 0.8)
-        haiku = max(0.0, 1.0 - opus - sonnet)
-        
-        total = opus + sonnet + haiku
-        
-        engineer = {
-            "user_id": fake.uuid4(),
-            "name": fake.name(),
-            "date": str(date.today()),
-            "input_tokens": input_tokens,
-            "output_tokens": random.randint(10000, 80000),
-            "cache_read_tokens": cache_read_tokens,
-            "cache_write_tokens": random.randint(5000, 50000),
-            "model_mix": {
-                "opus_pct": round(opus / total, 2),
-                "sonnet_pct": round(sonnet / total, 2),
-                "haiku_pct": round(haiku / total, 2)
-            },
-            "session_count": random.randint(1, 8),
-            "compact_uses": random.randint(0, 5),
-            "git_commits": random.randint(0, 12),
-        }
-        engineer["estimated_cost_usd"] = round(estimate_cost(
-            input_tokens=engineer["input_tokens"],
-            output_tokens=engineer["output_tokens"],
-            cache_read_tokens=engineer["cache_read_tokens"],
-            cache_write_tokens=engineer["cache_write_tokens"],
-            model_mix=engineer["model_mix"],
-        ), 4)
-        data.append(engineer)
-    
-    # Save to the root directory for easy access in Phase 1
-    file_path = "engineers_data.json"
-    with open(file_path, "w") as f:
-        json.dump(data, f, indent=2)
-    
-    return data
-
-if __name__ == "__main__":
-    generate_mock_data()
-    print("Successfully generated engineers_data.json")
