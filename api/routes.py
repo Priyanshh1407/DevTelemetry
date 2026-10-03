@@ -33,8 +33,29 @@ def get_leaderboard():
             WHERE u.date = ?
             ORDER BY u.efficiency_score DESC
         """, (latest_date,))
-        
-        return [dict(row) for row in cursor.fetchall()]
+        board = [dict(row) for row in cursor.fetchall()]
+
+        # 3. One window query for trends (no per-engineer queries): the latest day plus the 7 before it
+        window = conn.execute("""
+            SELECT user_id, date, efficiency_score, input_tokens
+            FROM usage_metrics
+            WHERE date BETWEEN date(?, '-7 days') AND ?
+            ORDER BY date ASC
+        """, (latest_date, latest_date)).fetchall()
+
+    history = {}
+    for r in window:
+        history.setdefault(r["user_id"], []).append(r)
+
+    for row in board:
+        days = history.get(row["user_id"], [])
+        previous = [d["efficiency_score"] for d in days if d["date"] < latest_date]
+        # Latest score vs. the average of the previous 7 days; None when there is no history yet.
+        row["score_change_7d"] = (round(row["efficiency_score"] - sum(previous) / len(previous), 2)
+                                  if previous else None)
+        # Last 7 days of prompt tokens (oldest first) for the dashboard's activity sparkline
+        row["recent_activity"] = [d["input_tokens"] for d in days][-7:]
+    return board
 
 @router.get("/trends")
 def get_team_trends():

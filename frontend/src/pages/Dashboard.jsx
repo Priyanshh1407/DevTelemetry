@@ -34,6 +34,22 @@ function CustomTooltip({ active, payload, label }) {
     );
 }
 
+// ─── Trend + activity helpers ─────────────────────────────────────────────────
+// Changes smaller than this (in score points) are shown as flat.
+const TREND_EPSILON = 0.05;
+
+function describeTrend(change) {
+    if (change === null || change === undefined) return { trend: "flat", trendVal: "" };
+    const trend = change > TREND_EPSILON ? "up" : change < -TREND_EPSILON ? "down" : "flat";
+    const sign = trend === "up" ? "+" : "";
+    return { trend, trendVal: `${sign}${change.toFixed(1)}` };
+}
+
+// Map each day's tokens to a 1-4 bar height relative to the team's busiest day.
+function activityBars(activity = [], teamMax = 1) {
+    return activity.map((tokens) => Math.max(1, Math.ceil((tokens / teamMax) * 4)));
+}
+
 // ─── Sparkline ────────────────────────────────────────────────────────────────
 const barHeights = { 1: "h-1", 2: "h-2", 3: "h-3", 4: "h-4" };
 
@@ -85,14 +101,17 @@ export default function Dashboard() {
                 }));
 
                 // Step D: Format Leaderboard for the table
+                const teamMaxActivity = Math.max(1, ...rawBoard.flatMap((eng) => eng.recent_activity || []));
                 const formattedBoard = rawBoard.map((eng, index) => ({
                     user_id: eng.user_id,
                     rank: index + 1,
                     name: eng.name,
                     score: eng.efficiency_score,
                     spend: `$${eng.estimated_cost_usd.toFixed(2)}`,
-                    trend: index < 3 ? "up" : "down",
-                    bars: [Math.floor(Math.random() * 4) + 1, Math.floor(Math.random() * 4) + 1, Math.floor(Math.random() * 4) + 1],
+                    // Real 7-day change from the API (was: top 3 always "up", the rest "down")
+                    ...describeTrend(eng.score_change_7d),
+                    // Daily prompt tokens scaled against the team's busiest day (was: Math.random())
+                    bars: activityBars(eng.recent_activity, teamMaxActivity),
                     rankColor: index === 0 ? "#FFD700" : index === 1 ? "#C0C0C0" : index === 2 ? "#CD7F32" : null
                 }));
 
