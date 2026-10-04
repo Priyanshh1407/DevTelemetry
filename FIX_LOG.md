@@ -514,3 +514,99 @@ The team memo is metered too.
 - `gemini-2.5-flash` → `gemini-3.8-flash`.
 - A partial v1 run on 2.5 (4 calls) was discarded so both prompts are compared on the same model.
 - Actual spend so far: $0 (free tier). Reported costs are list-price equivalents.
+
+### Phase 6 recheck against the plan (commit 71897f6)
+- **Verification command:** the plan's `python -m evals.run --pipeline v2` crashed, because it replayed on 3.8 Flash, which has no v2 recordings. Evals now default to the model of the published comparison.
+- **CI check:** CI now verifies that the committed recordings reproduce the committed results exactly.
+- **Labels:** a free re-score had relabelled the published tables "replay". Tables now say the replies are recorded live calls, and a replay with unchanged numbers leaves them alone.
+
+---
+
+## Phase 7 — Ship & Document (2026-10-04, branch `phase-6-upgrades`)
+
+Decisions (developer):
+- no licence;
+- push and open a PR into `main` (the developer merges);
+- Render deploys the `deployment` branch;
+- personal notes untracked but kept locally.
+
+Tests: 307 backend, 33 frontend; coverage 97%; ruff and ESLint clean.
+
+### /health and deploy config (commit 12bd54e)
+- **`GET /health`:**
+  - Reports whether the database is reachable, the scoring version, the latest data date, and whether AI is configured (a boolean, never the key).
+  - Returns 503 with no internal details when the database is down.
+- **render.yaml:**
+  - Uses `/health` as the health check.
+  - The dashboard service declares `VITE_API_URL`. Vite bakes it in at build time; without it the live dashboard calls `127.0.0.1`.
+
+### Leftover from Phase 6: the app's own AI numbers (commit 8e4f856)
+Captured by running `main.py` twice on a throwaway database while 3.8 Flash was out of free-tier quota.
+
+**Two bugs found:**
+- **Latency was under-metered:** it was timed from the fallback call only, hiding the failed main-model attempt. Corrected numbers: p50 6.3 s, p95 30.7 s.
+- **The 30 s tail:** every request paid the main model's retries and timeout before falling back.
+
+**Fix:**
+- Latency covers the whole wait.
+- After a 429/5xx, the main model is skipped for 5 minutes.
+
+**Measured on a fresh database:**
+- p50 / p95: 2.1 / 5.3 s;
+- $0.0010 per generated guide;
+- cache hit rate 50% (the second run served all five guides from the database);
+- fallback rate 0%.
+
+### DOC-01: the README rewritten from the code (commits f5975a5, 0d73364)
+**Removed:**
+- an invented `main.py` run (dated 2024, claimed to send email);
+- a sample guide with made-up savings percentages;
+- an unsourced "$150–250 per developer per month";
+- files that don't exist; Chart.js; the MIT badge.
+
+**Added:**
+- real `main.py` output;
+- a Mermaid diagram of the real flow;
+- the eval table and metering numbers, each with its caveat;
+- an API table, quick starts and a config table;
+- known limitations.
+
+**Screenshots:** retaken with Playwright driving Edge, after UI-01.
+
+### Fresh clone, README followed word for word (commit 0cd97f9)
+**Result:** API and dashboard working in about 4 minutes on Python 3.13 / Node 22 (target < 10).
+
+**Found:**
+- **Placeholder secrets in `.env.example`:** `ADMIN_TOKEN=generate_a_long_random_token` becomes a *public* admin password for anyone who copies the file and forgets to change it. The placeholder Gemini key made every guide a failed API call.
+  - Fix: optional secrets are now empty (fail safe), and a test guards it.
+- **Tab title:** it was Vite's "frontend".
+
+### UI-01 (new finding): mock-up content shown as product (commits 5447bec, 72d501a)
+**Found while retaking screenshots.** The Runbook showed:
+- invented metrics: "MTTR: 4h", "Ratio 1:5", "> 85% token utilization";
+- invented stakeholders with stock photos;
+- "Cost anomaly +$1,420/hr";
+- "Last triggered 2m 44s ago";
+- "completing 3/5 tasks will automatically downgrade severity", which doesn't exist;
+- buttons that only called `alert()`.
+
+**Elsewhere:**
+- The navigation had dead links (Analytics, AI Agents, NODES, SECURITY, Deploy Agent).
+- The dashboard's "+1 this month" and "−4.2%" were constants, and EXPORT CSV was `href="#"`.
+- The engineer avatar came from a made-up URL.
+
+**Now:**
+- **Runbook:** one component for every tier showing:
+  - the engineer's real rank, score, biggest opportunity and cost;
+  - the guide;
+  - whether the guide is AI-generated or the rule-based fallback, and why.
+- **Dashboard:** the spend change is the real change from the previous day, and EXPORT CSV downloads the leaderboard.
+- **Navigation and avatars:** only real links; initials instead of avatars.
+- **Tests:** they check that none of the invented content remains.
+
+Interview version: "When I retook the screenshots I noticed the runbook page still had mock-up numbers from the design tool, like an MTTR, a cost anomaly, and fake stakeholders. They looked like product data, but nothing computed them. I replaced every one with real data or removed it, and added tests that fail if they come back. A dashboard that invents numbers undermines the numbers that are real."
+
+### Not done in this phase
+- **Live deploy:** it needs the PR merged and the `deployment` branch updated (developer).
+- **Live checks:** `/health` on Render and the Runbook in DevTools. Locally they're verified on a fresh clone.
+- **Re-running the interview report / mock interview:** the developer will do this later.
