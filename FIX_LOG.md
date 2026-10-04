@@ -404,12 +404,12 @@ Fix: server modules use loggers (a handler that can't encode a character reports
 Decisions (developer):
 - **Evals:** offline in CI and tests (recorded replies), live runs only with approval before each one.
 - **Provider:** Gemini only, behind an interface; the README's Claude claim is reworded.
-- **Model:** the latest Gemini (`gemini-3.8-flash`).
-- **Eval size:** n=10 live, because the free tier allows 20 requests/day.
+- **Model:** the latest Gemini (`gemini-3.8-flash`), falling back to the latest Flash-Lite (`gemini-3.5-flash-lite`) when it is out of quota or overloaded.
+- **Eval:** the free tier allows only 20 requests/day for 3.8 Flash, so the full v1 vs v2 comparison ran on Flash-Lite (its own quota), all 30 profiles. The 3.8 Flash v1 baseline (n=10) is kept.
 
-Tests: 287 backend (from 219), 26 frontend; ruff and ESLint clean.
+Tests: 297 backend (from 219), 26 frontend; coverage 97%; ruff and ESLint clean.
 
-### UPG-01 — grounded, structured, stored coaching + evals (commits 287dae1, 19c291a, 4679f95, 51fc41b, c34f1fc, 2454bda, cba392a, 4336025, 4b25241, f4ca5ea)
+### UPG-01 — grounded, structured, stored coaching + evals (commits 287dae1, 19c291a, 4679f95, 51fc41b, c34f1fc, 2454bda, cba392a, 4336025, 4b25241, f4ca5ea, 28a0fb3, 838855c)
 **Before:**
 - The guide was free text split into tasks by line heuristics.
 - Failures were cached in process memory.
@@ -421,6 +421,7 @@ Tests: 287 backend (from 219), 26 frontend; ruff and ESLint clean.
   - `GeminiProvider` is the only implementation.
   - The model is set with `GEMINI_MODEL`, default `gemini-3.8-flash` (Google's models page, 2026-10-01).
   - Prices are a dated schedule per model: 3.8 Flash is $0.75 / $3.75 per 1M tokens through 2026, then $1.50 / $7.50.
+  - **Model fallback:** on 429 or 5xx, one retry on `GEMINI_FALLBACK_MODEL` (default `gemini-3.5-flash-lite`, $0.30 / $2.50). Free-tier quotas are per model, so the fallback has its own allowance. Bad requests don't switch models. A guide is stored and metered under the model that actually answered.
 - **Prompt v2:**
   - Input: a FACTS block of computed metrics (points lost per area, weakest area, 7-day `/compact` rate), never identity.
   - Output: JSON validated by Pydantic (`CoachingGuide`: headline, 1–5 actions with a `focus` area).
@@ -437,22 +438,42 @@ Tests: 287 backend (from 219), 26 frontend; ruff and ESLint clean.
   - the action count.
 - Live runs record replies so they can be replayed for free in CI.
 
-**Measured baseline (v1, live, gemini-3.8-flash, n=10):**
-- Valid 100%, targeted 100%, 95.6% of 113 cited numbers grounded, 60% of guides with no ungrounded number.
-- Reviewing each flagged number by hand: 3 were correct averages ("28,000 output tokens per run" = 168,173 / 6), 2 were true bounds ("exceeded 10 million" for 10,145,598), **0 were invented**.
-- ~1,460 output tokens per guide (mostly thinking), p50 8.9 s, about $0.0057 per guide at list price.
-- **v2 numbers: pending.** The live run waits for the free-tier quota. Command: `python -m evals.run --pipeline v2 --mode live --pause 20 --profiles p01,p02,p03,p05,p06,p07,p08,p09,p11,p12`.
+**Result: v1 vs v2, live, gemini-3.5-flash-lite, all 30 profiles, same model (fallback off):**
+
+| | v1 (old prompt) | v2 (structured) |
+|---|---|---|
+| Valid guide | 100% | 100% |
+| First action targets the weakest area | **50%** | **100%** |
+| Cited numbers grounded | 97.4% of 267 | 100% of 442 |
+| Guides with no ungrounded number | 80% | 100% |
+| Output tokens per guide | 188 | 340 |
+| Latency p50 / p95 | 1.8 / 2.7 s | 2.1 / 2.8 s |
+| List-price cost for 30 guides | $0.017 | $0.028 (~$0.0009 per guide) |
+
+**What the numbers mean:**
+- **The real gain is targeting.** v1 leads with caching almost regardless of the problem: by weakest area it targets cache 9/10, model mix 4/10 and `/compact` 2/10. v2 gets the weakest area as a fact and is told to start there.
+- **Grounding: real but small.** Reviewing v1's 7 flagged numbers by hand, **1 is wrong**: p17 cites 3,032,848 cache-write tokens, while the actual value is 303,284. The rest are correct averages or sums, one true bound and one generic interval ("every 30 to 45 minutes"). v2 cites 65% more numbers, all grounded.
+- **Cost:** v2 uses ~1.8x the output tokens, still under a tenth of a cent per guide.
+
+**Earlier baseline (v1, gemini-3.8-flash, n=10):**
+- Valid 100%, targeted 100%, 60% of guides with no ungrounded number.
+- 0 invented numbers (3 correct averages, 2 true bounds).
+- ~1,460 output tokens per guide (mostly thinking), p50 8.9 s.
+- **The same prompt targets 100% on 3.8 Flash but 50% on Flash-Lite,** so prompt quality depends on the model. That's why every eval run is pinned to one model.
 
 **Found by the evals themselves:**
-- The checker read "11.53 million" as 11.53, so the first baseline under-reported grounding (50% instead of 60%). Fixed and covered by a test.
+- **Checker bugs, found by reviewing every flagged number before trusting a table:**
+  - "11.53 million" was read as 11.53 (3.8 baseline 50% -> 60%);
+  - "11 dollars and 91 cents" was read as two numbers, and "March 31st" as a metric (Flash-Lite v1 66.7% -> 80%).
+  - Each is fixed with a test; all runs were re-scored from their recordings.
 - The first live run was 18 × 429 and 2 × 503. The 429s were the free tier's **20 requests/day per model**, so live runs now retry capacity errors, stop after 3 profiles in a row still fail, and finish later with `--only-missing`.
 
 **Honest limits:**
-- n=10 on one model.
-- Checks are rule-based (tone and helpfulness aren't measured).
-- The profiles are synthetic.
+- 30 synthetic profiles, one model per comparison, one run each (no repeat runs to measure variance).
+- Checks are rule-based: tone and helpfulness aren't measured, and "targets the weakest area" is judged by keywords.
+- v2 is *given* the weakest area as a fact, so part of its targeting gain is the design, not the model trying harder. That's the point, but say it.
 
-Interview version: "I reviewed every number the checker flagged and found a bug in my own checker before I trusted the baseline. The old prompt turned out not to invent numbers on this sample, so the case for v2 is structure, guaranteed fallbacks and cost, not a big grounding win."
+Interview version: "On the same model and the same 30 profiles, the structured prompt fixed targeting from 50% to 100%: the old prompt talked about caching to people whose problem was model choice. Grounding improved less than I expected, because when I reviewed every flagged number, most were my checker's mistakes, not the model's. I fixed three checker bugs before trusting the table, and the old prompt had one genuinely wrong number in 30 guides."
 
 ### UPG-04 — the app meters its own AI calls (commit 4679f95)
 Every model request is recorded in `ai_requests`: purpose, outcome, tokens from the provider's usage metadata, latency, cost, prompt version and model.

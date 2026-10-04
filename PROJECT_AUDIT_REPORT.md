@@ -326,9 +326,8 @@ Not run: the live Render deployment (I didn’t want to trigger side effects on 
   - UPG-02: validated, idempotent ingestion API; the simulator uses the same path.
   - UPG-03: score breakdown in the UI; weight sensitivity measured.
   - UPG-04: every AI request metered.
-  - UPG-01: built (provider interface, structured v2 prompt, repair + rule-based fallback, guides stored in SQLite, eval harness), with the v1 baseline measured live on gemini-3.8-flash (n=10).
-- **Pending:** the v2 live eval (free-tier quota: 20 requests/day).
-- **New, fixed:** the eval checker misread "N million"; live evals burned time on an exhausted daily quota; the README pointed at a non-existent `CLAUDE_MIGRATION.md`.
+  - UPG-01: provider interface with a Flash-Lite fallback, structured v2 prompt, repair + rule-based fallback, guides stored in SQLite, eval harness. Measured live on gemini-3.5-flash-lite, 30 profiles: targeting 50% → 100%, guides with no ungrounded number 80% → 100%.
+- **New, fixed:** the eval checker misread "N million", "N dollars and M cents" and ordinal dates; live evals burned time on an exhausted daily quota; the README pointed at a non-existent `CLAUDE_MIGRATION.md`.
 
 ---
 
@@ -367,7 +366,7 @@ Not run: the live Render deployment (I didn’t want to trigger side effects on 
 - ~~“AI guides are persisted.”~~ *(true after Phase 6: stored in `coaching_guides`, keyed by data date, severity, prompt version and model)*
 - “Production-ready” or “it has user authentication.” *(updated after Phase 1)* Mutating endpoints now need a shared admin token (SEC-01 fixed), but there are no user accounts or roles, and the token sits in sessionStorage (XSS-readable).
 - “Switching to Claude takes 5 minutes.” *(updated after Phase 6)* There is a `GuideProvider` interface, but only Gemini implements it. Say “adding a provider means writing one class”, not that it’s been done.
-- *(added after Phase 6)* “v2 improved grounding by X%.” Not measured yet (the v2 live run is pending), and on the n=10 baseline v1 invented no numbers, so expect a small grounding difference. Quote eval numbers with their n and model.
+- *(added after Phase 6)* “The new prompt eliminated hallucinations.” The old one had 1 wrong number in 30 guides; the big measured gain is targeting (50% → 100%). Quote eval numbers with their n (30) and model (gemini-3.5-flash-lite), and note that on 3.8 Flash the old prompt already targeted 100% (n=10).
 - “Uses Gemini 1.5 Flash / Chart.js / React 18.” It doesn’t (DOC-01). *(Phase 6: the README now says Gemini 3.8 Flash; the Chart.js and React 18 mentions are fixed in the Phase 7 README rewrite.)*
 - ~~“The trend arrows / sparklines show performance trends.”~~ *(fixed in BUG-07: they now come from a real 7-day score change and daily token volume)*
 - Any percentage like “reduces cost by X%”. Nothing has been measured.

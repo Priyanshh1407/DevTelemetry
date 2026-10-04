@@ -177,7 +177,7 @@ Risk / rollback:
 
 ## Phase 6 — Interview Upgrades
 
-- [~] **UPG-01 Grounded, structured, persisted AI coaching + eval harness** (flagship) — *built and tested; v1 baseline measured live (n=10). The v2 live run waits for the free-tier quota (20 requests/day). Deviations: guides are stored in a new `coaching_guides` table (`ai_guides` dropped when empty); the action schema uses `focus` instead of `metric_cited`/`est_saving`, because a model-estimated saving would be an ungrounded number by construction.*
+- [x] **UPG-01 Grounded, structured, persisted AI coaching + eval harness** (flagship) — *v1 → v2 on gemini-3.5-flash-lite, 30 profiles: targeting 50% → 100%, guides with no ungrounded number 80% → 100%. Deviations: guides are stored in a new `coaching_guides` table (`ai_guides` dropped when empty); the action schema uses `focus` instead of `metric_cited`/`est_saving`, because a model-estimated saving would be an ungrounded number by construction; the main model falls back to Flash-Lite on quota or overload.*
   - Problem it solves in THIS project: LLM output is parsed by line heuristics (LLM-01), failures are cached (BUG-02), nothing is persisted (`ai_guides` unused), and nobody knows whether the advice cites the engineer’s real numbers, which the prompt asks for.
   - What gets built (scope-limited):
     - Gemini `response_schema` / JSON mode that returns `{headline, actions:[{title, problem, fix, metric_cited, est_saving}]}`, validated by Pydantic, with one repair retry that feeds the validation error back.
@@ -263,12 +263,12 @@ Items:
 | (missing) | Evals, ingestion, metering, CI + off switches, admin token, known limitations | New sections, measured numbers only |
 
 **Measured numbers available (source):**
-- Tests: 295 backend, 26 frontend; coverage 97% of 1,267 statements (pytest-cov, 2026-10-04; CI gate ≥ 85%).
+- Tests: 297 backend, 26 frontend; coverage 97% of 1,267 statements (pytest-cov, 2026-10-04; CI gate ≥ 85%).
 - Ingestion: 10,000 records in 0.66 s on SQLite (FIX_LOG UPG-02).
 - Leaderboard latency while a guide waits 1.5 s on the LLM: 1.32 s → 0.016 s (FIX_LOG CONC-01).
 - Alert dispatch: `POST /api/trigger-alerts` answers 202 in 41 ms (FIX_LOG PERF-02).
 - Score: bottom-2 stability 65% → 82%; weight sensitivity τ 0.93–0.98 (docs/scoring.md).
-- Evals: v1 vs v2 on gemini-3.5-flash-lite, 30 profiles (pending: fills in when the run completes).
+- Evals (gemini-3.5-flash-lite, 30 profiles): targeting 50% → 100%, guides with no ungrounded number 80% → 100%, ~$0.0009 per guide (FIX_LOG UPG-01).
 - Dependencies: npm audit 0, pip-audit clean (FIX_LOG SEC-03).
 
 **Deploy checklist:**
