@@ -1,3 +1,4 @@
+import json
 import os
 import socket
 import sqlite3
@@ -55,6 +56,18 @@ def no_real_notification_credentials(monkeypatch):
         monkeypatch.delenv(name, raising=False)
 
 
+# A valid prompt-v2 reply (ai.schemas.CoachingGuide); v1 tests set their own plain-text replies.
+MOCK_GUIDE_JSON = json.dumps({
+    "headline": "Mock headline for the engineer.",
+    "actions": [
+        {"title": "Mock tip one", "problem": "Mock problem one from the data.", "fix": "Mock fix one to apply.",
+         "focus": "cache"},
+        {"title": "Mock tip two", "problem": "Mock problem two from the data.", "fix": "Mock fix two to apply.",
+         "focus": "discipline"},
+    ],
+})
+
+
 @pytest.fixture(autouse=True)
 def mock_gemini(monkeypatch):
     """Replaces the Gemini client with a mock that returns a fixed numbered list.
@@ -66,7 +79,7 @@ def mock_gemini(monkeypatch):
     monkeypatch.delenv("GEMINI_API_KEY", raising=False)
     client = MagicMock()
     response = client.models.generate_content.return_value
-    response.text = "1. Mock tip one\n2. Mock tip two"
+    response.text = MOCK_GUIDE_JSON
     # Real integers, so token, latency and cost accounting is exercised like a real response.
     response.usage_metadata.prompt_token_count = 1000
     response.usage_metadata.candidates_token_count = 300

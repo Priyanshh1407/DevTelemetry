@@ -7,7 +7,7 @@ import sys
 
 from ai.guide_generator import generate_efficiency_guide, generate_team_report
 from core.db import db_session, init_db
-from core.queries import latest_day_rows, without_pii
+from core.queries import latest_day_rows, recent_metrics_for_user, without_pii
 from core.severity import severity_for_rank
 from data.seed import generate_historical_data
 
@@ -65,7 +65,9 @@ def main():
         severity = severity_for_rank(rank, team_size)
         print(f"\n--- Coaching for {eng['name']} (Rank: {rank}, Score: {eng['efficiency_score']:.2f}, "
               f"Severity: {severity}) ---")
-        guide = generate_efficiency_guide(without_pii(eng), severity=severity)
+        with db_session() as conn:
+            window = recent_metrics_for_user(conn, eng["user_id"])
+        guide = generate_efficiency_guide(without_pii(eng), severity, recent=window[:-1])
         if guide.is_fallback:
             print(f"(fallback guide: {guide.source})")
         for n, task in enumerate(guide.tasks, 1):

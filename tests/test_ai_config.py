@@ -33,10 +33,10 @@ def test_missing_key_degrades_to_fallback_instead_of_raising(monkeypatch):
     monkeypatch.setattr(providers, "_client", None)
     monkeypatch.delenv("GEMINI_API_KEY", raising=False)
 
-    result = gg.generate_efficiency_guide({"efficiency_score": 40.0})
+    result = gg.generate_efficiency_guide({"session_count": 2, "compact_uses": 0})
 
-    assert result.source == "unavailable"
-    assert result.tasks[0]["title"] == "AI Service Offline"
+    assert result.source == "unavailable" and result.is_fallback
+    assert result.guide["actions"]  # a rule-based guide, not an error message
 
 
 def test_client_is_built_with_timeout_and_bounded_retries(monkeypatch):

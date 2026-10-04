@@ -46,3 +46,49 @@ def build_team_report_prompt(team_summary):
     Keep the tone encouraging, professional, and collaborative.
     """
     return prompt
+
+
+# ── Prompt v2 (UPG-01): structured output from precomputed facts ────────────
+# v1 (above) sends the raw database row and asks for a numbered plain-text list. It stays
+# unchanged as the eval baseline. v2 gives the model named facts with exact values, asks for
+# JSON matching ai.schemas.CoachingGuide, and forbids numbers that aren't in FACTS.
+PROMPT_VERSION = "v2"
+
+_TONES = {
+    "critical": ("This engineer is in the team's bottom two this week. Be direct and specific.", 4),
+    "moderate": ("Give a friendly, constructive nudge.", 3),
+    "low": ("This engineer is among the team's top performers. Acknowledge what is working, then suggest "
+            "how to keep or refine their habits.", 2),
+}
+_AREA_LABELS = {"cache": "prompt caching", "model_mix": "model choice", "discipline": "context management (/compact)"}
+
+
+def build_guide_prompt_v2(facts, severity):
+    tone, n_actions = _TONES.get(severity, _TONES["moderate"])
+    weakest = facts["weakest_area"]
+    points, lost = facts["points"], facts["points_lost"]
+    return f"""You coach one software engineer on using Claude Code (an AI coding agent) cost-efficiently.
+
+FACTS (the only numbers you may use):
+- Efficiency score: {facts["efficiency_score"]} / 100
+- Cache: {facts["cache_hit_pct"]}% of prompt tokens were served from cache ({points["cache"]} of 40 points)
+- Model mix: Opus {facts["opus_pct"]}%, Sonnet {facts["sonnet_pct"]}%, Haiku {facts["haiku_pct"]}% ({points["model_mix"]} of 30 points)
+- /compact: used in {facts["compact_rate_7d_pct"]}% of sessions over the last 7 days ({facts["compacts_7d"]} of {facts["sessions_7d"]} sessions; {points["discipline"]} of 30 points)
+- Estimated cost today: ${facts["cost_usd"]:.2f}
+- Weakest area: {weakest} ({_AREA_LABELS[weakest]}), {lost[weakest]} points below its maximum
+
+TASK: {tone} Write {n_actions} actions.
+
+RULES:
+1. The first action must address the weakest area ({weakest}).
+2. Every number you write must appear in FACTS exactly as shown. Do not invent statistics,
+   savings estimates, percentages or time intervals.
+3. "focus" names the area an action improves: cache, model_mix or discipline.
+4. Plain sentences, no markdown.
+
+Reply with JSON only, matching the provided schema."""
+
+
+def build_repair_prompt(original_prompt, error):
+    return (f"{original_prompt}\n\nYour previous reply was not valid: {error}\n"
+            "Reply again with JSON only that matches the schema.")

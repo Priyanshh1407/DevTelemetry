@@ -6,7 +6,8 @@ existing when the module moved to the google-genai `client` API.
 """
 from google.genai import errors
 
-from ai.guide_generator import generate_efficiency_guide, generate_team_report
+from ai.guide_generator import generate_efficiency_guide_v1 as generate_efficiency_guide
+from ai.guide_generator import generate_team_report
 
 TEAM_DATA = {"average_score": 60.5, "total_spend": 150.0, "critical_count": 2}
 USER_DATA = {"efficiency_score": 45.0, "cache_ratio": 0.2, "opus_pct": 0.8}
