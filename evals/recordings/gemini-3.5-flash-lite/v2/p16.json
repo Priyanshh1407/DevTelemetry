@@ -1,0 +1,12 @@
+{
+ "calls": [
+  {
+   "text": "{\n  \"headline\": \"Improve your Claude Code efficiency score of 47.36 out of 100 by addressing your weakest area, prompt caching.\",\n  \"actions\": [\n    {\n      \"title\": \"Fix your cache hit rate\",\n      \"problem\": \"Only 16.0% of prompt tokens were served from cache, giving you 6.4 of 40 points in this category.\",\n      \"fix\": \"Keep context windows stable and avoid modifying system prompts frequently to ensure prompts hit the cache.\",\n      \"focus\": \"cache\"\n    },\n    {\n      \"title\": \"Adjust your model selection\",\n      \"problem\": \"Your current model mix is Opus 8.0%, Sonnet 60.0%, and Haiku 32.0%, yielding 20.64 of 30 points.\",\n      \"fix\": \"Route simpler tasks to Haiku and reserve Opus strictly for complex reasoning to protect your estimated cost today of $15.60.\",\n      \"focus\": \"model_mix\"\n    },\n    {\n      \"title\": \"Increase command discipline\",\n      \"problem\": \"You used /compact in 67.7% of sessions over the last 7 days, totaling 21 of 31 sessions and earning 20.32 of 30 points.\",\n      \"fix\": \"Run /compact more consistently at the start of every long session to maintain strict context management.\",\n      \"focus\": \"discipline\"\n    },\n    {\n      \"title\": \"Target the weakest area\",\n      \"problem\": \"Cache prompt caching is your weakest area, sitting at 33.6 points below its maximum.\",\n      \"fix\": \"Prioritize reuse of previous prompt structures to raise your cache score from 16.0% upwards.\",\n      \"focus\": \"cache\"\n    }\n  ]\n}",
+   "model": "gemini-3.5-flash-lite",
+   "input_tokens": 302,
+   "output_tokens": 413,
+   "latency_ms": 2690,
+   "cost_usd": 0.001123
+  }
+ ]
+}

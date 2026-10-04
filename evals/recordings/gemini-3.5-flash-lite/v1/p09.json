@@ -1,0 +1,12 @@
+{
+ "calls": [
+  {
+   "text": "1. Your output-to-input token ratio shows heavy generation at 226360 output tokens against 916712 input tokens, indicating you are asking Claude to write or rewrite massive blocks of code from scratch instead of using targeted edits. You must restrict Claude to modifying specific functions or lines rather than generating whole files.\n\n2. You executed 6 sessions with 0 compact uses, meaning you are letting context windows bloat unchecked throughout long debugging or exploratory sessions. You need to proactively run the compact command or start fresh sessions regularly to keep your prompt payloads lean.\n\n3. Your cache read tokens stand at 12391943 against 577971 cache write tokens, and while your caching mechanism is active, your lack of compact uses suggests you are carrying stale, irrelevant context across multiple interactions within those 6 sessions. Clear out unrelated files and historical chat clutter from your working context before prompting.\n\n4. Your model distribution shows Opus at 6 percent and Sonnet at 76 percent, yet your estimated cost for the day reached 17.85 dollars with 0 git commits produced. You are burning high-tier model cycles on exploratory loops or failed iterations without committing working states, so route simpler refactoring and lookups entirely to Haiku at 18 percent or lower.\n\n5. You logged 0 git commits despite incurring nearly 18 dollars in API costs across 6 sessions, pointing to heavy thrashing, circular debugging, or abandoned experiments. Stop using Claude for open-ended trial-and-error; write out a clear plan locally before invoking the terminal agent to ensure every session terminates in a commit.",
+   "model": "gemini-3.5-flash-lite",
+   "input_tokens": 319,
+   "output_tokens": 348,
+   "latency_ms": 3105,
+   "cost_usd": 0.000966
+  }
+ ]
+}

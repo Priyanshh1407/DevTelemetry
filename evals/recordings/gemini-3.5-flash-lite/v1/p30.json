@@ -1,0 +1,12 @@
+{
+ "calls": [
+  {
+   "text": "1. Your cache read tokens are at 6,660,262 which is solid, but utilizing compact uses could help lower your 2,151,373 input tokens even further.\n\n2. You recorded 3 git commits across 3 sessions for a cost of 14.10 dollars, so grouping more tasks into a single session could improve your output efficiency.\n\n3. With Sonnet at 69 percent usage, consider leveraging Haiku from your current 21 percent for simpler terminal tasks to optimize your overall spend.",
+   "model": "gemini-3.5-flash-lite",
+   "input_tokens": 320,
+   "output_tokens": 118,
+   "latency_ms": 1586,
+   "cost_usd": 0.000391
+  }
+ ]
+}

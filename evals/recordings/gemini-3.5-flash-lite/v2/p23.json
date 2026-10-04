@@ -1,0 +1,12 @@
+{
+ "calls": [
+  {
+   "text": "{\n  \"headline\": \"Your efficiency score is 66.19 out of 100 with an estimated cost today of $13.98, and your weakest area is model_mix.\",\n  \"actions\": [\n    {\n      \"title\": \"Optimize your model mix\",\n      \"problem\": \"Your current model mix stands at Opus 72.0%, Sonnet 21.0%, and Haiku 7.0%, which is the weakest area and 21.96 points below its maximum, earning only 8.04 of 30 points.\",\n      \"fix\": \"Shift more tasks away from Opus and utilize lighter models like Sonnet and Haiku more frequently to improve your model mix score.\",\n      \"focus\": \"model_mix\"\n    },\n    {\n      \"title\": \"Maintain strong cache usage\",\n      \"problem\": \"Cache is currently at 83.2% of prompt tokens served from cache, which contributed 33.3 of 40 points to your score.\",\n      \"fix\": \"Continue your current workflow practices to ensure prompt tokens remain efficiently cached during your sessions.\",\n      \"focus\": \"cache\"\n    },\n    {\n      \"title\": \"Keep using slash compact\",\n      \"problem\": \"Compact was used in 82.9% of sessions over the last 7 days across 29 of 35 sessions, earning 24.86 of 30 points.\",\n      \"fix\": \"Maintain your discipline of using the compact command regularly in future coding sessions.\",\n      \"focus\": \"discipline\"\n    }\n  ]\n}",
+   "model": "gemini-3.5-flash-lite",
+   "input_tokens": 296,
+   "output_tokens": 357,
+   "latency_ms": 2146,
+   "cost_usd": 0.000981
+  }
+ ]
+}

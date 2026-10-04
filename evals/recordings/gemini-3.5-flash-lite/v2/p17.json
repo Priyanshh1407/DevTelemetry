@@ -1,0 +1,12 @@
+{
+ "calls": [
+  {
+   "text": "{\n  \"headline\": \"Improve your Claude Code efficiency score of 59.42 out of 100 to reduce your estimated cost today of $11.16\",\n  \"actions\": [\n    {\n      \"title\": \"Shift model distribution away from Opus\",\n      \"problem\": \"Your model mix score is 7.65 of 30 points, which is your weakest area and 22.35 points below its maximum because your usage is Opus 73.0%, Sonnet 22.0%, and Haiku 5.0%.\",\n      \"fix\": \"Use Sonnet and Haiku for routine tasks instead of relying so heavily on Opus to balance your model mix.\",\n      \"focus\": \"model_mix\"\n    },\n    {\n      \"title\": \"Maintain high cache utilization\",\n      \"problem\": \"Only 72.5% of prompt tokens were served from cache, earning 29.01 of 40 points in the cache category.\",\n      \"fix\": \"Keep context windows consistent and structured to ensure more prompt tokens are served from cache.\",\n      \"focus\": \"cache\"\n    },\n    {\n      \"title\": \"Sustain high compact command usage\",\n      \"problem\": \"You earned 22.76 of 30 points for discipline because /compact was used in 75.9% of sessions over the last 7 days, amounting to 22 of 29 sessions.\",\n      \"fix\": \"Continue using /compact in every session to maintain this discipline habit across all 29 sessions.\",\n      \"focus\": \"discipline\"\n    },\n    {\n      \"title\": \"Monitor daily spending patterns\",\n      \"problem\": \"Your estimated cost today stands at $11.16 while your overall efficiency score remains at 59.42 out of 100.\",\n      \"fix\": \"Review model choices before starting tasks to lower the estimated cost today from $11.16.\",\n      \"focus\": \"model_mix\"\n    }\n  ]\n}",
+   "model": "gemini-3.5-flash-lite",
+   "input_tokens": 308,
+   "output_tokens": 455,
+   "latency_ms": 2500,
+   "cost_usd": 0.00123
+  }
+ ]
+}

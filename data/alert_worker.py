@@ -1,68 +1,74 @@
-import sqlite3
+import logging
 import os
 import sys
 
 # Ensure Python can find your AI and Notification modules
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from core.db import db_session
+from core.queries import latest_day_rows
+from core.severity import severity_for_rank
 from ai.guide_generator import generate_team_report
-from notifications.email_report import send_daily_report, send_developer_alert
+from ai.providers import get_provider
+from ai.store import record_request
+from notifications.email_report import send_daily_report, send_developer_alert, smtp_session
 from notifications.slack_post import send_slack_summary
 
+logger = logging.getLogger(__name__)
+
+def overall_status(summary):
+    """Collapses a dispatch summary into one status: no_data, failed, skipped or success."""
+    if summary["engineers"] == 0:
+        return "no_data"
+    statuses = [summary["manager_digest"], summary["slack"]]
+    if summary["developer_emails"]["failed"] or "failed" in statuses:
+        return "failed"
+    if not summary["developer_emails"]["sent"] and "sent" not in statuses:
+        return "skipped"
+    return "success"
+
+
 def run_weekly_telemetry_check():
-    print("Initiating Industry-Grade Telemetry Review...\n")
+    """Sends developer alerts, the manager digest and the Slack summary.
+
+    Returns a summary of what was actually delivered, e.g.
+    {"engineers": 10, "developer_emails": {"sent": 9, "failed": 1, "skipped": 0},
+     "failed_recipients": ["..."], "manager_digest": "sent", "slack": "skipped"}
+    """
+    logger.info("Starting telemetry review")
+    summary = {
+        "engineers": 0,
+        "developer_emails": {"sent": 0, "failed": 0, "skipped": 0},
+        "failed_recipients": [],
+        "manager_digest": "skipped",
+        "slack": "skipped",
+    }
     
     # --- 1. CONNECT TO THE LIVE DATABASE ---
-    db_path = os.path.join(os.path.dirname(__file__), 'usage.db')
-    conn = sqlite3.connect(db_path)
-    conn.row_factory = sqlite3.Row
-    cursor = conn.cursor()
-
-    cursor.execute("""
-        SELECT e.name, e.email, u.efficiency_score, u.estimated_cost_usd, u.user_id, u.opus_pct
-        FROM usage_metrics u
-        JOIN engineers e ON u.user_id = e.user_id
-        WHERE u.date = (SELECT MAX(date) FROM usage_metrics)
-        ORDER BY u.efficiency_score DESC
-    """)
-    
-    all_devs = [dict(row) for row in cursor.fetchall()]
-    conn.close()
+    with db_session() as conn:
+        all_devs = latest_day_rows(conn)
     
     total_devs = len(all_devs)
     if total_devs == 0:
-        print("❌ No data found in the database. Aborting.")
-        return
+        logger.warning("No usage data in the database; nothing to send")
+        return summary
 
-    print(f"✅ Successfully pulled live data for {total_devs} engineers.\n")
+    logger.info("Loaded the latest day for %s engineers", total_devs)
+    summary["engineers"] = total_devs
 
     # --- 2. CLASSIFY EACH DEVELOPER BY SEVERITY TIER ---
-    print("--- CLASSIFYING DEVELOPERS BY SEVERITY ---")
     for rank_index, dev in enumerate(all_devs):
         rank = rank_index + 1
         dev["rank"] = rank
         dev["total_devs"] = total_devs
         
-        # Apply the exact 5/3/2 ranking logic from your React dashboard
-        if rank <= 5:
-            dev["severity"] = "low"
-        elif rank >= (total_devs - 1):
-            dev["severity"] = "critical"
-        else:
-            dev["severity"] = "moderate"
+        dev["severity"] = severity_for_rank(rank, total_devs)
         
-        icon = {"low": "🟢", "moderate": "🟡", "critical": "🔴"}[dev["severity"]]
-        print(f"   {icon} [{dev['severity'].upper():>8}] #{rank} {dev['name']} — Score: {dev['efficiency_score']:.1f}")
+        logger.info("#%s %s: score %.1f, severity %s", rank, dev["name"], dev["efficiency_score"], dev["severity"])
 
-    # --- 3. SEND INDIVIDUAL DEVELOPER ALERT EMAILS ---
-    print("\n--- DISPATCHING INDIVIDUAL DEVELOPER ALERTS ---")
-    
-    for dev in all_devs:
-        send_developer_alert(dev)
-    
-    print(f"\n✅ Individual alerts dispatched to {total_devs} developers.")
-
-    # --- 4. DIAGNOSE WASTE PATTERNS FOR BOTTOM PERFORMERS ---
-    print("\n--- COMPILING MANAGER EXECUTIVE DIGEST ---")
+    # --- 3. DIAGNOSE WASTE PATTERNS FOR BOTTOM PERFORMERS ---
+    # (Everything the emails need is prepared before the SMTP connection opens, so the
+    # connection isn't held idle during the Gemini call.)
+    logger.info("Compiling the manager digest")
     
     top_engineers = all_devs[:5] 
     bottom_engineers = all_devs[-2:] 
@@ -76,34 +82,48 @@ def run_weekly_telemetry_check():
         else:
             dev['primary_waste_pattern'] = "Low cache utilization"
 
-    # --- 5. CALCULATE LIVE AGGREGATES FOR MANAGER ---
+    # --- 4. CALCULATE LIVE AGGREGATES FOR MANAGER ---
     total_score = sum(dev['efficiency_score'] for dev in all_devs)
     total_cost = sum(dev['estimated_cost_usd'] for dev in all_devs)
     team_avg = total_score / total_devs
 
-    # --- 6. GENERATE AI SUMMARY & FIRE MANAGER EMAIL ---
-    print("🧠 Analyzing live telemetry via Gemini...")
+    # --- 5. GENERATE AI SUMMARY ---
+    logger.info("Requesting the AI team summary")
     team_summary_data = {
         "average_score": team_avg,
         "total_spend": total_cost,
         "critical_count": len(bottom_engineers)
     }
-    ai_memo = generate_team_report(team_summary_data)
-    
-    print("📧 Handoff complete. Sending Manager Digest via SMTP...")
-    send_daily_report(
-        top_engineers=top_engineers,
-        bottom_engineers=bottom_engineers,
-        average_score=team_avg,
-        total_cost=total_cost,
-        ai_summary=ai_memo
-    )
+    report = generate_team_report(team_summary_data)
+    with db_session() as conn:
+        record_request(conn, "team_report", report.outcome, report.calls, model=get_provider().model)
+    ai_memo = report.text
+
+    # --- 6. SEND ALL EMAILS OVER ONE SMTP CONNECTION ---
+    logger.info("Sending developer alerts and the manager digest")
+    with smtp_session() as smtp:
+        for dev in all_devs:
+            status = send_developer_alert(dev, session=smtp)
+            summary["developer_emails"][status] += 1
+            if status == "failed":
+                summary["failed_recipients"].append(dev["name"])
+        logger.info("Developer alerts: %s", summary["developer_emails"])
+
+        summary["manager_digest"] = send_daily_report(
+            top_engineers=top_engineers,
+            bottom_engineers=bottom_engineers,
+            average_score=team_avg,
+            total_cost=total_cost,
+            ai_summary=ai_memo,
+            session=smtp,
+        )
 
     # --- 7. SEND SLACK CHANNEL SUMMARY ---
-    print("\n--- POSTING SLACK CHANNEL SUMMARY ---")
-    send_slack_summary(all_devs, team_avg, total_cost)
-    
-    print("\n[DONE] Full telemetry review complete. All notifications dispatched.")
+    logger.info("Posting the Slack summary")
+    summary["slack"] = send_slack_summary(all_devs, team_avg, total_cost)
+
+    logger.info("Telemetry review complete: %s %s", overall_status(summary), summary)
+    return summary
 
 if __name__ == "__main__":
     run_weekly_telemetry_check()

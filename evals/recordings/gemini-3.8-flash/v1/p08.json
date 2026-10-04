@@ -1,0 +1,12 @@
+{
+ "calls": [
+  {
+   "text": "1. Rebalance your model distribution away from Opus. Right now, 89% of your workload runs on Opus, while Sonnet represents only 8% and Haiku just 3%. Opus is responsible for the overwhelming majority of your $11.21 daily spend. Set Sonnet as your default engine for daily terminal tasks and code editing, reserving Opus solely for complex multi-file architectural planning.\n\n2. Tie session lifecycles to discrete deliverables. You ran 6 sessions and consumed over 9.8 million combined tokens across input, output, and cache, yet produced only 1 git commit. This indicates drifting, exploratory sessions without clear exit criteria. Scope each session to an atomic task, commit immediately upon completion, and exit the session.\n\n3. Stop using compact as a crutch for context bloat. You triggered compact 5 times across 6 sessions, meaning nearly every session was allowed to reach critical context limits. Compacting retains bloated conversation residue, driving your cache read volume to an unsustainable 7,379,458 tokens. Terminate and restart sessions with a clean state rather than compacting bloated ones.\n\n4. Reduce raw input churn and unnecessary file dumps. Your uncached input tokens reached 2,105,946 with 326,752 cache write tokens, showing that massive amounts of new context are being repeatedly piped into the agent. Avoid piping large build logs, whole-directory dumps, or massive files; provide specific line ranges and targeted file paths to keep base inputs lean.\n\n5. Constrain output verbosity. You accumulated 168,173 output tokens across just 6 sessions, averaging over 28,000 output tokens per run. Instruct the agent to provide unified diffs, minimal explanations, and no boilerplate to prevent it from regenerating whole files and inflating the most expensive token category.",
+   "model": "gemini-3.8-flash",
+   "input_tokens": 319,
+   "output_tokens": 1766,
+   "latency_ms": 15018,
+   "cost_usd": 0.006862
+  }
+ ]
+}

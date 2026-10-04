@@ -1,0 +1,12 @@
+{
+ "calls": [
+  {
+   "text": "1. Rebalance your model selection. You relied on Opus for 77% of your workload and Sonnet for only 18%, which drove your estimated cost to $13.44. Try defaulting to Sonnet for routine coding, exploration, and debugging, reserving Opus for your most complex architectural problems.\n\n2. Break tasks into smaller commits. Across your 7 sessions, you recorded only 1 git commit. Narrowing the scope of your prompts to single features or fixes will help Claude stay on track and allow you to commit working code more incrementally.\n\n3. Manage session length proactively. You used the compact command 5 times and accumulated roughly 1.24 million input tokens. While your cache read tokens were high at 11.53 million, starting fresh sessions between distinct tasks will keep Claude Code faster and reduce prompt drift.",
+   "model": "gemini-3.8-flash",
+   "input_tokens": 323,
+   "output_tokens": 1247,
+   "latency_ms": 7017,
+   "cost_usd": 0.004919
+  }
+ ]
+}

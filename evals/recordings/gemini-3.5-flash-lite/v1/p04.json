@@ -1,0 +1,12 @@
+{
+ "calls": [
+  {
+   "text": "1. With 7 compact uses across 7 sessions, you are clearing your context well, but your cache read tokens stand at 1,731,504 against over 10 million input tokens, meaning your cache hit rate could be improved by batching similar queries closer together within the same session.\n\n2. You used Sonnet for 59 percent of your tasks, yet your output token count is 106,689 alongside just 3 git commits, suggesting you might benefit from delegating more exploratory or boilerplate tasks to Haiku, which accounts for 29 percent of your usage.\n\n3. Your total daily cost is 13.45 dollars with only 3 recorded commits, so trying to break larger tasks into more incremental terminal agent steps could help align your high token volume more closely with your shipped code output.",
+   "model": "gemini-3.5-flash-lite",
+   "input_tokens": 323,
+   "output_tokens": 178,
+   "latency_ms": 2471,
+   "cost_usd": 0.000542
+  }
+ ]
+}

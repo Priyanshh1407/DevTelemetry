@@ -1,0 +1,12 @@
+{
+ "calls": [
+  {
+   "text": "1. Reevaluate your model selection strategy, as Opus accounts for 89 percent of your usage while Haiku and Sonnet combined make up only 11 percent, driving your daily cost to $11.21 for a single git commit. Switch routine tasks, formatting, and simpler coding queries to Sonnet or Haiku to preserve budget.\n\n2. Optimize your context window management to address your high volume of input and cache tokens, specifically your 2,105,946 input tokens and 7,379,458 cache read tokens across just 6 sessions. Refrain from pulling massive directories or entire repositories into the prompt at the start of a session.\n\n3. Reduce unnecessary token churn by being more selective with file inclusions. With 326,752 cache write tokens generated in a single day, you are frequently invalidating the prompt cache by modifying or introducing large context blocks repeatedly within your 5 compact uses.\n\n4. Restructure your workflow to align prompt complexity with model capability. Utilizing Opus for 89 percent of your operations while only yielding 1 local git commit indicates heavy experimentation or inefficient prompt engineering that can be streamlined with smaller models.\n\n5. Monitor your session granularity by aiming for tighter, more focused interactions. Your current metrics show roughly 350,000 input tokens per session across 6 sessions, suggesting that conversational drift or failing to clear out stale context is severely bloating your token consumption.",
+   "model": "gemini-3.5-flash-lite",
+   "input_tokens": 319,
+   "output_tokens": 304,
+   "latency_ms": 2515,
+   "cost_usd": 0.000856
+  }
+ ]
+}

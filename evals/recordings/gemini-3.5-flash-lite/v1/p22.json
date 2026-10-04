@@ -1,0 +1,12 @@
+{
+ "calls": [
+  {
+   "text": "1. Your cache read tokens are at 1,434,009 while your base inputs are high, so try to structure your workflow to keep context warm and maximize cache utilization.\n2. You logged 3 compact uses across 3 sessions, but leveraging compaction more frequently during long Claude Code runs can help reduce your overall input token volume from 7,834,096.\n3. With 6 git commits produced for 3 sessions, consider batching smaller terminal queries together to improve your output-to-commit ratio and further optimize your 8.47 dollar daily spend.",
+   "model": "gemini-3.5-flash-lite",
+   "input_tokens": 320,
+   "output_tokens": 127,
+   "latency_ms": 1665,
+   "cost_usd": 0.000414
+  }
+ ]
+}

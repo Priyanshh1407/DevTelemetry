@@ -1,26 +1,37 @@
-version: '3.8'
-
 services:
   backend:
-    build: 
+    build:
       context: .
       dockerfile: Dockerfile.backend
     ports:
       - "8000:8000"
     environment:
-      - GEMINI_API_KEY=${GEMINI_API_KEY}
-      - EMAIL_SENDER=${EMAIL_SENDER}
-      - EMAIL_PASSWORD=${EMAIL_PASSWORD}
-      - EMAIL_RECIPIENT=${EMAIL_RECIPIENT}
-      - SLACK_WEBHOOK_URL=${SLACK_WEBHOOK_URL}
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - EMAIL_SENDER=${EMAIL_SENDER:-}
+      - EMAIL_PASSWORD=${EMAIL_PASSWORD:-}
+      - EMAIL_RECIPIENT=${EMAIL_RECIPIENT:-}
+      - SLACK_WEBHOOK_URL=${SLACK_WEBHOOK_URL:-}
+      - ADMIN_TOKEN=${ADMIN_TOKEN:-}
+      - FRONTEND_URL=${FRONTEND_URL:-http://localhost:5173}
+      - PRODUCTION_MODE=${PRODUCTION_MODE:-false}
+      - ALERT_COOLDOWN_SECONDS=${ALERT_COOLDOWN_SECONDS:-300}
+      - SCHEDULE_GRACE_MINUTES=${SCHEDULE_GRACE_MINUTES:-120}
     volumes:
-      - ./data/usage.db:/app/data/usage.db
+      # Named volume: persists the DB across rebuilds. (The old bind mount of
+      # ./data/usage.db made Docker create a *directory* when the file didn't exist.)
+      - devtelemetry-db:/app/db
 
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      args:
+        # Baked in at build time: the browser calls the API at this address.
+        VITE_API_URL: ${VITE_API_URL:-http://localhost:8000}
     ports:
       - "5173:80"
     depends_on:
       - backend
+
+volumes:
+  devtelemetry-db:

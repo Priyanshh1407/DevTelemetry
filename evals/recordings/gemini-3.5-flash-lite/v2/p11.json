@@ -1,0 +1,12 @@
+{
+ "calls": [
+  {
+   "text": "{\n  \"headline\": \"Great job achieving a 69.25 / 100 efficiency score with strong cache utilization.\",\n  \"actions\": [\n    {\n      \"title\": \"Optimize model selection to reduce costs\",\n      \"problem\": \"Your current model mix is Opus 62.0%, Sonnet 33.0%, Haiku 5.0%, which is the weakest area and sits 20.7 points below its maximum.\",\n      \"fix\": \"Shift more tasks away from Opus toward Sonnet and Haiku to improve the model mix score.\",\n      \"focus\": \"model_mix\"\n    },\n    {\n      \"title\": \"Maintain your strong context habits\",\n      \"problem\": \"Cache is performing well with 86.2% of prompt tokens served from cache and /compact used in 84.8% of sessions over the last 7 days.\",\n      \"fix\": \"Keep using /compact frequently and maintain your current workflow patterns.\",\n      \"focus\": \"discipline\"\n    }\n  ]\n}",
+   "model": "gemini-3.5-flash-lite",
+   "input_tokens": 314,
+   "output_tokens": 231,
+   "latency_ms": 2024,
+   "cost_usd": 0.000672
+  }
+ ]
+}

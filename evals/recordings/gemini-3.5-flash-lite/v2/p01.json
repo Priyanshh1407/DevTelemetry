@@ -1,0 +1,12 @@
+{
+ "calls": [
+  {
+   "text": "{\n  \"headline\": \"Maintain your strong habits while addressing prompt caching to improve your 47.19 efficiency score.\",\n  \"actions\": [\n    {\n      \"title\": \"Improve prompt caching\",\n      \"problem\": \"Only 15.0% of prompt tokens were served from cache, leaving cache as your weakest area at 34.0 points below its maximum.\",\n      \"fix\": \"Keep longer context sessions alive and structure prompts consistently to increase cache utilization beyond 15.0%.\",\n      \"focus\": \"cache\"\n    },\n    {\n      \"title\": \"Refine model mix and session compacting\",\n      \"problem\": \"Your model mix is distributed across Opus 9.0%, Sonnet 74.0%, and Haiku 17.0%, while /compact was used in 75.0% of sessions over the last 7 days across 24 of 32 sessions.\",\n      \"fix\": \"Continue using /compact in sessions and maintain your balanced model distribution to keep your current workflow efficient.\",\n      \"focus\": \"model_mix\"\n    }\n  ]\n}",
+   "model": "gemini-3.5-flash-lite",
+   "input_tokens": 311,
+   "output_tokens": 248,
+   "latency_ms": 2256,
+   "cost_usd": 0.000713
+  }
+ ]
+}

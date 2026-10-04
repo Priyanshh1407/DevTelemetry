@@ -6,10 +6,11 @@ import {
     PieChart, Pie, Cell
 } from "recharts";
 import {
-    ArrowLeft, Calendar, User, Mail, Award, AlertTriangle, CheckCircle, Info,
-    Activity, Bot, BookOpen, Compass, Code, Cpu, RefreshCw, BarChart2, Coins
+    ArrowLeft, Mail, Award, AlertTriangle, Info,
+    Activity, Bot, BookOpen, Code, Cpu, RefreshCw
 } from "lucide-react";
 import Navbar from "../components/Navbar";
+import { getJSON } from "../api";
 
 // Helper for matching severity color classes
 const severityStyles = {
@@ -56,6 +57,40 @@ function CostTooltip({ active, payload, label }) {
     );
 }
 
+// ─── Score breakdown (UPG-03): where the points come from ─────────────────────
+const AREAS = [
+    { key: "cache", label: "Prompt caching", max: 40 },
+    { key: "model_mix", label: "Model choice", max: 30 },
+    { key: "discipline", label: "Context management (/compact, 7 days)", max: 30 },
+];
+
+function ScoreBreakdown({ breakdown }) {
+    if (!breakdown) return null;
+    // The area that lost the most points is the one worth working on.
+    const weakest = AREAS.reduce((a, b) => (b.max - breakdown[b.key] > a.max - breakdown[a.key] ? b : a));
+    return (
+        <section aria-label="Score breakdown" className="mt-4 space-y-2 relative z-10">
+            {AREAS.map((area) => (
+                <div key={area.key}>
+                    <div className="flex justify-between font-mono text-[11px] text-on-surface-variant">
+                        <span className={area.key === weakest.key ? "text-error font-bold" : ""}>{area.label}</span>
+                        <span>{breakdown[area.key].toFixed(1)} / {area.max}</span>
+                    </div>
+                    <div className="h-1.5 rounded bg-surface-container-high overflow-hidden">
+                        <div
+                            className={`h-full ${area.key === weakest.key ? "bg-error" : "bg-primary"}`}
+                            style={{ width: `${(breakdown[area.key] / area.max) * 100}%` }}
+                        />
+                    </div>
+                </div>
+            ))}
+            <p className="font-mono text-[11px] text-on-surface-variant">
+                Biggest opportunity: {weakest.label.split(" (")[0].toLowerCase()}
+            </p>
+        </section>
+    );
+}
+
 export default function EngineerDetail() {
     const { userId } = useParams();
     const navigate = useNavigate();
@@ -67,13 +102,7 @@ export default function EngineerDetail() {
     useEffect(() => {
         const fetchDetails = async () => {
             try {
-                const API_BASE = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
-                const res = await fetch(`${API_BASE}/api/engineer/${userId}/details`);
-                if (!res.ok) {
-                    throw new Error(res.status === 404 ? "Engineer not found" : "Failed to load engineer details");
-                }
-                const json = await res.json();
-                setData(json);
+                setData(await getJSON(`/api/engineer/${userId}/details`));
             } catch (err) {
                 console.error(err);
                 setError(err.message);
@@ -87,7 +116,7 @@ export default function EngineerDetail() {
     if (loading) {
         return (
             <div className="min-h-screen bg-background text-on-surface font-body flex flex-col">
-                <Navbar />
+                <Navbar title="Engineer detail" />
                 <div className="flex-1 flex flex-col items-center justify-center gap-4">
                     <RefreshCw size={36} className="text-primary animate-spin" />
                     <p className="font-mono text-sm text-on-surface-variant animate-pulse tracking-widest uppercase">
@@ -101,7 +130,7 @@ export default function EngineerDetail() {
     if (error || !data) {
         return (
             <div className="min-h-screen bg-background text-on-surface font-body flex flex-col">
-                <Navbar />
+                <Navbar title="Engineer detail" />
                 <div className="flex-1 flex flex-col items-center justify-center gap-4 max-w-md mx-auto text-center px-4">
                     <AlertTriangle size={48} className="text-error" />
                     <h2 className="text-2xl font-bold text-on-surface">Error Loading Data</h2>
@@ -132,13 +161,12 @@ export default function EngineerDetail() {
     // Dynamic severity classes
     const sevClass = severityStyles[current_severity] || severityStyles.moderate;
 
-    // Profile avatar based on name character hash
-    const avatarIndex = (name.charCodeAt(0) + name.length) % 10;
-    const avatarUrl = `http://googleusercontent.com/profile/picture/${avatarIndex}`;
+    // Initials (there are no profile photos; this used to point at a made-up image URL)
+    const initials = name.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0].toUpperCase()).join("");
 
     return (
         <div className="min-h-screen bg-background text-on-surface font-body pb-12">
-            <Navbar />
+            <Navbar title="Engineer detail" />
 
             <div className="max-w-[1440px] mx-auto px-6 md:px-10 py-8 flex flex-col gap-8">
 
@@ -152,7 +180,7 @@ export default function EngineerDetail() {
                     </button>
 
                     <Link
-                        to={`/runbook/${current_severity}/${userId}`}
+                        to={`/runbook/${current_severity || "moderate"}/${userId}`}
                         className="inline-flex items-center justify-center gap-2 bg-primary text-on-primary-container px-5 py-2.5 rounded-lg font-mono text-xs font-bold hover:brightness-110 active:scale-[0.98] transition-all"
                     >
                         <BookOpen size={16} /> VIEW PERSONAL OPTIMIZATION RUNBOOK
@@ -171,11 +199,12 @@ export default function EngineerDetail() {
                             }}
                         />
                         <div className="flex items-start gap-4 relative z-10">
-                            <img
-                                src={avatarUrl}
-                                alt={name}
-                                className="w-16 h-16 rounded-full border border-outline-variant object-cover shrink-0"
-                            />
+                            <div
+                                aria-hidden="true"
+                                className="w-16 h-16 rounded-full border border-outline-variant bg-surface-container-high flex items-center justify-center text-xl font-bold text-primary shrink-0"
+                            >
+                                {initials}
+                            </div>
                             <div className="flex flex-col gap-1.5">
                                 <h1 className="text-2xl font-bold tracking-tight text-on-surface">{name}</h1>
                                 <div className="flex items-center gap-1.5 text-on-surface-variant text-sm font-mono">
@@ -183,10 +212,12 @@ export default function EngineerDetail() {
                                 </div>
                                 <div className="flex flex-wrap gap-2 mt-1">
                                     <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-surface-container border border-outline-variant font-mono text-xs text-on-surface">
-                                        <Award size={12} className="text-secondary" /> Rank #{current_rank}
+                                        <Award size={12} className="text-secondary" />
+                                        {current_rank ? `Rank #${current_rank}` : "Not ranked today"}
                                     </span>
                                     <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full border font-mono text-xs font-bold uppercase tracking-wider ${sevClass.bg}`}>
-                                        <span className={`w-1.5 h-1.5 rounded-full ${sevClass.dot}`} /> {current_severity} severity
+                                        <span className={`w-1.5 h-1.5 rounded-full ${sevClass.dot}`} />
+                                        {current_severity ? `${current_severity} severity` : "No data today"}
                                     </span>
                                 </div>
                             </div>
@@ -203,6 +234,7 @@ export default function EngineerDetail() {
                                 <span className="text-2xl font-black text-on-surface">${latest.estimated_cost_usd.toFixed(2)}</span>
                             </div>
                         </div>
+                        <ScoreBreakdown breakdown={latest.score_breakdown} />
                     </div>
 
                     {/* Quick Gauge / Gauge Placeholder Container */}
@@ -272,7 +304,7 @@ export default function EngineerDetail() {
                         <div className="text-2xl font-bold tracking-tight text-on-surface">
                             {averages.avg_sessions}
                         </div>
-                        <p className="text-[10px] text-on-surface-variant mt-1">Simultaneous terminals active</p>
+                        <p className="text-[10px] text-on-surface-variant mt-1">Average sessions per day (30 days)</p>
                     </div>
 
                     {/* Git Commits */}

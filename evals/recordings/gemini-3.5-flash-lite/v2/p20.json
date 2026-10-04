@@ -1,0 +1,12 @@
+{
+ "calls": [
+  {
+   "text": "{\n  \"headline\": \"Great work utilizing cache and compact habits, but your model mix needs refinement to improve your overall efficiency score of 66.66 out of 100.\",\n  \"actions\": [\n    {\n      \"title\": \"Optimize your model selection\",\n      \"problem\": \"Your current model mix stands at Opus 72.0%, Sonnet 21.0%, and Haiku 7.0%, which is the weakest area and sits 21.96 points below its maximum, resulting in 8.04 of 30 points earned.\",\n      \"fix\": \"Shift more routine tasks away from Opus toward Sonnet and Haiku to improve your model mix score.\",\n      \"focus\": \"model_mix\"\n    },\n    {\n      \"title\": \"Maintain your strong caching habits\",\n      \"problem\": \"You achieved a solid cache score with 80.9% of prompt tokens served from cache, earning 32.37 of 40 points.\",\n      \"fix\": \"Keep using your current workflow strategies to sustain this high cache hit rate and keep today's estimated cost at $4.87.\",\n      \"focus\": \"cache\"\n    }\n  ]\n}",
+   "model": "gemini-3.5-flash-lite",
+   "input_tokens": 317,
+   "output_tokens": 270,
+   "latency_ms": 2800,
+   "cost_usd": 0.00077
+  }
+ ]
+}

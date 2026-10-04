@@ -1,0 +1,12 @@
+{
+ "calls": [
+  {
+   "text": "1. With 7,068,422 input tokens and a cache read count of 2,171,405, your prompt caching is underutilized; try grouping related questions into longer, continuous sessions to let the cache work harder for you.\n2. You recorded 5 compact uses across 6 sessions, which is a good habit, but keeping an eye on context length can help you maintain high accuracy on your 65 percent Sonnet workload without losing track of details.\n3. Your daily cost was 8.31 dollars with 0 git commits logged, so try breaking your workflow into smaller, milestone-driven tasks that end with concrete check-ins to make sure those high token counts translate directly into shipped code.",
+   "model": "gemini-3.5-flash-lite",
+   "input_tokens": 321,
+   "output_tokens": 157,
+   "latency_ms": 1657,
+   "cost_usd": 0.000489
+  }
+ ]
+}

@@ -1,20 +1,25 @@
-FROM python:3.10-slim
+# Python 3.13: security support until Oct 2029 (3.10 reaches end-of-life in Oct 2026).
+FROM python:3.13-slim
 
 WORKDIR /app
 
-# Install dependencies
+# Install dependencies first so code changes don't invalidate this layer
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy application code
+# Copy application code (.dockerignore keeps local databases, venvs and tests out)
 COPY . .
 
-# Initialize mock DB if it doesn't exist
-# We will just run the seed script to ensure usage.db exists
-RUN python data/seed.py
+# The SQLite database lives outside the code tree so a volume can persist it
+# without hiding code (data/ holds seed.py, schema.sql, the worker...).
+ENV DB_PATH=/app/db/usage.db
+RUN useradd --create-home appuser && mkdir -p /app/db && chown appuser /app/db
+USER appuser
 
-# Expose the API port
 EXPOSE 8000
 
-# Start FastAPI
-CMD ["uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Seed at container START (not build) and only when the database is empty: generated
+# data is dated relative to the day the container starts, and a persisted volume is
+# never overwritten. The API applies schema upgrades itself on startup.
+# Render provides $PORT; locally it defaults to 8000.
+CMD ["sh", "-c", "python data/seed.py --if-empty && exec uvicorn api.main:app --host 0.0.0.0 --port ${PORT:-8000}"]

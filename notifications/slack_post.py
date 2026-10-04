@@ -1,3 +1,4 @@
+import logging
 import os
 import json
 import urllib.request
@@ -6,8 +7,20 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-SLACK_WEBHOOK_URL = os.getenv("SLACK_WEBHOOK_URL")
-DASHBOARD_URL = "http://localhost:5173"
+logger = logging.getLogger(__name__)
+
+
+# Read at call time (not import) so tests and runtime config decide where messages go.
+SLACK_TIMEOUT_SECONDS = 10  # never let a slow Slack hang the dispatch
+
+
+def _webhook_url():
+    return os.getenv("SLACK_WEBHOOK_URL")
+
+
+def _dashboard_url():
+    # Previously hardcoded to localhost, so the deployed Slack button pointed at the reader's own machine.
+    return os.getenv("FRONTEND_URL", "http://localhost:5173")
 
 
 def _build_slack_blocks(all_devs, average_score, total_cost):
@@ -78,7 +91,7 @@ def _build_slack_blocks(all_devs, average_score, total_cost):
                         "text": ":chart_with_upwards_trend: Open Dashboard",
                         "emoji": True
                     },
-                    "url": DASHBOARD_URL,
+                    "url": _dashboard_url(),
                     "style": "primary"
                 }
             ]
@@ -101,43 +114,45 @@ def send_slack_summary(all_devs, average_score, total_cost):
     """
     Sends a formatted team summary to the configured Slack webhook channel.
     Gracefully skips if SLACK_WEBHOOK_URL is not set.
+    Returns "sent", "failed" or "skipped".
     """
 
-    if not SLACK_WEBHOOK_URL:
-        print("[SLACK] No SLACK_WEBHOOK_URL configured in .env — skipping Slack notification.")
-        return False
+    webhook_url = _webhook_url()
+    if not webhook_url:
+        logger.warning("SLACK_WEBHOOK_URL not configured; skipping the Slack summary")
+        return "skipped"
 
     payload = _build_slack_blocks(all_devs, average_score, total_cost)
     json_data = json.dumps(payload).encode("utf-8")
 
     req = urllib.request.Request(
-        SLACK_WEBHOOK_URL,
+        webhook_url,
         data=json_data,
         headers={"Content-Type": "application/json"},
         method="POST"
     )
 
     try:
-        with urllib.request.urlopen(req) as response:
+        with urllib.request.urlopen(req, timeout=SLACK_TIMEOUT_SECONDS) as response:
             if response.status == 200:
-                print("[SLACK] Team summary posted to Slack channel successfully!")
-                return True
+                logger.info("Slack summary posted")
+                return "sent"
             else:
-                print(f"[SLACK] Unexpected response status: {response.status}")
-                return False
+                logger.error("Slack returned unexpected status %s", response.status)
+                return "failed"
 
     except urllib.error.HTTPError as e:
         error_body = e.read().decode("utf-8", errors="replace")
-        print(f"[SLACK] HTTP Error {e.code}: {error_body}")
-        return False
+        logger.error("Slack HTTP error %s: %s", e.code, error_body)
+        return "failed"
 
     except urllib.error.URLError as e:
-        print(f"[SLACK] Connection error: {e.reason}")
-        return False
+        logger.error("Slack connection error: %s", e.reason)
+        return "failed"
 
     except Exception as e:
-        print(f"[SLACK] Unexpected error: {e}")
-        return False
+        logger.error("Slack unexpected error: %s", e)
+        return "failed"
 
 
 if __name__ == "__main__":
@@ -156,7 +171,7 @@ if __name__ == "__main__":
     ]
 
     result = send_slack_summary(test_devs, average_score=54.8, total_cost=147.80)
-    if result:
-        print("\nTest passed — check your Slack channel!")
+    if result == "sent":
+        print("\nTest passed — check your Slack channel!")  # noqa: T201 (manual CLI check)
     else:
-        print("\nTest failed — check the error messages above.")
+        print("\nTest failed — check the error messages above.")  # noqa: T201 (manual CLI check)

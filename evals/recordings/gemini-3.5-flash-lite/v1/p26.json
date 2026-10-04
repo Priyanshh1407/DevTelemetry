@@ -1,0 +1,12 @@
+{
+ "calls": [
+  {
+   "text": "1. Optimize your model selection since your opus percentage is sitting at 88 percent while sonnet and haiku account for only 12 percent combined, meaning you are overpaying for routine tasks that could easily be handled by lighter models.\n\n2. Improve your context caching efficiency by analyzing your ratio between input tokens of 862526, cache read tokens of 3297179, and cache write tokens of 180338, ensuring you are not unnecessarily invalidating the cache across your 4 daily sessions.\n\n3. Reduce output token bloat which currently stands at 80921 tokens relative to your git commits count of only 3, indicating that Claude is likely generating excessive explanations or long code blocks rather than concise implementations.\n\n4. Increase your use of the compact command since you only triggered compact uses 3 times across 4 sessions, which suggests your context windows are staying bloated and forcing the agent to reprocess redundant conversational history.\n\n5. Structure your terminal workflows into tighter, more focused tasks to lower the volume of raw input tokens processed per session, helping to bring down your daily estimated cost usd of 5.09 dollars.",
+   "model": "gemini-3.5-flash-lite",
+   "input_tokens": 316,
+   "output_tokens": 247,
+   "latency_ms": 1827,
+   "cost_usd": 0.000712
+  }
+ ]
+}

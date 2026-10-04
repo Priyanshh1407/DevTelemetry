@@ -1,0 +1,12 @@
+{
+ "calls": [
+  {
+   "text": "1. Your estimated cost of $10.30 across 4 sessions shows active development, but with 0 compact uses recorded, try running compact periodically to streamline your context and keep token counts lean.\n2. You have a solid distribution leaning toward Sonnet at 70 percent, but since your cache read tokens are sitting at 8,190,670 against 2,211,157 input tokens, keeping sessions slightly longer or more focused can help you maximize that prompt caching efficiency.\n3. With 4 git commits matching your 4 session counts, consider breaking larger tasks down into smaller, incremental prompt loops to get even faster feedback from Claude Code.",
+   "model": "gemini-3.5-flash-lite",
+   "input_tokens": 320,
+   "output_tokens": 144,
+   "latency_ms": 1899,
+   "cost_usd": 0.000456
+  }
+ ]
+}

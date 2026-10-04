@@ -1,0 +1,12 @@
+{
+ "calls": [
+  {
+   "text": "1. Balance your model mix: Opus accounted for 65% of your usage and contributed to your $19.73 daily spend, while Sonnet made up only 27%. Try defaulting to Sonnet for routine coding tasks and reserving Opus for your most complex architectural challenges to optimize cost.\n\n2. Commit code more incrementally: You generated 202,756 output tokens across 3 sessions but recorded only 1 git commit. Aiming for more frequent commits per session keeps your tasks modular and prevents agent context from drifting over long runs.\n\n3. Manage session context earlier: With 1,616,295 input tokens and 3 compact uses across your 3 sessions, contexts grew quite large before being pruned. Running the compact command earlier or starting clean sessions between distinct subtasks will keep your context lean and responses sharper.",
+   "model": "gemini-3.8-flash",
+   "input_tokens": 323,
+   "output_tokens": 1277,
+   "latency_ms": 6214,
+   "cost_usd": 0.005031
+  }
+ ]
+}

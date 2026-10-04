@@ -1,0 +1,12 @@
+{
+ "calls": [
+  {
+   "text": "1. You generated 9,953,773 input tokens today across only 6 sessions, averaging over 1.6 million input tokens per session, which indicates you are feeding excessively large contexts into Claude Code.\n\n2. Your cache read tokens stand at 2,225,546 while cache write tokens are 398,853, meaning your prompt caching efficiency is lagging because you are frequently altering or not persisting your context windows across interactions.\n\n3. You only executed 3 compact uses despite running 6 sessions and consuming nearly 10 million input tokens, showing a failure to prune dead context and manage history effectively.\n\n4. You made 5 git commits while spending $10.50, meaning you are paying roughly $2.10 per commit due to redundant context transmission rather than leveraging clean, modular terminal commands.\n\n5. Your model distribution shows 19 percent Opus usage alongside 73 percent Sonnet, and you should immediately shift exploratory tasks and minor codebase lookups to Haiku, which currently sits at a mere 8 percent.",
+   "model": "gemini-3.5-flash-lite",
+   "input_tokens": 318,
+   "output_tokens": 229,
+   "latency_ms": 2132,
+   "cost_usd": 0.000668
+  }
+ ]
+}

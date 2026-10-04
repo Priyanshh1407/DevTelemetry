@@ -1,0 +1,12 @@
+{
+ "calls": [
+  {
+   "text": "{\n  \"headline\": \"Improve your Claude Code efficiency score of 59.79 by fixing your context discipline immediately.\",\n  \"actions\": [\n    {\n      \"title\": \"Increase /compact usage\",\n      \"problem\": \"You used /compact in 16.1% of sessions over the last 7 days, which is 5 of 31 sessions. This makes discipline your weakest area, sitting at 25.16 points below its maximum.\",\n      \"fix\": \"Run the /compact command much more frequently across your sessions to better manage your context and improve your score.\",\n      \"focus\": \"discipline\"\n    },\n    {\n      \"title\": \"Optimize your model mix\",\n      \"problem\": \"Your model mix currently stands at Opus 6.0%, Sonnet 76.0%, and Haiku 18.0%. This earned you only 19.26 of 30 points.\",\n      \"fix\": \"Shift more of your routine tasks to Haiku and Sonnet to reduce your reliance on Opus and raise your model mix points.\",\n      \"focus\": \"model_mix\"\n    },\n    {\n      \"title\": \"Maintain high cache performance\",\n      \"problem\": \"You achieved a cache score where 89.2% of prompt tokens were served from cache, giving you 35.69 of 40 points.\",\n      \"fix\": \"Keep your current prompt patterns consistent so that you preserve this strong caching efficiency.\",\n      \"focus\": \"cache\"\n    },\n    {\n      \"title\": \"Monitor daily spending\",\n      \"problem\": \"Your estimated cost today reached $17.85 while your overall efficiency score remained at 59.79 / 100.\",\n      \"fix\": \"Review your daily session patterns to ensure every dollar spent aligns with better model selection and context management.\",\n      \"focus\": \"discipline\"\n    }\n  ]\n}",
+   "model": "gemini-3.5-flash-lite",
+   "input_tokens": 305,
+   "output_tokens": 427,
+   "latency_ms": 2134,
+   "cost_usd": 0.001159
+  }
+ ]
+}
