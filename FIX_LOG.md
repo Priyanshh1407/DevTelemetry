@@ -396,3 +396,100 @@ Fix: server modules use loggers (a handler that can't encode a character reports
   - Verified that `npm ci` with npm 10 (what CI uses) accepts the lockfile.
   - Result: **0 vulnerabilities**, shipped and dev.
 - **Python:** `pip-audit` (first ever run, via `uvx`) found **no known vulnerabilities** in the pinned runtime and dev requirements. Docker moves to **python:3.13-slim**, because 3.10 reaches end-of-life in October 2026. 3.13 was chosen over the plan's 3.12 because it's supported until 2029. CI tests 3.13 and 3.14, and ruff targets py313. A clean 3.13 environment from the pinned requirements runs 219 passed at 96.4% coverage.
+
+---
+
+## Phase 6 — Interview Upgrades (2026-10-04, branch `phase-6-upgrades`)
+
+Decisions (developer):
+- **Evals:** offline in CI and tests (recorded replies), live runs only with approval before each one.
+- **Provider:** Gemini only, behind an interface; the README's Claude claim is reworded.
+- **Model:** the latest Gemini (`gemini-3.8-flash`).
+- **Eval size:** n=10 live, because the free tier allows 20 requests/day.
+
+Tests: 287 backend (from 219), 26 frontend; ruff and ESLint clean.
+
+### UPG-01 — grounded, structured, stored coaching + evals (commits 287dae1, 19c291a, 4679f95, 51fc41b, c34f1fc, 2454bda, cba392a, 4336025, 4b25241, f4ca5ea)
+**Before:**
+- The guide was free text split into tasks by line heuristics.
+- Failures were cached in process memory.
+- Nothing was stored, and nobody knew whether the advice cited the engineer's real numbers.
+
+**What was built:**
+- **Provider interface** (`ai/providers.py`):
+  - `GuideProvider.generate(prompt, json_schema)` returns text, token counts (thinking billed as output), latency and cost.
+  - `GeminiProvider` is the only implementation.
+  - The model is set with `GEMINI_MODEL`, default `gemini-3.8-flash` (Google's models page, 2026-10-01).
+  - Prices are a dated schedule per model: 3.8 Flash is $0.75 / $3.75 per 1M tokens through 2026, then $1.50 / $7.50.
+- **Prompt v2:**
+  - Input: a FACTS block of computed metrics (points lost per area, weakest area, 7-day `/compact` rate), never identity.
+  - Output: JSON validated by Pydantic (`CoachingGuide`: headline, 1–5 actions with a `focus` area).
+  - Rules: cite only facts, start with the weakest area, one action count per tier.
+- **Failure path:** invalid JSON gets one repair call that feeds back the validation error. If that also fails, the engineer gets a rule-based guide built from their own sub-scores, marked as fallback and not stored as a success.
+- **Storage:** guides are stored in `coaching_guides`, keyed by (user, data date, severity, prompt version, model). Repeat views cost nothing, and changing the prompt or model regenerates.
+
+**Eval harness** (`evals/`):
+- 30 fixed profiles: 10 per weakest area, all tiers.
+- Rule-based checks:
+  - valid structure;
+  - every cited number grounded in the inputs within rounding;
+  - the first action targets the weakest area;
+  - the action count.
+- Live runs record replies so they can be replayed for free in CI.
+
+**Measured baseline (v1, live, gemini-3.8-flash, n=10):**
+- Valid 100%, targeted 100%, 95.6% of 113 cited numbers grounded, 60% of guides with no ungrounded number.
+- Reviewing each flagged number by hand: 3 were correct averages ("28,000 output tokens per run" = 168,173 / 6), 2 were true bounds ("exceeded 10 million" for 10,145,598), **0 were invented**.
+- ~1,460 output tokens per guide (mostly thinking), p50 8.9 s, about $0.0057 per guide at list price.
+- **v2 numbers: pending.** The live run waits for the free-tier quota. Command: `python -m evals.run --pipeline v2 --mode live --pause 20 --profiles p01,p02,p03,p05,p06,p07,p08,p09,p11,p12`.
+
+**Found by the evals themselves:**
+- The checker read "11.53 million" as 11.53, so the first baseline under-reported grounding (50% instead of 60%). Fixed and covered by a test.
+- The first live run was 18 × 429 and 2 × 503. The 429s were the free tier's **20 requests/day per model**, so live runs now retry capacity errors, stop after 3 profiles in a row still fail, and finish later with `--only-missing`.
+
+**Honest limits:**
+- n=10 on one model.
+- Checks are rule-based (tone and helpfulness aren't measured).
+- The profiles are synthetic.
+
+Interview version: "I reviewed every number the checker flagged and found a bug in my own checker before I trusted the baseline. The old prompt turned out not to invent numbers on this sample, so the case for v2 is structure, guaranteed fallbacks and cost, not a big grounding win."
+
+### UPG-04 — the app meters its own AI calls (commit 4679f95)
+Every model request is recorded in `ai_requests`: purpose, outcome, tokens from the provider's usage metadata, latency, cost, prompt version and model.
+
+`GET /api/ai-stats` returns:
+- outcomes;
+- cache hit rate;
+- fallback rate;
+- tokens and cost;
+- cost per generated guide;
+- p50/p95 latency.
+
+The team memo is metered too.
+
+### UPG-03 — explainable score, measured weight sensitivity (commit ed38610)
+- The engineer page shows points per area out of each maximum and names the area that lost the most points.
+- `analysis/weight_sensitivity.py`: 30 simulated teams, each area weight moved ±20%. Mean Kendall τ 0.93–0.98. The bottom 2 are unchanged in 83–93% of teams, so in about 1 team in 10, a 20% weight change swaps who gets a "critical" alert. Written up in docs/scoring.md with that caveat.
+
+### UPG-02 — telemetry ingestion API (commit dcc9ad8)
+`POST /api/ingest` (admin token): up to 1,000 records per request, with field names from Anthropic's usage object.
+
+**Validation is per record:**
+- Pydantic, unknown fields rejected.
+- Checks: non-negative counts, shares sum to 1, `compact_uses ≤ sessions`, no future dates, no client-supplied cost or score, no duplicate keys in a batch.
+- Rejected records come back by index with reasons; the rest are written.
+
+**Server-side:**
+- Cost is computed from the dated price table, and the version is stored per row (`cost_price_version`).
+- Score is computed on write.
+- The upsert is idempotent on (user, date).
+- Affected engineers are rescored, because the 7-day `/compact` pool makes later days depend on a corrected earlier day.
+
+**One path for all data:** the simulator writes through the same function, so synthetic data must pass the API's validation (a rejection raises).
+
+**Measured on SQLite:** 10,000 records in 0.66 s (~15k/s), re-send 0.57 s, validation alone ~100k/s.
+
+### Model update (commit 2454bda)
+- `gemini-2.5-flash` → `gemini-3.8-flash`.
+- A partial v1 run on 2.5 (4 calls) was discarded so both prompts are compared on the same model.
+- Actual spend so far: $0 (free tier). Reported costs are list-price equivalents.
