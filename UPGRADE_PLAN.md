@@ -282,7 +282,13 @@ Items:
 
 **Repo hygiene before the rewrite:** `DEVTELEMETRY_INTERVIEW_REPORT.md`, `interview_study_guide.md` and `demo_commands.txt` are **tracked**, so they are public on GitHub once pushed: personal interview prep, not project docs. Decide: delete from the repo (keep locally, gitignore) or move under `docs/`. (`engineers_data.json` is already gitignored.)
 
-**Decisions needed from you:** licence (MIT as the badge says, or none); which branch Render deploys; whether to push/merge now; keep or delete the root notes files.
+**Decisions (developer, 2026-10-04):**
+- **Licence: none.** Remove the MIT badge and the LICENSE link (default copyright applies).
+- **Push: push `phase-6-upgrades` and open a PR into `main`**; CI runs on GitHub, and the developer reviews and merges.
+- **Render deploys the `deployment` branch.** After the merge, `deployment` must be updated to the merged `main` for the live demo to change, so `/health` and the render.yaml fixes ship that way.
+- **Notes files: untrack, keep locally** (gitignore).
+  - `interview_study_guide.md` and `demo_commands.txt` are already on `origin/main` (561fc14), so they stay in old history.
+  - `DEVTELEMETRY_INTERVIEW_REPORT.md` was added in unpushed d319069. Pushing would publish it in history unless the unpushed commits are rewritten without it. **Ask before pushing:** rewrite (backup branch first) or accept.
 
 Acceptance criteria:
 - Every README claim maps to code or a measured output. A fresh clone works by following the README in < 10 minutes.
