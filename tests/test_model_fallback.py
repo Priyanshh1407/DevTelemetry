@@ -85,3 +85,31 @@ def test_a_guide_from_the_fallback_model_is_stored_under_its_own_name(client, se
     assert mock_gemini.models.generate_content.call_count == 2
     assert query("SELECT model FROM coaching_guides") == [{"model": LITE}]
     assert {r["model"] for r in query("SELECT model FROM ai_requests")} == {LITE}
+
+
+def test_latency_includes_the_failed_attempt_on_the_main_model(mock_gemini, monkeypatch):
+    import ai.providers as providers
+
+    clock = iter([0.0, 3.5])   # timed from before the main attempt (fails after ~2 s) to the fallback answer
+    monkeypatch.setattr(providers.time, "perf_counter", lambda: next(clock))
+    mock_gemini.models.generate_content.side_effect = [rate_limited(), ok_response()]
+
+    response = GeminiProvider("gemini-3.8-flash", fallback_model=LITE).generate("hi")
+
+    assert response.latency_ms == 3500    # what the user waited, not just the second call
+
+
+def test_after_a_failure_the_main_model_is_skipped_for_a_cooldown(mock_gemini, monkeypatch):
+    import ai.providers as providers
+
+    now = [1000.0]
+    monkeypatch.setattr(providers.time, "monotonic", lambda: now[0])
+    mock_gemini.models.generate_content.side_effect = [rate_limited(), ok_response(), ok_response(), ok_response()]
+    provider = GeminiProvider("gemini-3.8-flash", fallback_model=LITE)
+
+    provider.generate("first")                       # main fails -> fallback
+    provider.generate("second")                      # within the cooldown: straight to the fallback
+    now[0] += providers.MAIN_MODEL_COOLDOWN_S + 1
+    provider.generate("third")                       # cooldown over: the main model is tried again
+
+    assert models_called(mock_gemini) == ["gemini-3.8-flash", LITE, LITE, "gemini-3.8-flash"]
