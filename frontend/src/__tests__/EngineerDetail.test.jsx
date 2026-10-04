@@ -115,5 +115,6 @@ describe('EngineerDetail shows no placeholder assets (Phase 7)', { timeout: 3000
         expect(screen.getByText('AL')).toBeInTheDocument();
         expect(document.querySelector('img[src*="googleusercontent"]')).toBeNull();
         expect(screen.getByText('Engineer detail')).toBeInTheDocument();
+        expect(screen.getByText('Average sessions per day (30 days)')).toBeInTheDocument();
     });
 });
