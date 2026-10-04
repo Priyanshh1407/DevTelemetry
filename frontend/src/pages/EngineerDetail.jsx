@@ -304,7 +304,7 @@ export default function EngineerDetail() {
                         <div className="text-2xl font-bold tracking-tight text-on-surface">
                             {averages.avg_sessions}
                         </div>
-                        <p className="text-[10px] text-on-surface-variant mt-1">Simultaneous terminals active</p>
+                        <p className="text-[10px] text-on-surface-variant mt-1">Average sessions per day (30 days)</p>
                     </div>
 
                     {/* Git Commits */}
