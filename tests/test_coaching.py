@@ -108,7 +108,7 @@ def test_still_invalid_after_repair_falls_back_to_rules(mock_gemini):
     (errors.ServerError(503, {"error": {"code": 503, "message": "down", "status": "UNAVAILABLE"}}), "unavailable"),
 ])
 def test_provider_failures_get_a_rule_based_guide_with_real_numbers(mock_gemini, failure, source):
-    responses(mock_gemini, failure)
+    responses(mock_gemini, failure, failure)   # the main model and the fallback model both fail
 
     result = generate_efficiency_guide(DAY, "critical", recent=RECENT)
 

@@ -2,11 +2,16 @@
 
     python -m evals.run --pipeline v2 --mode replay   # recorded responses: free, deterministic (CI)
     python -m evals.run --pipeline v1 --mode live     # real API calls; records the responses
+    python -m evals.run --pipeline v1 --mode live --model gemini-3.5-flash-lite
+
+A run uses ONE model: the app's fallback to a lighter model is switched off here, otherwise a
+difference between prompts could just be a difference between models. Recordings and results
+are kept per model (evals/recordings/<model>/<pipeline>/, evals/results/<model>/).
 
 Live mode spends API quota (it needs GEMINI_API_KEY) and overwrites the recordings for that
 pipeline, so it is never run in CI. Replay mode re-runs the exact same checks on those
 recordings, which makes a recorded live run reproducible by anyone, offline.
-Results: evals/results/<pipeline>.md and .json.
+Results: evals/results/<model>/<pipeline>.md and .json.
 """
 import argparse
 import json
@@ -16,7 +21,7 @@ from contextlib import contextmanager
 from datetime import datetime, timezone
 
 import ai.guide_generator as generator
-from ai.providers import LLMResponse
+from ai.providers import DEFAULT_GEMINI_MODEL, GeminiProvider, LLMResponse
 from core.queries import without_pii
 from evals.checks import evaluate, summarize
 from evals.profiles import load
@@ -61,8 +66,8 @@ def generate(pipeline, profile):
                                                recent=[without_pii(d) for d in profile["recent"]])
 
 
-def _recording_path(recordings, pipeline, profile_id):
-    return recordings / pipeline / f"{profile_id}.json"
+def _recording_path(recordings, model, pipeline, profile_id):
+    return recordings / model / pipeline / f"{profile_id}.json"
 
 
 # Provider capacity outcomes (nothing billed): worth waiting out in a live eval, because they
@@ -99,21 +104,22 @@ def _live(pipeline, profile, sleep):
 
 
 def run(pipeline, mode, profiles=None, recordings=RECORDINGS, results=RESULTS, pause_s=0.0,
-        only_missing=False, sleep=time.sleep):
+        only_missing=False, sleep=time.sleep, model=DEFAULT_GEMINI_MODEL):
     """`only_missing` (live): replay profiles that already have a recorded reply, call the API
     only for the rest, so finishing an interrupted run never pays for the same profile twice."""
     profiles = profiles if profiles is not None else load()
     rows = []
     live_calls = failures_in_a_row = 0
     for profile in profiles:
-        path = _recording_path(recordings, pipeline, profile["id"])
+        path = _recording_path(recordings, model, pipeline, profile["id"])
         if mode == "replay" or (only_missing and _has_recording(path)):
             result = _replay(pipeline, profile, path)
         else:
             if pause_s and live_calls:
                 sleep(pause_s)  # stay under the provider's requests-per-minute limit
             live_calls += 1
-            result = _live(pipeline, profile, sleep)
+            with provider_override(GeminiProvider(model, fallback_model=None)):
+                result = _live(pipeline, profile, sleep)
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(json.dumps({"calls": [c.__dict__ for c in result.calls]}, indent=1) + "\n",
                             encoding="utf-8")
@@ -131,6 +137,8 @@ def run(pipeline, mode, profiles=None, recordings=RECORDINGS, results=RESULTS, p
     # A subset gets its own file (e.g. v1-n10) so it is never mistaken for the full eval.
     name = pipeline if len(profiles) == len(load()) else f"{pipeline}-n{len(profiles)}"
     summary["profile_ids"] = [p["id"] for p in profiles]
+    summary["model"] = model
+    results = results / model
     results.mkdir(parents=True, exist_ok=True)
     (results / f"{name}.json").write_text(json.dumps({"summary": summary, "rows": rows}, indent=1) + "\n",
                                           encoding="utf-8")
@@ -180,6 +188,8 @@ def main(argv=None):
     parser.add_argument("--only-missing", action="store_true",
                         help="live mode: replay profiles already recorded, call the API only for the rest")
     parser.add_argument("--profiles", help="comma-separated profile ids to run (default: all 30)")
+    parser.add_argument("--model", default=DEFAULT_GEMINI_MODEL,
+                        help=f"Gemini model for the whole run (default {DEFAULT_GEMINI_MODEL}; no fallback)")
     args = parser.parse_args(argv)
     profiles = load()
     if args.profiles:
@@ -190,7 +200,7 @@ def main(argv=None):
         profiles = [p for p in profiles if p["id"] in wanted]
     try:
         summary, _ = run(args.pipeline, args.mode, profiles=profiles, pause_s=args.pause,
-                         only_missing=args.only_missing)
+                         only_missing=args.only_missing, model=args.model)
     except ProviderCapacityExhausted as e:
         raise SystemExit(f"Stopped: {e}") from e
     print(report(summary, []).split("## Per profile")[0])  # noqa: T201
