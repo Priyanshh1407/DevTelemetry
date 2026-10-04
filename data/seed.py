@@ -118,7 +118,7 @@ def has_usage_data():
 
 def reset_data(conn):
     """Removes generated data. Alert settings are configuration, not data, so they stay."""
-    for table in ("ai_guides", "usage_metrics", "engineers"):
+    for table in ("coaching_guides", "usage_metrics", "engineers"):
         conn.execute(f"DELETE FROM {table}")
 
 

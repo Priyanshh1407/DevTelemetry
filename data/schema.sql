@@ -26,16 +26,38 @@ CREATE TABLE IF NOT EXISTS usage_metrics (
     UNIQUE(user_id, date)
 );
 
--- Table to store the AI-generated coaching guides
-CREATE TABLE IF NOT EXISTS ai_guides (
+-- Successful AI coaching guides (UPG-01), reused until the data, prompt or model changes.
+-- Fallback (rule-based) guides are never stored, so an outage is never cached.
+CREATE TABLE IF NOT EXISTS coaching_guides (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id TEXT NOT NULL,
-    date TEXT NOT NULL,
-    guide_text TEXT NOT NULL,
+    metrics_date TEXT NOT NULL,      -- the latest usage day the guide was generated from
     severity TEXT NOT NULL,
-    FOREIGN KEY (user_id) REFERENCES engineers(user_id),
-    UNIQUE(user_id, date)
+    prompt_version TEXT NOT NULL,
+    model TEXT NOT NULL,
+    source TEXT NOT NULL,            -- ai | ai_repaired
+    guide_json TEXT NOT NULL,
+    created_at TEXT NOT NULL,        -- UTC ISO-8601
+    UNIQUE(user_id, metrics_date, severity, prompt_version, model)
 );
+
+-- One row per AI request handled (UPG-04): cache hits, model answers and fallbacks,
+-- with the tokens, latency and cost of the model calls it took.
+CREATE TABLE IF NOT EXISTS ai_requests (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    created_at TEXT NOT NULL,        -- UTC ISO-8601
+    purpose TEXT NOT NULL,           -- guide | team_report
+    user_id TEXT,
+    outcome TEXT NOT NULL,           -- cache_hit | ai | ai_repaired | invalid_output | rate_limited | unavailable
+    model TEXT,
+    prompt_version TEXT,
+    llm_calls INTEGER NOT NULL DEFAULT 0,
+    input_tokens INTEGER NOT NULL DEFAULT 0,
+    output_tokens INTEGER NOT NULL DEFAULT 0,  -- includes thinking tokens
+    latency_ms INTEGER NOT NULL DEFAULT 0,
+    cost_usd REAL NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS ai_requests_created_at ON ai_requests(created_at);
 
 -- Table to store the manager's alert scheduling preferences
 CREATE TABLE IF NOT EXISTS alert_settings (

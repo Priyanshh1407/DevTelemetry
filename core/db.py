@@ -85,6 +85,12 @@ def _migrate_data(conn):
 
     meta = dict(conn.execute("SELECT key, value FROM schema_meta").fetchall())
 
+    # ai_guides was created by the original schema but never written by any code; coaching
+    # guides now live in coaching_guides. Drop it only if it is empty (never destroy data).
+    if conn.execute("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'ai_guides'").fetchone():
+        if conn.execute("SELECT COUNT(*) FROM ai_guides").fetchone()[0] == 0:
+            conn.execute("DROP TABLE ai_guides")
+
     if meta.get("token_semantics") != "anthropic":
         # Before ML-03a, input_tokens INCLUDED cache reads. Anthropic's usage object (and now this
         # schema) counts only uncached tokens there. Cost is unaffected: it already billed the

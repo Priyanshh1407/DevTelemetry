@@ -11,7 +11,7 @@ import urllib.request
 import pytest
 import uvicorn
 
-import api.routes as routes
+import ai.coaching_service as coaching_service
 from ai.guide_generator import GuideResult
 from api.main import app
 from tests.conftest import engineer_id
@@ -48,7 +48,7 @@ def test_slow_runbook_generation_does_not_block_leaderboard(live_server, monkeyp
         time.sleep(SIMULATED_LLM_SECONDS)  # stands in for a blocking Gemini HTTP call
         return GuideResult(tasks=[{"title": "t", "desc": "d"}], source="ai")
 
-    monkeypatch.setattr(routes, "generate_efficiency_guide", slow_generation)
+    monkeypatch.setattr(coaching_service, "generate_efficiency_guide", slow_generation)
     _get(f"{live_server}/api/leaderboard")  # warm up
 
     runbook = threading.Thread(target=_get, args=(f"{live_server}/api/runbook-tasks/critical/{engineer_id(0)}",))

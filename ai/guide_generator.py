@@ -16,8 +16,8 @@ load_dotenv()
 logger = logging.getLogger(__name__)
 
 # Re-exported for callers that catch it from here.
-__all__ = ["AIUnavailableError", "GuideResult", "generate_efficiency_guide", "generate_efficiency_guide_v1",
-           "generate_team_report"]
+__all__ = ["AIUnavailableError", "GuideResult", "TeamReport", "generate_efficiency_guide",
+           "generate_efficiency_guide_v1", "generate_team_report", "tasks_from_guide"]
 
 AI_SOURCES = ("ai", "ai_repaired")
 
@@ -42,7 +42,7 @@ class GuideResult:
         return self.source not in AI_SOURCES
 
 
-def _tasks(guide):
+def tasks_from_guide(guide):
     """The dashboard's runbook shows title + description per task."""
     return [{"title": a["title"], "desc": f"{a['problem']} {a['fix']}"} for a in guide["actions"]]
 
@@ -70,7 +70,7 @@ def generate_efficiency_guide(day, severity="moderate", recent=()):
 
     def fallback(source):
         guide = rule_based_guide(facts)
-        return GuideResult(tasks=_tasks(guide), source=source, guide=guide, calls=calls,
+        return GuideResult(tasks=tasks_from_guide(guide), source=source, guide=guide, calls=calls,
                            prompt_version=PROMPT_VERSION)
 
     try:
@@ -88,7 +88,7 @@ def generate_efficiency_guide(day, severity="moderate", recent=()):
         if guide is None:
             logger.error("Guide output still invalid after repair (%s); using the rule-based guide", error)
             return fallback("invalid_output")
-        return GuideResult(tasks=_tasks(guide), source=source, guide=guide, calls=calls,
+        return GuideResult(tasks=tasks_from_guide(guide), source=source, guide=guide, calls=calls,
                            prompt_version=PROMPT_VERSION)
     except AIRateLimitedError:
         logger.warning("LLM rate limit hit; using the rule-based guide")
@@ -143,11 +143,23 @@ def generate_efficiency_guide_v1(engineer_data, severity="moderate"):
         ])
 
 
+@dataclass
+class TeamReport:
+    text: str
+    outcome: str          # ai | rate_limited | unavailable
+    calls: list = field(default_factory=list)
+
+
 def generate_team_report(team_summary):
+    """The manager digest's two-paragraph memo. Never raises."""
     prompt = build_team_report_prompt(team_summary)
 
     try:
-        return get_provider().generate(prompt).text.replace('**', '')
+        response = get_provider().generate(prompt)
+        return TeamReport(text=response.text.replace('**', ''), outcome="ai", calls=[response])
+    except AIRateLimitedError:
+        logger.warning("LLM rate limit hit for the team report")
+        return TeamReport(text="Error generating team report: System Offline.", outcome="rate_limited")
     except Exception as e:
         logger.error("Gemini team report failed (%s): %s", type(e).__name__, e)
-        return "Error generating team report: System Offline."
+        return TeamReport(text="Error generating team report: System Offline.", outcome="unavailable")

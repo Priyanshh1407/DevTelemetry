@@ -5,9 +5,12 @@ Reads the same SQLite database as the dashboard (DB_PATH). If it is empty, seeds
 import logging
 import sys
 
-from ai.guide_generator import generate_efficiency_guide, generate_team_report
+from ai.coaching_service import get_coaching
+from ai.guide_generator import generate_team_report
+from ai.providers import get_provider
+from ai.store import record_request
 from core.db import db_session, init_db
-from core.queries import latest_day_rows, recent_metrics_for_user, without_pii
+from core.queries import latest_day_rows
 from core.severity import severity_for_rank
 from data.seed import generate_historical_data
 
@@ -53,7 +56,10 @@ def main():
     print("\n" + "=" * 65)
     print("📢 TEAM-WIDE OPTIMIZATION REPORT")
     print("=" * 65)
-    print(generate_team_report(team_summary))
+    report = generate_team_report(team_summary)
+    with db_session() as conn:
+        record_request(conn, "team_report", report.outcome, report.calls, model=get_provider().model)
+    print(report.text)
 
     # Individual guides for the lowest-ranked engineers
     print("\n" + "=" * 65)
@@ -65,9 +71,8 @@ def main():
         severity = severity_for_rank(rank, team_size)
         print(f"\n--- Coaching for {eng['name']} (Rank: {rank}, Score: {eng['efficiency_score']:.2f}, "
               f"Severity: {severity}) ---")
-        with db_session() as conn:
-            window = recent_metrics_for_user(conn, eng["user_id"])
-        guide = generate_efficiency_guide(without_pii(eng), severity, recent=window[:-1])
+        # Stored guide or a new one (metered); only metrics are sent to the LLM.
+        guide = get_coaching(eng["user_id"], severity).result
         if guide.is_fallback:
             print(f"(fallback guide: {guide.source})")
         for n, task in enumerate(guide.tasks, 1):

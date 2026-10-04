@@ -88,17 +88,6 @@ def mock_gemini(monkeypatch):
     return client
 
 
-@pytest.fixture(autouse=True)
-def reset_route_state():
-    """api.routes keeps a module-level runbook cache; reset it per test.
-    (Dispatch state lives in each test's own temporary database.)"""
-    import api.routes as routes
-
-    routes.ai_task_cache.clear()
-    yield
-    routes.ai_task_cache.clear()
-
-
 @pytest.fixture
 def admin_token(monkeypatch):
     """Configures the server's admin token (unset by default, so admin actions are disabled)."""
