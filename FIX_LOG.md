@@ -530,7 +530,7 @@ Decisions (developer):
 - Render deploys the `deployment` branch;
 - personal notes untracked but kept locally.
 
-Tests: 307 backend, 33 frontend; coverage 97%; ruff and ESLint clean.
+Tests: 309 backend, 33 frontend; coverage 97%; ruff and ESLint clean.
 
 ### /health and deploy config (commit 12bd54e)
 - **`GET /health`:**
@@ -610,3 +610,33 @@ Interview version: "When I retook the screenshots I noticed the runbook page sti
 - **Live deploy:** it needs the PR merged and the `deployment` branch updated (developer).
 - **Live checks:** `/health` on Render and the Runbook in DevTools. Locally they're verified on a fresh clone.
 - **Re-running the interview report / mock interview:** the developer will do this later.
+
+---
+
+## Verification of Phases 0–7 (2026-10-04, commit 226ba5f)
+
+**Method:** a new clone, a new Python 3.13 virtualenv from the pinned requirements, a clean `npm ci`, no `.env` (no API key, no secrets). Each phase was checked against its own acceptance criteria in UPGRADE_PLAN.md.
+
+| Phase | Check | Result |
+|---|---|---|
+| 0 | `pytest` in the venv with network blocked; real `data/usage.db` untouched; ≥ 15 tests | 309 passed; usage.db mtime still 2026-07-01 11:58:33 (unchanged by any test run) |
+| 1 | admin routes without a token → 401; no `127.0.0.1` in `frontend/src` except `api.js`'s dev default; app works without a Gemini key; a failed generation isn't cached; all-SMTP-failure isn't reported as success | all pass |
+| 1 | cost vs tokens (Spearman, seeded data) | **0.883** (audit found ~0) |
+| 1 | leaderboard latency while a guide generation blocks | **13 ms** max (plan target < 200 ms) |
+| 2 | persona stability, trends window, `--reset` twice, 422 on bad input, trigger answers at once, one dispatch per slot | 47 tests pass |
+| 2 | `git archive` → `seed.py --reset` → `main.py` with no key | exit 0; 5 rule-based guides |
+| 2 | `docker compose up --build` (clean clone, no `.env`) | health OK, `ai_configured: false`, 10 engineers, admin routes 503 without a server token; dashboard pages load data in a browser |
+| 3 | coverage gate ≥ 85% (`core/` + `api/` ≥ 80%); ESLint 0; Vitest; build; workflow switches | 97% total, **99%** core+api; ESLint 0; 33 tests; build OK; every job has its switch |
+| 4 | tier decisions only in `core/severity.py`; property tests; `npm audit`; `pip-audit`; ruff | all clean; 0 npm vulnerabilities (prod and dev); pip-audit "No known vulnerabilities" |
+| 6 | `pytest && python -m evals.run --pipeline v2` | passes; reproduces the published table (targeting 100%, grounded 100%); tree unchanged |
+| 7 | README followed on a fresh clone | API + dashboard working in ~4 min |
+
+**Found and fixed by this verification:**
+- **No key reported as an outage:** running without a Gemini key (documented as supported) printed "System Offline" and logged errors. It's now reported as "not configured" (commit 59c2daf).
+- **Docker dashboard 404 on app routes:** it answered 404 for `/engineer/…` and `/runbook/…`, so the runbook links in alert emails broke in Docker. Fixed with `frontend/nginx.conf`, verified live (commit 226ba5f).
+- **Leaderboard latency threshold:** the concurrency test asserts < 0.5 s, looser than the plan's 200 ms. The measured value (13 ms) meets the plan; the threshold is left loose so the test doesn't flap on slow CI machines.
+
+**Not verifiable locally (need GitHub / Render):**
+- CI green on github.com;
+- the OPS-01 switches on GitHub;
+- the live deploy and live Runbook check.
