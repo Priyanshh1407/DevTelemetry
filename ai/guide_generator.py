@@ -1,29 +1,17 @@
 import logging
-import os
 from dataclasses import dataclass
-from google import genai
-from google.genai import errors, types
-from ai.prompts import build_guide_prompt, build_team_report_prompt
+
 from dotenv import load_dotenv
+
+from ai.prompts import build_guide_prompt, build_team_report_prompt
+from ai.providers import AIRateLimitedError, AIUnavailableError, get_provider
 
 load_dotenv()
 
 logger = logging.getLogger(__name__)
 
-model_id = "gemini-2.5-flash"
-
-# Bound how long one request can wait on the LLM. The SDK retries 408/429/5xx with
-# exponential backoff; 2 attempts keeps the worst case near 2 x timeout.
-LLM_TIMEOUT_MS = int(os.getenv("LLM_TIMEOUT_MS", "15000"))
-LLM_MAX_ATTEMPTS = 2
-
-# Created on first use, not at import: a missing key must only disable AI features,
-# not stop the whole API from starting.
-_client = None
-
-
-class AIUnavailableError(RuntimeError):
-    """Raised when the AI provider cannot be used (e.g. no API key configured)."""
+# Re-exported for callers that catch it from here.
+__all__ = ["AIUnavailableError", "GuideResult", "generate_efficiency_guide", "generate_team_report"]
 
 
 @dataclass
@@ -40,65 +28,45 @@ class GuideResult:
         return self.source != "ai"
 
 
-def get_client():
-    global _client
-    if _client is None:
-        api_key = os.getenv("GEMINI_API_KEY")
-        if not api_key:
-            raise AIUnavailableError("GEMINI_API_KEY is not set")
-        _client = genai.Client(
-            api_key=api_key,
-            http_options=types.HttpOptions(
-                timeout=LLM_TIMEOUT_MS,
-                retry_options=types.HttpRetryOptions(attempts=LLM_MAX_ATTEMPTS, initial_delay=1.0, max_delay=5.0),
-            ),
-        )
-    return _client
-
 def generate_efficiency_guide(engineer_data, severity="moderate"):
     """
     Generates a personalized guide. Tone and length adjust based on severity.
     Never raises: on failure it returns a static fallback with source != "ai".
     """
     prompt = build_guide_prompt(engineer_data, severity)
-    
+
     try:
-        response_text = get_client().models.generate_content(
-            model=model_id,
-            contents=prompt
-        ).text
-        
+        response_text = get_provider().generate(prompt).text
+
         tasks = []
         for line in response_text.split('\n'):
             line = line.strip()
             if line and line[0].isdigit() and '. ' in line[:4]:
                 clean_text = line.split('. ', 1)[1].strip()
-                
+
                 # Strip out stray markdown asterisks that the AI ignores rules to include
                 clean_text = clean_text.replace('**', '').replace('*', '')
-                
+
                 tasks.append({
-                    "title": "Optimization Action", 
+                    "title": "Optimization Action",
                     "desc": clean_text
                 })
-                
+
         if not tasks:
             tasks = [{"title": "AI Summary", "desc": response_text.replace('**', '')}]
 
         return GuideResult(tasks=tasks, source="ai")
 
+    except AIRateLimitedError:
+        logger.warning("Gemini rate limit hit; serving the fallback runbook")
+        return GuideResult(source="rate_limited", tasks=[
+            {"title": "System Notice: API Rate Limit", "desc": "Personalized generation is paused due to Gemini API limits. Showing standard procedures."},
+            {"title": "Audit Token Looping", "desc": "Check agent logs for repetitive, failing task loops."},
+            {"title": "Enforce Model Tiering", "desc": "Shift non-essential background tasks to Haiku/Flash models."},
+            {"title": "Consolidate Prompts", "desc": "Batch multiple instructions into a single context window."}
+        ])
     except Exception as e:
-        # 1. Handle Rate Limits Gracefully (typed check; the SDK has already retried with backoff)
-        if isinstance(e, errors.APIError) and e.code == 429:
-            logger.warning("Gemini rate limit hit; serving the fallback runbook")
-            return GuideResult(source="rate_limited", tasks=[
-                {"title": "System Notice: API Rate Limit", "desc": "Personalized generation is paused due to Gemini API limits. Showing standard procedures."},
-                {"title": "Audit Token Looping", "desc": "Check agent logs for repetitive, failing task loops."},
-                {"title": "Enforce Model Tiering", "desc": "Shift non-essential background tasks to Haiku/Flash models."},
-                {"title": "Consolidate Prompts", "desc": "Batch multiple instructions into a single context window."}
-            ])
-
-        # 2. Handle Total API Failure (e.g., No Internet, no API key)
+        # Total API failure (no internet, no API key, server error)
         logger.error("Gemini guide generation failed (%s): %s", type(e).__name__, e)
         return GuideResult(source="unavailable", tasks=[
             {"title": "AI Service Offline", "desc": "Unable to connect to the intelligence engine."},
@@ -108,13 +76,9 @@ def generate_efficiency_guide(engineer_data, severity="moderate"):
 
 def generate_team_report(team_summary):
     prompt = build_team_report_prompt(team_summary)
-    
+
     try:
-        return get_client().models.generate_content(
-            model=model_id,
-            contents=prompt
-        ).text.replace('**', '')
+        return get_provider().generate(prompt).text.replace('**', '')
     except Exception as e:
-        # Previously swallowed silently; log it like generate_efficiency_guide does.
         logger.error("Gemini team report failed (%s): %s", type(e).__name__, e)
-        return "Error generating team report: System Offline." 
+        return "Error generating team report: System Offline."

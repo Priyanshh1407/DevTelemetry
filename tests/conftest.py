@@ -61,12 +61,17 @@ def mock_gemini(monkeypatch):
 
     The real key (possibly loaded from .env) is removed, so any path that bypasses
     the mock fails with AIUnavailableError instead of calling the real API."""
-    import ai.guide_generator as gg
+    import ai.providers as providers
 
     monkeypatch.delenv("GEMINI_API_KEY", raising=False)
     client = MagicMock()
-    client.models.generate_content.return_value.text = "1. Mock tip one\n2. Mock tip two"
-    monkeypatch.setattr(gg, "_client", client)
+    response = client.models.generate_content.return_value
+    response.text = "1. Mock tip one\n2. Mock tip two"
+    # Real integers, so token, latency and cost accounting is exercised like a real response.
+    response.usage_metadata.prompt_token_count = 1000
+    response.usage_metadata.candidates_token_count = 300
+    response.usage_metadata.thoughts_token_count = 200
+    monkeypatch.setattr(providers, "_client", client)
     return client
 
 
