@@ -28,8 +28,9 @@ def test_api_boots_without_gemini_key(tmp_path):
 
 def test_missing_key_degrades_to_fallback_instead_of_raising(monkeypatch):
     import ai.guide_generator as gg
+    import ai.providers as providers
 
-    monkeypatch.setattr(gg, "_client", None)
+    monkeypatch.setattr(providers, "_client", None)
     monkeypatch.delenv("GEMINI_API_KEY", raising=False)
 
     result = gg.generate_efficiency_guide({"efficiency_score": 40.0})
@@ -39,14 +40,35 @@ def test_missing_key_degrades_to_fallback_instead_of_raising(monkeypatch):
 
 
 def test_client_is_built_with_timeout_and_bounded_retries(monkeypatch):
-    import ai.guide_generator as gg
+    import ai.providers as providers
 
     captured = {}
-    monkeypatch.setattr(gg, "_client", None)
+    monkeypatch.setattr(providers, "_client", None)
     monkeypatch.setenv("GEMINI_API_KEY", "dummy")
-    monkeypatch.setattr(gg.genai, "Client", lambda **kwargs: captured.update(kwargs) or "client")
+    monkeypatch.setattr(providers.genai, "Client", lambda **kwargs: captured.update(kwargs) or "client")
 
-    assert gg.get_client() == "client"
+    assert providers.get_client() == "client"
     http_options = captured["http_options"]
-    assert http_options.timeout == gg.LLM_TIMEOUT_MS
-    assert http_options.retry_options.attempts == gg.LLM_MAX_ATTEMPTS
+    assert http_options.timeout == providers.LLM_TIMEOUT_MS
+    assert http_options.retry_options.attempts == providers.LLM_MAX_ATTEMPTS
+
+
+def test_provider_reports_tokens_latency_and_cost(mock_gemini):
+    from ai.providers import GeminiProvider
+
+    response = GeminiProvider().generate("hello")
+
+    assert (response.input_tokens, response.output_tokens) == (1000, 500)   # thinking counts as output
+    assert response.cost_usd == round((1000 * 0.30 + 500 * 2.50) / 1_000_000, 6)
+    assert response.latency_ms >= 0 and response.model == "gemini-2.5-flash"
+
+
+def test_json_mode_sends_the_schema_to_the_model(mock_gemini):
+    from ai.providers import GeminiProvider
+
+    schema = {"type": "object", "properties": {"headline": {"type": "string"}}}
+    GeminiProvider().generate("hello", json_schema=schema)
+
+    config = mock_gemini.models.generate_content.call_args.kwargs["config"]
+    assert config.response_mime_type == "application/json"
+    assert config.response_json_schema == schema

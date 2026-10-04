@@ -1,0 +1,113 @@
+"""LLM provider interface.
+
+The rest of the app talks to a `GuideProvider`, so switching models means adding one class
+(e.g. a Claude provider using the anthropic SDK) and selecting it in `get_provider()`,
+not editing the guide pipeline, the prompts or the API.
+"""
+import os
+import time
+from dataclasses import dataclass
+from typing import Protocol
+
+from google import genai
+from google.genai import errors, types
+
+# Bound how long one request can wait on the LLM. The SDK retries 408/429/5xx with
+# exponential backoff; 2 attempts keeps the worst case near 2 x timeout.
+LLM_TIMEOUT_MS = int(os.getenv("LLM_TIMEOUT_MS", "15000"))
+LLM_MAX_ATTEMPTS = 2
+
+
+class AIUnavailableError(RuntimeError):
+    """The AI provider can't be used (no API key, network failure, server error...)."""
+
+
+class AIRateLimitedError(AIUnavailableError):
+    """The provider rejected the request for quota/rate reasons (after the SDK's retries)."""
+
+
+@dataclass
+class LLMResponse:
+    text: str
+    model: str
+    input_tokens: int
+    output_tokens: int   # includes thinking tokens, which providers bill as output
+    latency_ms: int
+    cost_usd: float
+
+
+class GuideProvider(Protocol):
+    model: str
+
+    def generate(self, prompt: str, json_schema: dict | None = None) -> LLMResponse:
+        """Returns the model's text. With `json_schema`, the model is asked for JSON matching it
+        (the caller still validates: providers can return malformed or off-schema output)."""
+        ...
+
+
+# ── Gemini ──────────────────────────────────────────────────────────────────
+
+# Created on first use, not at import: a missing key must only disable AI features,
+# not stop the whole API from starting.
+_client = None
+
+
+def get_client():
+    global _client
+    if _client is None:
+        api_key = os.getenv("GEMINI_API_KEY")
+        if not api_key:
+            raise AIUnavailableError("GEMINI_API_KEY is not set")
+        _client = genai.Client(
+            api_key=api_key,
+            http_options=types.HttpOptions(
+                timeout=LLM_TIMEOUT_MS,
+                retry_options=types.HttpRetryOptions(attempts=LLM_MAX_ATTEMPTS, initial_delay=1.0, max_delay=5.0),
+            ),
+        )
+    return _client
+
+
+class GeminiProvider:
+    # USD per 1M tokens for gemini-2.5-flash (paid tier), from
+    # https://ai.google.dev/gemini-api/docs/pricing, last updated 2026-10-01.
+    # Thinking tokens are billed as output.
+    PRICE_PER_M = {"input": 0.30, "output": 2.50}
+
+    def __init__(self, model="gemini-2.5-flash"):
+        self.model = model
+
+    def generate(self, prompt, json_schema=None):
+        config = None
+        if json_schema is not None:
+            config = types.GenerateContentConfig(response_mime_type="application/json",
+                                                 response_json_schema=json_schema)
+        start = time.perf_counter()
+        try:
+            response = get_client().models.generate_content(model=self.model, contents=prompt, config=config)
+        except errors.APIError as e:
+            if e.code == 429:
+                raise AIRateLimitedError(str(e)) from e
+            raise AIUnavailableError(f"{type(e).__name__}: {e}") from e
+        except AIUnavailableError:
+            raise
+        except Exception as e:  # network errors, timeouts
+            raise AIUnavailableError(f"{type(e).__name__}: {e}") from e
+        latency_ms = int((time.perf_counter() - start) * 1000)
+
+        usage = getattr(response, "usage_metadata", None)
+        input_tokens = _as_int(getattr(usage, "prompt_token_count", 0))
+        output_tokens = (_as_int(getattr(usage, "candidates_token_count", 0))
+                         + _as_int(getattr(usage, "thoughts_token_count", 0)))
+        cost = (input_tokens * self.PRICE_PER_M["input"] + output_tokens * self.PRICE_PER_M["output"]) / 1_000_000
+        return LLMResponse(text=response.text or "", model=self.model, input_tokens=input_tokens,
+                           output_tokens=output_tokens, latency_ms=latency_ms, cost_usd=round(cost, 6))
+
+
+def _as_int(value):
+    return value if isinstance(value, int) else 0
+
+
+def get_provider() -> GuideProvider:
+    """The configured provider. Gemini today; a new provider is one class plus one line here."""
+    return GeminiProvider(os.getenv("GEMINI_MODEL", "gemini-2.5-flash"))
