@@ -11,6 +11,7 @@ Results: evals/results/<pipeline>.md and .json.
 import argparse
 import json
 import pathlib
+import time
 from contextlib import contextmanager
 from datetime import datetime, timezone
 
@@ -64,10 +65,12 @@ def _recording_path(recordings, pipeline, profile_id):
     return recordings / pipeline / f"{profile_id}.json"
 
 
-def run(pipeline, mode, profiles=None, recordings=RECORDINGS, results=RESULTS):
+def run(pipeline, mode, profiles=None, recordings=RECORDINGS, results=RESULTS, pause_s=0.0):
     profiles = profiles if profiles is not None else load()
     rows = []
-    for profile in profiles:
+    for index, profile in enumerate(profiles):
+        if mode == "live" and pause_s and index:
+            time.sleep(pause_s)  # stay under the free tier's requests-per-minute limit
         path = _recording_path(recordings, pipeline, profile["id"])
         if mode == "replay":
             calls = json.loads(path.read_text(encoding="utf-8"))["calls"]
@@ -125,8 +128,10 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description="Evaluate the coaching-guide pipelines.")
     parser.add_argument("--pipeline", choices=["v1", "v2"], required=True)
     parser.add_argument("--mode", choices=["replay", "live"], default="replay")
+    parser.add_argument("--pause", type=float, default=0.0,
+                        help="seconds between profiles in live mode (free-tier rate limits)")
     args = parser.parse_args(argv)
-    summary, _ = run(args.pipeline, args.mode)
+    summary, _ = run(args.pipeline, args.mode, pause_s=args.pause)
     print(report(summary, []).split("## Per profile")[0])  # noqa: T201
 
 
