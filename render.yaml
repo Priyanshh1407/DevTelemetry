@@ -4,9 +4,12 @@ services:
     name: dev-telemetry-api
     env: docker
     dockerfilePath: ./Dockerfile.backend
+    healthCheckPath: /health   # 200 when the database is reachable; Render restarts the service otherwise
     envVars:
       - key: GEMINI_API_KEY
         sync: false
+      # Optional: GEMINI_MODEL (default gemini-3.8-flash) and GEMINI_FALLBACK_MODEL
+      # (default gemini-3.5-flash-lite, used on quota/overload; empty = off).
       - key: EMAIL_SENDER
         sync: false
       - key: EMAIL_PASSWORD
@@ -35,6 +38,11 @@ services:
     env: static
     buildCommand: npm install && npm run build
     staticPublishPath: ./dist
+    envVars:
+      # The backend's public URL (e.g. https://dev-telemetry-api.onrender.com). Vite bakes it in
+      # at BUILD time: without it the dashboard calls http://127.0.0.1:8000, the visitor's machine.
+      - key: VITE_API_URL
+        sync: false
     rootDir: frontend
     routes:
       - type: rewrite
