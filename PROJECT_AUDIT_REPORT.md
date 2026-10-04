@@ -164,7 +164,7 @@ Not run: the live Render deployment (I didn’t want to trigger side effects on 
 - Category: testing
 - Location: `tests/test_generator.py:5,30,58` (patches `ai.guide_generator.model`, which no longer exists since the SDK migration), `tests/test_api.py:5` (uses the developer’s real `data/usage.db` via CWD), venv missing `google-genai`, no `.github/workflows`
 - What’s wrong: 3/10 backend tests fail, the venv can’t even collect 2 of 3 files, API tests depend on whatever is in the local DB, and nothing runs tests automatically. There are zero tests for alert_worker, notifications, settings, runbook caching, or severity tiers.
-- Why it matters: Commit `1a62ac5` says “Added tests”. An interviewer who clones and runs `pytest` sees red.
+- Why it matters: Commit `f3e7921` says “Added tests”. An interviewer who clones and runs `pytest` sees red.
 - Fix: See Phase 0/3. Patch `ai.guide_generator.client`, use a `tmp_path` SQLite DB fixture via a `DB_PATH` env var, mock SMTP/Slack, and add GitHub Actions.
 - Effort: M
 

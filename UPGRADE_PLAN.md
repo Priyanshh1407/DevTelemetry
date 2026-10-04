@@ -155,7 +155,7 @@ Goal: One source of truth per concept; remove what doesn’t exist; make the sco
 Why this order: Refactoring is safe only once Phase 3 tests exist.
 Items:
 - [x] ARCH-01 `core/severity.py` (single tier rule used by API, worker, and CLI); `core/queries.py`; delete empty `models.py`/`leaderboard.py` or implement them; delete `get_daily_records`; prompts move to `ai/prompts.py` — M
-  - *Partly done in Phase 2:* `core/severity.py` (commit a11ff8b) and `core/queries.py` (BUG-04) exist and are used by the API, worker and CLI. Remaining: empty `models.py`/`leaderboard.py`, prompts into `ai/prompts.py`, other duplicated queries.
+  - *Partly done in Phase 2:* `core/severity.py` (commit aa8479b) and `core/queries.py` (BUG-04) exist and are used by the API, worker and CLI. Remaining: empty `models.py`/`leaderboard.py`, prompts into `ai/prompts.py`, other duplicated queries.
 - [x] ML-03 Cache ratio on total prompt tokens (verify Anthropic semantics first), mix normalized/capped, sub-score breakdown returned by the API, rationale + limitations in `docs/scoring.md` — `core/scorer.py`, `api/routes.py` — S–M
   - *Decisions (2026-10-03, developer):* token fields match Anthropic's `usage` semantics (with a data migration); the `/compact` term is pooled over 7 days. Result: bottom-2 stability median 0.65 → 0.82 over 30 seeds; property tests in place.
   - *New input from ML-02:* the `compacts / sessions` term causes almost all daily rank noise (within-engineer daily SD 7.1 pts vs 1.6 cache, 0.7 mix). Score it over a rolling window (pooled compacts / pooled sessions over 7 days) or shrink it toward the engineer's mean; re-measure bottom-2 stability (Phase 2: 5-seed mean 0.71, 30-seed median 0.65).
@@ -274,7 +274,7 @@ Items:
 **Deploy checklist:**
 - [x] Add `GET /health` (DB reachable, schema version; no secrets) + test; set `healthCheckPath: /health` in render.yaml.
 - [x] render.yaml: frontend service has no `VITE_API_URL` (it's baked in at build time, so a missing value means the dashboard calls 127.0.0.1); add it, plus `GEMINI_FALLBACK_MODEL` documentation on the backend.
-- [ ] Get the branch onto GitHub: 68 commits on `phase-6-upgrades` are not pushed; `main` is at 561fc14. Merge via PR so CI runs on GitHub first.
+- [ ] Get the branch onto GitHub: 68 commits on `phase-6-upgrades` are not pushed; `main` is at dc60f00. Merge via PR so CI runs on GitHub first.
 - [ ] Render: confirm which branch it deploys (`main` or `deployment`), set `ADMIN_TOKEN`, `FRONTEND_URL`, `GEMINI_API_KEY`; repository secrets `DEVTELEMETRY_API_URL` / `DEVTELEMETRY_ADMIN_TOKEN` for the scheduled tick (or leave `SCHEDULED_ALERTS_ENABLED=false`).
 - [ ] Verify live: `/health`, leaderboard, engineer page breakdown, Runbook guide (BUG-01 check in DevTools: no request to 127.0.0.1).
 - [x] Retake the 3 screenshots + one of the score breakdown.
@@ -287,8 +287,8 @@ Items:
 - **Push: push `phase-6-upgrades` and open a PR into `main`**; CI runs on GitHub, and the developer reviews and merges.
 - **Render deploys the `deployment` branch.** After the merge, `deployment` must be updated to the merged `main` for the live demo to change, so `/health` and the render.yaml fixes ship that way.
 - **Notes files: untrack, keep locally** (gitignore).
-  - `interview_study_guide.md` and `demo_commands.txt` are already on `origin/main` (561fc14), so they stay in old history.
-  - `DEVTELEMETRY_INTERVIEW_REPORT.md` was added in unpushed 0388a33. Pushing would publish it in history unless the unpushed commits are rewritten without it. **Ask before pushing:** rewrite (backup branch first) or accept.
+  - `interview_study_guide.md` and `demo_commands.txt` are already on `origin/main` (dc60f00), so they stay in old history.
+  - `DEVTELEMETRY_INTERVIEW_REPORT.md` was added in unpushed b133b29. Pushing would publish it in history unless the unpushed commits are rewritten without it. **Ask before pushing:** rewrite (backup branch first) or accept.
 
 Acceptance criteria:
 - Every README claim maps to code or a measured output. A fresh clone works by following the README in < 10 minutes.
