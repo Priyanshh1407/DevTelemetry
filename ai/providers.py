@@ -4,13 +4,36 @@ The rest of the app talks to a `GuideProvider`, so switching models means adding
 (e.g. a Claude provider using the anthropic SDK) and selecting it in `get_provider()`,
 not editing the guide pipeline, the prompts or the API.
 """
+import logging
 import os
 import time
 from dataclasses import dataclass
+from datetime import date
 from typing import Protocol
 
 from google import genai
 from google.genai import errors, types
+
+logger = logging.getLogger(__name__)
+
+DEFAULT_GEMINI_MODEL = "gemini-3.8-flash"  # latest stable Flash (Gemini models page, 2026-10-01)
+
+# Paid-tier list prices, USD per 1M tokens, from https://ai.google.dev/gemini-api/docs/pricing
+# (last updated 2026-10-01). Thinking tokens are billed as output. Each model has a schedule of
+# (effective_from, input, output) so announced price changes apply on the right date.
+GEMINI_PRICES = {
+    "gemini-3.8-flash": [("2000-01-01", 0.75, 3.75), ("2027-01-01", 1.50, 7.50)],
+    "gemini-3.5-flash": [("2000-01-01", 1.50, 9.00)],
+    "gemini-2.5-flash": [("2000-01-01", 0.30, 2.50)],
+}
+
+
+def price_per_million(model, on=None):
+    """(input, output) USD per 1M tokens for `model` on date `on` (default today), or None."""
+    on = (on or date.today()).isoformat()
+    applicable = [(start, inp, out) for start, inp, out in GEMINI_PRICES.get(model, []) if start <= on]
+    return applicable[-1][1:] if applicable else None
+
 
 # Bound how long one request can wait on the LLM. The SDK retries 408/429/5xx with
 # exponential backoff; 2 attempts keeps the worst case near 2 x timeout.
@@ -69,12 +92,7 @@ def get_client():
 
 
 class GeminiProvider:
-    # USD per 1M tokens for gemini-2.5-flash (paid tier), from
-    # https://ai.google.dev/gemini-api/docs/pricing, last updated 2026-10-01.
-    # Thinking tokens are billed as output.
-    PRICE_PER_M = {"input": 0.30, "output": 2.50}
-
-    def __init__(self, model="gemini-2.5-flash"):
+    def __init__(self, model=DEFAULT_GEMINI_MODEL):
         self.model = model
 
     def generate(self, prompt, json_schema=None):
@@ -99,7 +117,11 @@ class GeminiProvider:
         input_tokens = _as_int(getattr(usage, "prompt_token_count", 0))
         output_tokens = (_as_int(getattr(usage, "candidates_token_count", 0))
                          + _as_int(getattr(usage, "thoughts_token_count", 0)))
-        cost = (input_tokens * self.PRICE_PER_M["input"] + output_tokens * self.PRICE_PER_M["output"]) / 1_000_000
+        prices = price_per_million(self.model)
+        if prices is None:
+            logger.warning("No price known for model %s; recording cost as 0", self.model)
+            prices = (0.0, 0.0)
+        cost = (input_tokens * prices[0] + output_tokens * prices[1]) / 1_000_000
         return LLMResponse(text=response.text or "", model=self.model, input_tokens=input_tokens,
                            output_tokens=output_tokens, latency_ms=latency_ms, cost_usd=round(cost, 6))
 
@@ -110,4 +132,4 @@ def _as_int(value):
 
 def get_provider() -> GuideProvider:
     """The configured provider. Gemini today; a new provider is one class plus one line here."""
-    return GeminiProvider(os.getenv("GEMINI_MODEL", "gemini-2.5-flash"))
+    return GeminiProvider(os.getenv("GEMINI_MODEL", DEFAULT_GEMINI_MODEL))
