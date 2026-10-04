@@ -22,13 +22,21 @@ class Coaching:
 
 def get_coaching(user_id, severity):
     """The coaching guide for an engineer's latest day, or None if they have no data."""
-    model = get_provider().model
+    provider = get_provider()
+    # A guide from the fallback model is stored under that model's name; reuse it rather than
+    # call again, but prefer one from the main model.
+    models = [provider.model] + [m for m in [getattr(provider, "fallback_model", None)] if m]
     with db_session() as conn:
         latest = latest_metrics_for_user(conn, user_id)
         if latest is None:
             return None
         window = recent_metrics_for_user(conn, user_id)
-        stored = load_guide(conn, user_id, latest["date"], severity, PROMPT_VERSION, model)
+        stored, model = None, provider.model
+        for candidate in models:
+            stored = load_guide(conn, user_id, latest["date"], severity, PROMPT_VERSION, candidate)
+            if stored is not None:
+                model = candidate
+                break
         if stored is not None:
             logger.info("Coaching guide served from the store for %s", user_id)
             record_request(conn, "guide", "cache_hit", user_id=user_id, model=model, prompt_version=PROMPT_VERSION)
@@ -42,6 +50,7 @@ def get_coaching(user_id, severity):
     result = generate_efficiency_guide(without_pii(latest), severity,
                                        recent=[without_pii(d) for d in window[:-1]])
 
+    model = result.calls[-1].model if result.calls else provider.model   # the model that answered
     with db_session() as conn:
         record_request(conn, "guide", result.source, result.calls, user_id=user_id, model=model,
                        prompt_version=result.prompt_version)

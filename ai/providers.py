@@ -17,13 +17,17 @@ from google.genai import errors, types
 logger = logging.getLogger(__name__)
 
 DEFAULT_GEMINI_MODEL = "gemini-3.8-flash"  # latest stable Flash (Gemini models page, 2026-10-01)
+# Used when the main model is rate-limited or overloaded: the latest stable Flash-Lite. Quotas
+# are per model, so it has its own allowance. GEMINI_FALLBACK_MODEL="" switches it off.
+DEFAULT_GEMINI_FALLBACK_MODEL = "gemini-3.5-flash-lite"
 
 # Paid-tier list prices, USD per 1M tokens, from https://ai.google.dev/gemini-api/docs/pricing
-# (last updated 2026-10-01). Thinking tokens are billed as output. Each model has a schedule of
+# (last updated 2026-10-01; Flash-Lite prices from the same page). Thinking tokens are billed as output. Each model has a schedule of
 # (effective_from, input, output) so announced price changes apply on the right date.
 GEMINI_PRICES = {
     "gemini-3.8-flash": [("2000-01-01", 0.75, 3.75), ("2027-01-01", 1.50, 7.50)],
     "gemini-3.5-flash": [("2000-01-01", 1.50, 9.00)],
+    "gemini-3.5-flash-lite": [("2000-01-01", 0.30, 2.50)],
     "gemini-2.5-flash": [("2000-01-01", 0.30, 2.50)],
 }
 
@@ -47,6 +51,10 @@ class AIUnavailableError(RuntimeError):
 
 class AIRateLimitedError(AIUnavailableError):
     """The provider rejected the request for quota/rate reasons (after the SDK's retries)."""
+
+
+class AIOverloadedError(AIUnavailableError):
+    """The provider answered with a server error such as 503 "high demand" (after retries)."""
 
 
 @dataclass
@@ -92,20 +100,35 @@ def get_client():
 
 
 class GeminiProvider:
-    def __init__(self, model=DEFAULT_GEMINI_MODEL):
+    def __init__(self, model=DEFAULT_GEMINI_MODEL, fallback_model=None):
         self.model = model
+        self.fallback_model = fallback_model if fallback_model != model else None
 
     def generate(self, prompt, json_schema=None):
+        """Asks the main model; if it is rate-limited or overloaded, asks the fallback model once.
+        The response names the model that actually answered (for cost and storage)."""
+        try:
+            return self._generate(self.model, prompt, json_schema)
+        except (AIRateLimitedError, AIOverloadedError) as e:
+            if not self.fallback_model:
+                raise
+            logger.warning("%s unavailable (%s); retrying on %s", self.model, type(e).__name__,
+                           self.fallback_model)
+            return self._generate(self.fallback_model, prompt, json_schema)
+
+    def _generate(self, model, prompt, json_schema):
         config = None
         if json_schema is not None:
             config = types.GenerateContentConfig(response_mime_type="application/json",
                                                  response_json_schema=json_schema)
         start = time.perf_counter()
         try:
-            response = get_client().models.generate_content(model=self.model, contents=prompt, config=config)
+            response = get_client().models.generate_content(model=model, contents=prompt, config=config)
         except errors.APIError as e:
             if e.code == 429:
                 raise AIRateLimitedError(str(e)) from e
+            if isinstance(e.code, int) and e.code >= 500:
+                raise AIOverloadedError(f"{type(e).__name__}: {e}") from e
             raise AIUnavailableError(f"{type(e).__name__}: {e}") from e
         except AIUnavailableError:
             raise
@@ -117,12 +140,12 @@ class GeminiProvider:
         input_tokens = _as_int(getattr(usage, "prompt_token_count", 0))
         output_tokens = (_as_int(getattr(usage, "candidates_token_count", 0))
                          + _as_int(getattr(usage, "thoughts_token_count", 0)))
-        prices = price_per_million(self.model)
+        prices = price_per_million(model)
         if prices is None:
-            logger.warning("No price known for model %s; recording cost as 0", self.model)
+            logger.warning("No price known for model %s; recording cost as 0", model)
             prices = (0.0, 0.0)
         cost = (input_tokens * prices[0] + output_tokens * prices[1]) / 1_000_000
-        return LLMResponse(text=response.text or "", model=self.model, input_tokens=input_tokens,
+        return LLMResponse(text=response.text or "", model=model, input_tokens=input_tokens,
                            output_tokens=output_tokens, latency_ms=latency_ms, cost_usd=round(cost, 6))
 
 
@@ -132,4 +155,5 @@ def _as_int(value):
 
 def get_provider() -> GuideProvider:
     """The configured provider. Gemini today; a new provider is one class plus one line here."""
-    return GeminiProvider(os.getenv("GEMINI_MODEL", DEFAULT_GEMINI_MODEL))
+    return GeminiProvider(os.getenv("GEMINI_MODEL", DEFAULT_GEMINI_MODEL),
+                          fallback_model=os.getenv("GEMINI_FALLBACK_MODEL", DEFAULT_GEMINI_FALLBACK_MODEL) or None)
