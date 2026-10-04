@@ -5,6 +5,7 @@ from contextlib import asynccontextmanager
 from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 load_dotenv()
 # Server code logs (it never prints): a log handler that can't encode a character reports it
@@ -12,7 +13,9 @@ load_dotenv()
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 
 from api.routes import router  # noqa: E402
-from core.db import init_db  # noqa: E402
+from core.db import db_session, init_db  # noqa: E402
+
+logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
@@ -44,3 +47,23 @@ app.include_router(router, prefix="/api")
 @app.get("/")
 def read_root():
     return {"status": "API is running"}
+
+
+@app.get("/health")
+def health():
+    """For the host's health check (render.yaml) and quick manual checks: the database is
+    reachable and migrated. Reports whether AI is configured, never any secret."""
+    try:
+        with db_session() as conn:
+            meta = dict(conn.execute("SELECT key, value FROM schema_meta").fetchall())
+            latest = conn.execute("SELECT MAX(date) FROM usage_metrics").fetchone()[0]
+    except Exception:
+        logger.exception("Health check: database unreachable")
+        return JSONResponse(status_code=503, content={"status": "error", "database": "unreachable"})
+    return {
+        "status": "ok",
+        "database": "ok",
+        "scoring_version": meta.get("scoring_version"),
+        "latest_data_date": latest,
+        "ai_configured": bool(os.getenv("GEMINI_API_KEY")),
+    }
