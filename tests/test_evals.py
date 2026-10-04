@@ -119,3 +119,20 @@ def test_live_retries_capacity_errors_and_only_missing_skips_recorded_profiles(t
     assert mock_gemini.models.generate_content.call_count == 2   # p01 replayed; p02 rate-limited once, then ok
     assert waits == [30]
     assert [r["source"] for r in rows] == ["ai", "ai"]
+
+
+def test_live_run_stops_when_the_quota_is_used_up(tmp_path, mock_gemini):
+    from google.genai import errors
+
+    import evals.run as runner
+
+    quota = errors.ClientError(429, {"error": {"code": 429, "message": "per day", "status": "RESOURCE_EXHAUSTED"}})
+    mock_gemini.models.generate_content.side_effect = quota
+
+    with pytest.raises(runner.ProviderCapacityExhausted, match="--only-missing"):
+        runner.run("v2", "live", profiles=load()[:10], recordings=tmp_path / "rec", results=tmp_path / "res",
+                   sleep=lambda s: None)
+
+    # 3 profiles x (1 try + 2 retries), then it stops instead of working through all 10
+    assert mock_gemini.models.generate_content.call_count == 9
+    assert not (tmp_path / "res").exists()   # no half-baked results table

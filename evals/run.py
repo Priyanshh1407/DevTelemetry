@@ -69,6 +69,13 @@ def _recording_path(recordings, pipeline, profile_id):
 # say nothing about prompt quality. Backoff in seconds before each retry.
 CAPACITY_SOURCES = ("rate_limited", "unavailable")
 CAPACITY_BACKOFF_S = (30, 60)
+# This many profiles in a row still failing after their retries means a quota is used up
+# (e.g. the free tier's requests-per-day limit): stop instead of retrying every profile.
+MAX_CAPACITY_FAILURES_IN_A_ROW = 3
+
+
+class ProviderCapacityExhausted(RuntimeError):
+    pass
 
 
 def _has_recording(path):
@@ -97,7 +104,7 @@ def run(pipeline, mode, profiles=None, recordings=RECORDINGS, results=RESULTS, p
     only for the rest, so finishing an interrupted run never pays for the same profile twice."""
     profiles = profiles if profiles is not None else load()
     rows = []
-    live_calls = 0
+    live_calls = failures_in_a_row = 0
     for profile in profiles:
         path = _recording_path(recordings, pipeline, profile["id"])
         if mode == "replay" or (only_missing and _has_recording(path)):
@@ -110,6 +117,12 @@ def run(pipeline, mode, profiles=None, recordings=RECORDINGS, results=RESULTS, p
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(json.dumps({"calls": [c.__dict__ for c in result.calls]}, indent=1) + "\n",
                             encoding="utf-8")
+            failures_in_a_row = failures_in_a_row + 1 if result.source in CAPACITY_SOURCES else 0
+            if failures_in_a_row >= MAX_CAPACITY_FAILURES_IN_A_ROW:
+                raise ProviderCapacityExhausted(
+                    f"{failures_in_a_row} profiles in a row were rate-limited or unavailable after retries "
+                    f"(stopped at {profile['id']}); the quota is probably used up. Replies so far are "
+                    "recorded: re-run later with --only-missing to finish.")
         rows.append(evaluate(profile, pipeline, result))
 
     summary = summarize(rows)
@@ -162,7 +175,10 @@ def main(argv=None):
     parser.add_argument("--only-missing", action="store_true",
                         help="live mode: replay profiles already recorded, call the API only for the rest")
     args = parser.parse_args(argv)
-    summary, _ = run(args.pipeline, args.mode, pause_s=args.pause, only_missing=args.only_missing)
+    try:
+        summary, _ = run(args.pipeline, args.mode, pause_s=args.pause, only_missing=args.only_missing)
+    except ProviderCapacityExhausted as e:
+        raise SystemExit(f"Stopped: {e}") from e
     print(report(summary, []).split("## Per profile")[0])  # noqa: T201
 
 
