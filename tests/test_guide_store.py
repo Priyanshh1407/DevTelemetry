@@ -6,7 +6,12 @@ and cost, and /api/ai-stats summarizes them.
 """
 import pytest
 
+from ai.providers import DEFAULT_GEMINI_MODEL, price_per_million
 from tests.conftest import engineer_id
+
+# One mocked model call: 1,000 input + 500 output tokens (conftest), at the default model's price.
+_IN, _OUT = price_per_million(DEFAULT_GEMINI_MODEL)
+CALL_COST = (1000 * _IN + 500 * _OUT) / 1e6
 
 
 def rows(query, sql):
@@ -27,7 +32,7 @@ def test_guides_survive_a_restart_because_they_live_in_the_database(client, seed
     assert second["cached"] is True
     stored = rows(query, "SELECT user_id, metrics_date, severity, prompt_version, model, source FROM coaching_guides")
     assert stored == [{"user_id": engineer_id(0), "metrics_date": "2026-01-03", "severity": "critical",
-                       "prompt_version": "v2", "model": "gemini-2.5-flash", "source": "ai"}]
+                       "prompt_version": "v2", "model": "gemini-3.8-flash", "source": "ai"}]
 
 
 def test_a_new_prompt_version_does_not_reuse_old_guides(client, seeded_db, mock_gemini, monkeypatch):
@@ -57,7 +62,7 @@ def test_every_request_is_metered(client, seeded_db, mock_gemini, query):
                          "FROM ai_requests ORDER BY id")
     assert [(r["outcome"], r["llm_calls"]) for r in logged] == [("ai", 1), ("cache_hit", 0), ("unavailable", 0)]
     assert logged[0]["input_tokens"] == 1000 and logged[0]["output_tokens"] == 500
-    assert logged[0]["cost_usd"] == pytest.approx((1000 * 0.30 + 500 * 2.50) / 1e6)
+    assert logged[0]["cost_usd"] == pytest.approx(CALL_COST)
     assert {r["purpose"] for r in logged} == {"guide"}
 
 
@@ -75,8 +80,8 @@ def test_ai_stats_summarize_the_requests(client, seeded_db, mock_gemini):
     assert stats["cache_hit_rate"] == 0.25
     assert stats["fallback_rate"] == pytest.approx(1 / 3)          # of the 3 non-cached requests
     assert stats["llm_calls"] == 2
-    assert stats["cost_usd"] == pytest.approx(2 * (1000 * 0.30 + 500 * 2.50) / 1e6)
-    assert stats["cost_per_generated_guide_usd"] == pytest.approx((1000 * 0.30 + 500 * 2.50) / 1e6)
+    assert stats["cost_usd"] == pytest.approx(2 * CALL_COST)
+    assert stats["cost_per_generated_guide_usd"] == pytest.approx(CALL_COST)
     assert set(stats["latency_ms"]) == {"p50", "p95"}
 
 
