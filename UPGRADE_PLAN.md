@@ -242,9 +242,9 @@ Risk / rollback:
 Goal: The repo, README, and live demo tell the same true story.
 Why this order: Last, because it documents what was actually built and measured.
 Items:
-- [ ] DOC-01 Rewrite README from the code: accurate stack, real `main.py` output, scoring rationale link, architecture diagram (Mermaid), “Known limitations” section, measured numbers only; delete references to missing files or add `LICENSE` — S
-- [ ] Redeploy; `/health` endpoint; verify the Runbook works on the live URL; retake screenshots — S
-- [ ] Re-run the `project-interview-report` skill, then `project-mock-interview` — S
+- [x] DOC-01 Rewrite README from the code: accurate stack, real `main.py` output, scoring rationale link, architecture diagram (Mermaid), “Known limitations” section, measured numbers only; delete references to missing files or add `LICENSE` — S
+- [~] Redeploy; `/health` endpoint; verify the Runbook works on the live URL; retake screenshots — S — *`/health` + render.yaml done, screenshots retaken (after UI-01); the live deploy waits for the PR merge and the `deployment` branch update*
+- [ ] Re-run the `project-interview-report` skill, then `project-mock-interview` — S — *developer will do this later*
 ### Phase 7 prep (2026-10-04, gathered while the Phase 6 eval ran)
 
 **README claim audit (current README → fix):**
@@ -272,13 +272,13 @@ Items:
 - Dependencies: npm audit 0, pip-audit clean (FIX_LOG SEC-03).
 
 **Deploy checklist:**
-- [ ] Add `GET /health` (DB reachable, schema version; no secrets) + test; set `healthCheckPath: /health` in render.yaml.
-- [ ] render.yaml: frontend service has no `VITE_API_URL` (it's baked in at build time, so a missing value means the dashboard calls 127.0.0.1); add it, plus `GEMINI_FALLBACK_MODEL` documentation on the backend.
+- [x] Add `GET /health` (DB reachable, schema version; no secrets) + test; set `healthCheckPath: /health` in render.yaml.
+- [x] render.yaml: frontend service has no `VITE_API_URL` (it's baked in at build time, so a missing value means the dashboard calls 127.0.0.1); add it, plus `GEMINI_FALLBACK_MODEL` documentation on the backend.
 - [ ] Get the branch onto GitHub: 68 commits on `phase-6-upgrades` are not pushed; `main` is at 561fc14. Merge via PR so CI runs on GitHub first.
 - [ ] Render: confirm which branch it deploys (`main` or `deployment`), set `ADMIN_TOKEN`, `FRONTEND_URL`, `GEMINI_API_KEY`; repository secrets `DEVTELEMETRY_API_URL` / `DEVTELEMETRY_ADMIN_TOKEN` for the scheduled tick (or leave `SCHEDULED_ALERTS_ENABLED=false`).
 - [ ] Verify live: `/health`, leaderboard, engineer page breakdown, Runbook guide (BUG-01 check in DevTools: no request to 127.0.0.1).
-- [ ] Retake the 3 screenshots + one of the score breakdown.
-- [ ] Fresh `git clone` into a temp dir and follow the README verbatim (< 10 min).
+- [x] Retake the 3 screenshots + one of the score breakdown.
+- [x] Fresh `git clone` into a temp dir and follow the README verbatim (< 10 min). — *~4 min*
 
 **Repo hygiene before the rewrite:** `DEVTELEMETRY_INTERVIEW_REPORT.md`, `interview_study_guide.md` and `demo_commands.txt` are **tracked**, so they are public on GitHub once pushed: personal interview prep, not project docs. Decide: delete from the repo (keep locally, gitignore) or move under `docs/`. (`engineers_data.json` is already gitignored.)
 

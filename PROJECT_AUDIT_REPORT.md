@@ -329,6 +329,18 @@ Not run: the live Render deployment (I didn’t want to trigger side effects on 
   - UPG-01: provider interface with a Flash-Lite fallback, structured v2 prompt, repair + rule-based fallback, guides stored in SQLite, eval harness. Measured live on gemini-3.5-flash-lite, 30 profiles: targeting 50% → 100%, guides with no ungrounded number 80% → 100%.
 - **New, fixed:** the eval checker misread "N million", "N dollars and M cents" and ordinal dates; live evals burned time on an exhausted daily quota; the README pointed at a non-existent `CLAUDE_MIGRATION.md`.
 
+
+### Status after Phase 7 (2026-10-04)
+- **Done:**
+  - DOC-01: README rewritten from the code;
+  - `/health` and the render.yaml fixes;
+  - screenshots retaken;
+  - README verified on a fresh clone (~4 min).
+- **New, fixed:**
+  - UI-01: mock-up metrics, people and buttons shown as product data;
+  - placeholder secrets in `.env.example` (an example admin token would be a public password);
+  - under-metered latency when falling back between models.
+- **Open:** the live deploy (PR merge plus the `deployment` branch), then the live check of `/health` and the Runbook.
 ---
 
 ## 5. Hygiene Bundle (P3)
