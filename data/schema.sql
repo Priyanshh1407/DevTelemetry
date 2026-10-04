@@ -21,6 +21,7 @@ CREATE TABLE IF NOT EXISTS usage_metrics (
     compact_uses INTEGER,
     git_commits INTEGER,
     estimated_cost_usd REAL,
+    cost_price_version TEXT, -- price table (core/pricing.py) the cost was computed with
     efficiency_score REAL, -- New: Store the calculated score
     FOREIGN KEY (user_id) REFERENCES engineers(user_id),
     UNIQUE(user_id, date)

@@ -4,7 +4,7 @@
 
 ![Python](https://img.shields.io/badge/Python-3.13-blue?style=flat-square&logo=python)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.104-green?style=flat-square&logo=fastapi)
-![Gemini](https://img.shields.io/badge/Gemini-1.5_Flash-orange?style=flat-square&logo=google)
+![Gemini](https://img.shields.io/badge/Gemini-3.8_Flash-orange?style=flat-square&logo=google)
 ![SQLite](https://img.shields.io/badge/SQLite-3-lightgrey?style=flat-square&logo=sqlite)
 ![License](https://img.shields.io/badge/License-MIT-yellow?style=flat-square)
 ![Live](https://img.shields.io/badge/Live-Render-46E3B7?style=flat-square&logo=render)
@@ -269,20 +269,29 @@ Notes: the value must be exactly `false` (other spellings count as on). If CI is
 
 ---
 
-## Switching to Claude API
+## Sending real usage data
 
-DevTelemetry is built to switch AI providers in under 5 minutes. Only `ai/guide_generator.py` changes — the client setup and response parsing. All prompts, scoring logic, database, and frontend are completely untouched.
+`POST /api/ingest` (admin token in `X-Admin-Token`) accepts up to 1,000 records per request, one per engineer per day. Field names follow Anthropic's `usage` object (`input_tokens` = uncached; see [docs/scoring.md](docs/scoring.md)):
 
-```bash
-# 1. Install the Anthropic SDK
-pip install anthropic
-
-# 2. Add to .env
-ANTHROPIC_API_KEY=sk-ant-...
-
-# 3. Swap the client in ai/guide_generator.py
-#    (see CLAUDE_MIGRATION.md for the exact diff)
+```json
+{"records": [{"user_id": "ada", "date": "2026-10-03", "name": "Ada Lovelace", "email": "ada@example.com",
+  "input_tokens": 400000, "output_tokens": 30000, "cache_read_tokens": 2500000, "cache_write_tokens": 150000,
+  "opus_pct": 0.2, "sonnet_pct": 0.6, "haiku_pct": 0.2, "session_count": 4, "compact_uses": 2, "git_commits": 3}]}
 ```
+
+- **Idempotent:** resending a day updates it instead of duplicating it, and the engineer's scores are recomputed (the `/compact` term pools 7 days).
+- **Validated per record:** negative counts, model shares that don't sum to 1, `compact_uses > session_count`, future dates, unknown fields and client-supplied cost or score are rejected. The response lists each rejected record by index with reasons; the rest are still written.
+- **Server-side cost and score:** cost uses the dated Anthropic price table (`core/pricing.py`), recorded per row in `cost_price_version`.
+- `name` and `email` are required the first time an engineer appears.
+- The simulator (`data/seed.py`) writes through the same code path. Measured: 10,000 records in ~0.7 s on SQLite (~15k records/s).
+
+---
+
+## AI provider
+
+Coaching guides and team memos are generated with **Gemini** (`gemini-3.8-flash` by default; set `GEMINI_MODEL` to change it). Prices per model and date are in `ai/providers.py`, and every request is metered (`GET /api/ai-stats`).
+
+The pipeline talks to a small `GuideProvider` interface (`generate(prompt, json_schema) -> text + usage + cost`), so adding another provider (e.g. Claude) means writing one class. Only the Gemini implementation exists today.
 
 ---
 
@@ -291,7 +300,7 @@ ANTHROPIC_API_KEY=sk-ant-...
 | Layer | Technology |
 |---|---|
 | Language | Python 3.13 |
-| AI Guide Generation | Google Gemini 1.5 Flash (free tier) |
+| AI Guide Generation | Google Gemini 3.8 Flash (structured JSON output, metered) |
 | Web API | FastAPI + Uvicorn |
 | Database | SQLite (built-in) |
 | Frontend | React 18 + Vite |
@@ -312,7 +321,8 @@ ANTHROPIC_API_KEY=sk-ant-...
 - [ ] Slack bot integration (`/myusage` command)
 - [ ] Week-over-week improvement tracking
 - [ ] Budget threshold alerts
-- [ ] Claude API migration (5-min swap)
+- [x] Telemetry ingestion API (`POST /api/ingest`)
+- [ ] Claude provider (implement `GuideProvider`)
 - [ ] Before/after simulation for ROI measurement
 
 ---

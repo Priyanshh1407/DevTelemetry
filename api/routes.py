@@ -13,6 +13,7 @@ from api.security import require_admin
 from core.severity import severity_for_rank
 from core.scorer import cache_hit_ratio, score_breakdown, total_prompt_tokens
 from core.queries import latest_day_rows
+from core.ingest import MAX_BATCH, upsert_usage, validate_records
 from core.dispatch import (DispatchBusy, DispatchCoolingDown, SlotAlreadyDispatched, finish_run, get_run,
                            start_run)
 from core.schedule import due_slot
@@ -268,6 +269,27 @@ def scheduled_tick(background_tasks: BackgroundTasks, response: Response):
         background_tasks.add_task(run_dispatch, result["run_id"])
         response.status_code = 202
     return result
+
+class IngestBatch(BaseModel):
+    # Records stay raw here and are validated one by one, so one bad record is reported
+    # back instead of failing the whole batch.
+    records: list[dict] = Field(min_length=1, max_length=MAX_BATCH)
+
+
+@router.post("/ingest", dependencies=[Depends(require_admin)])
+def ingest_usage(batch: IngestBatch):
+    """Telemetry ingestion (UPG-02): one row per engineer per day, upserted on (user_id, date).
+
+    Cost and score are computed server-side. Valid records are written in one transaction;
+    invalid ones come back in `rejected` with their index and reasons.
+    """
+    valid, rejected = validate_records(batch.records)
+    with db_session() as conn:
+        inserted, updated, unknown = upsert_usage(conn, valid)
+    rejected = sorted(rejected + unknown, key=lambda r: r["index"])
+    logger.info("ingest: %d inserted, %d updated, %d rejected", inserted, updated, len(rejected))
+    return {"inserted": inserted, "updated": updated, "rejected": rejected}
+
 
 @router.get("/engineer/{user_id}/details")
 def get_engineer_details(user_id: str):
