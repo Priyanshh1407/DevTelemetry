@@ -15,6 +15,7 @@ from evals.run import run
     ("You spent $9.87 today across 13 of 28 sessions.", [9.87, 13, 28]),
     ("That is 1,250,000 tokens, or 1.2M; output was 600k.", [1_250_000, 1_200_000, 600_000]),
     ("Use /compact and Gemini-2.5 or prompt v2 with Haiku.", []),
+    ("Cache reads were 11.53 million vs 1.24 billion; 3 thousand runs.", [11_530_000, 1_240_000_000, 3_000]),
 ])
 def test_number_extraction(text, numbers):
     assert extract_numbers(text) == pytest.approx(numbers)
@@ -26,6 +27,14 @@ def test_grounding_allows_rounding_but_not_invented_numbers():
     assert is_grounded(10, allowed)                 # $10 for $9.87
     assert is_grounded(10_200_000, allowed)         # 10.2M
     assert not is_grounded(60, allowed)             # e.g. an invented "save 60%"
+
+
+def test_correct_arithmetic_on_the_inputs_is_derived_not_invented():
+    from evals.checks import is_derived
+
+    allowed = {168_173.0, 6.0, 9.87}
+    assert is_derived(28_000, allowed)        # 168,173 output tokens / 6 sessions, rounded
+    assert not is_derived(60, allowed)        # the invented "save 60%" stays unexplained
 
 
 def test_allowed_numbers_cover_facts_and_raw_values():

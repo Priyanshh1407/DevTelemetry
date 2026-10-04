@@ -9,11 +9,14 @@ import re
 
 from ai.features import coaching_facts
 
-# A number as written in prose: optional $, thousands separators, decimals, optional %, k or M.
+# A number as written in prose: optional $, thousands separators, decimals, optional %, k, M
+# or a scale word ("11.53 million").
 # The lookbehinds skip digits glued to letters or dots ("v2") and names like "gemini-2.5",
 # while still reading ranges such as "1-2 sessions".
-_NUMBER = re.compile(r"(?<![\w.])(?<![A-Za-z]-)\$?(\d{1,3}(?:,\d{3})+|\d+)(\.\d+)?\s*(%|[kKM](?![a-zA-Z]))?")
-_MULTIPLIERS = {"k": 1_000, "K": 1_000, "M": 1_000_000}
+_NUMBER = re.compile(r"(?<![\w.])(?<![A-Za-z]-)\$?(\d{1,3}(?:,\d{3})+|\d+)(\.\d+)?\s*"
+                     r"(%|[kKM](?![a-zA-Z])|thousand|million|billion)?")
+_MULTIPLIERS = {"k": 1_000, "K": 1_000, "thousand": 1_000, "M": 1_000_000, "million": 1_000_000,
+                "billion": 1_000_000_000}
 
 AREA_KEYWORDS = {
     "cache": ("cache", "cached", "caching"),
@@ -56,6 +59,17 @@ def is_grounded(number, allowed):
     return any(abs(number - a) <= max(0.5, 0.005 * abs(a)) for a in allowed)
 
 
+def is_derived(number, allowed):
+    """Not cited from the inputs, but correct arithmetic on them: a ratio of two inputs, such as
+    "28,000 output tokens per session" (168,173 / 6). Reported apart from ungrounded numbers so
+    the table separates invented numbers from computed ones. Only values >= 10, from divisors
+    >= 2, within 1%, to keep coincidental matches rare."""
+    if number < 10:
+        return False
+    values = [a for a in allowed if a > 0]
+    return any(abs(number - a / b) <= 0.01 * (a / b) for a in values for b in values if b >= 2 and a > b)
+
+
 def classify_area(text):
     """Which score area a piece of advice is about, from its wording (None if none)."""
     lowered = text.lower()
@@ -87,6 +101,7 @@ def evaluate(profile, pipeline, result):
     allowed = allowed_numbers(day, recent)
     numbers = [n for t in texts for n in extract_numbers(t)]
     ungrounded = [n for n in numbers if not is_grounded(n, allowed)]
+    derived = [n for n in ungrounded if is_derived(n, allowed)]
     weakest = coaching_facts(day, recent)["weakest_area"]
 
     calls = result.calls
@@ -101,6 +116,7 @@ def evaluate(profile, pipeline, result):
         "action_count_ok": valid and len(texts) == EXPECTED_ACTIONS[pipeline][severity],
         "numbers_cited": len(numbers),
         "ungrounded": ungrounded,
+        "derived": derived,                       # subset of ungrounded: correct arithmetic, not invented
         "fully_grounded": valid and not ungrounded,
         "first_action_area": classify_area(texts[0]) if texts else None,
         "targeted": bool(texts) and classify_area(texts[0]) == weakest,
@@ -126,6 +142,7 @@ def _percentile(values, pct):
 def summarize(rows):
     cited = sum(r["numbers_cited"] for r in rows)
     ungrounded = sum(len(r["ungrounded"]) for r in rows)
+    derived = sum(len(r.get("derived", [])) for r in rows)
     valid_rows = [r for r in rows if r["valid"]]
     return {
         "profiles": len(rows),
@@ -136,6 +153,8 @@ def summarize(rows):
         "fully_grounded_rate": _rate(valid_rows, "fully_grounded"),
         "numbers_cited": cited,
         "grounded_number_rate": round(1 - ungrounded / cited, 3) if cited else None,
+        "ungrounded_numbers": ungrounded,
+        "derived_numbers": derived,
         "llm_calls": sum(r["llm_calls"] for r in rows),
         "mean_input_tokens": round(sum(r["input_tokens"] for r in rows) / len(rows)) if rows else None,
         "mean_output_tokens": round(sum(r["output_tokens"] for r in rows) / len(rows)) if rows else None,

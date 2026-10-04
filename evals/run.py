@@ -153,6 +153,8 @@ def report(summary, rows):
         f"| Requested number of actions | {_pct(summary['action_count_ok_rate'])} |",
         f"| Numbers cited | {summary['numbers_cited']} |",
         f"| Cited numbers that are grounded | {_pct(summary['grounded_number_rate'])} |",
+        f"| Ungrounded numbers (of which correct arithmetic on inputs) | "
+        f"{summary['ungrounded_numbers']} ({summary['derived_numbers']}) |",
         f"| Valid guides with no ungrounded number | {_pct(summary['fully_grounded_rate'])} |",
         f"| Model calls | {summary['llm_calls']} |",
         f"| Mean tokens in / out per guide | {summary['mean_input_tokens']} / {summary['mean_output_tokens']} |",
