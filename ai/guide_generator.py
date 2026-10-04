@@ -105,7 +105,8 @@ def generate_efficiency_guide_v1(engineer_data, severity="moderate"):
     prompt = build_guide_prompt(engineer_data, severity)
 
     try:
-        response_text = get_provider().generate(prompt).text
+        response = get_provider().generate(prompt)
+        response_text = response.text
 
         tasks = []
         for line in response_text.split('\n'):
@@ -124,7 +125,7 @@ def generate_efficiency_guide_v1(engineer_data, severity="moderate"):
         if not tasks:
             tasks = [{"title": "AI Summary", "desc": response_text.replace('**', '')}]
 
-        return GuideResult(tasks=tasks, source="ai", prompt_version="v1")
+        return GuideResult(tasks=tasks, source="ai", calls=[response], prompt_version="v1")
 
     except AIRateLimitedError:
         logger.warning("Gemini rate limit hit; serving the fallback runbook")
