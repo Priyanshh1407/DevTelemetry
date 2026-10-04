@@ -89,3 +89,33 @@ def test_replay_run_scores_recorded_guides(tmp_path):
     assert summary["valid_rate"] == pytest.approx(2 / 3, abs=0.001)
     assert summary["llm_calls"] == 4 and summary["cost_usd"] == pytest.approx(4 * 0.00124)
     assert (tmp_path / "results" / "v2.md").exists()
+
+
+def test_live_retries_capacity_errors_and_only_missing_skips_recorded_profiles(tmp_path, mock_gemini):
+    from google.genai import errors
+
+    import evals.run as runner
+
+    profiles = load()[:2]
+    good = _call(json.dumps({"headline": "Fix caching first.", "actions": [
+        {"title": "Reuse cache", "problem": "Cache hits are low today.", "fix": "Keep one session per task.",
+         "focus": "cache"}]}))
+    recorded = tmp_path / "recordings" / "v2" / "p01.json"
+    recorded.parent.mkdir(parents=True)
+    recorded.write_text(json.dumps({"calls": [good]}), encoding="utf-8")
+
+    rate_limited = errors.ClientError(429, {"error": {"code": 429, "message": "quota", "status": "RESOURCE_EXHAUSTED"}})
+    ok = type(mock_gemini.models.generate_content.return_value)()
+    ok.text = good["text"]
+    ok.usage_metadata.prompt_token_count = 10
+    ok.usage_metadata.candidates_token_count = 10
+    ok.usage_metadata.thoughts_token_count = 0
+    mock_gemini.models.generate_content.side_effect = [rate_limited, ok]
+    waits = []
+
+    summary, rows = runner.run("v2", "live", profiles=profiles, recordings=tmp_path / "recordings",
+                               results=tmp_path / "results", only_missing=True, sleep=waits.append)
+
+    assert mock_gemini.models.generate_content.call_count == 2   # p01 replayed; p02 rate-limited once, then ok
+    assert waits == [30]
+    assert [r["source"] for r in rows] == ["ai", "ai"]
