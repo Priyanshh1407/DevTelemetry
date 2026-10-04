@@ -1,0 +1,12 @@
+{
+ "calls": [
+  {
+   "text": "1. Execute session compaction regularly. You ran 6 sessions with 0 uses of the compact command, allowing your conversation history to balloon into 12,391,943 cache read tokens. Run the /compact command every few turns or restart sessions after finishing a subtask to stop repeatedly reading massive, stale context windows.\n\n2. Tie agent output directly to version control milestones. You consumed 226,360 output tokens and spent $17.85 across your day, yet produced 0 git commits. Work in tightly scoped, single-feature iterations and commit functional code immediately rather than letting the agent run in prolonged, uncommitted loops that yield no persistent progress.\n\n3. Restrict input file scope to lower cache writes. Your direct input tokens hit 916,712 with 577,971 cache write tokens, showing that large files or entire directory trees are being pulled into context unnecessarily. Configure your .claudeignore file and pass only the specific files or line ranges required for the immediate task.\n\n4. Rebalance your model tier usage away from higher-cost models. Your workload is heavily weighted toward Sonnet at 76% and Opus at 6%, with Haiku handling only 18%. Switch your default routing to Haiku for search, codebase exploration, and routine file edits, reserving Sonnet and Opus strictly for complex architectural decisions.\n\n5. Enforce strict output constraints on responses. Averaging roughly 37,700 output tokens per session points to Claude Code reprinting entire files or generating verbose explanations. Instruct the agent to provide minimal git diffs or targeted code replacements instead of full-file rewrites to cut your 226,360 output token footprint in half.",
+   "model": "gemini-3.8-flash",
+   "input_tokens": 319,
+   "output_tokens": 1568,
+   "latency_ms": 13413,
+   "cost_usd": 0.006119
+  }
+ ]
+}

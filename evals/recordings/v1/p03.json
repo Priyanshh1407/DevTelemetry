@@ -1,0 +1,12 @@
+{
+ "calls": [
+  {
+   "text": "1. Try using the /compact command during longer workflows. You had 0 compact uses across your 5 sessions, which contributed to processing 774,370 uncached input tokens. Running compact periodically trims conversational bloat while preserving essential context.\n\n2. Commit your progress in smaller, more frequent increments. Generating 181,242 output tokens yielded 2 git commits today. Scoping your prompts to discrete tasks will help convert generated code into saved work faster and keep token counts focused.\n\n3. Shift simpler tasks to faster models to optimize costs. With Sonnet at 69% and Opus at 14%, your daily spend reached $8.11. Increasing your Haiku share beyond its current 17% for basic file edits, lookups, and test runs is an easy way to stretch your budget.",
+   "model": "gemini-3.8-flash",
+   "input_tokens": 320,
+   "output_tokens": 1380,
+   "latency_ms": 8858,
+   "cost_usd": 0.005415
+  }
+ ]
+}

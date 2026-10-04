@@ -59,7 +59,7 @@ def test_profiles_cover_every_area_and_tier():
 
 
 def _call(text):
-    return {"text": text, "model": "gemini-2.5-flash", "input_tokens": 800, "output_tokens": 400,
+    return {"text": text, "model": "gemini-3.8-flash", "input_tokens": 800, "output_tokens": 400,
             "latency_ms": 1200, "cost_usd": 0.00124}
 
 
@@ -88,7 +88,7 @@ def test_replay_run_scores_recorded_guides(tmp_path):
     assert by_id["p03"]["source"] == "invalid_output" and not by_id["p03"]["valid"]
     assert summary["valid_rate"] == pytest.approx(2 / 3, abs=0.001)
     assert summary["llm_calls"] == 4 and summary["cost_usd"] == pytest.approx(4 * 0.00124)
-    assert (tmp_path / "results" / "v2.md").exists()
+    assert (tmp_path / "results" / "v2-n3.md").exists()
 
 
 def test_live_retries_capacity_errors_and_only_missing_skips_recorded_profiles(tmp_path, mock_gemini):
@@ -136,3 +136,16 @@ def test_live_run_stops_when_the_quota_is_used_up(tmp_path, mock_gemini):
     # 3 profiles x (1 try + 2 retries), then it stops instead of working through all 10
     assert mock_gemini.models.generate_content.call_count == 9
     assert not (tmp_path / "res").exists()   # no half-baked results table
+
+
+def test_a_subset_run_is_labelled_with_its_size(tmp_path):
+    profiles = load()[:2]
+    for p in profiles:
+        path = tmp_path / "rec" / "v2" / f"{p['id']}.json"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps({"calls": [_call("not json"), _call("still not json")]}), encoding="utf-8")
+
+    summary, _ = run("v2", "replay", profiles=profiles, recordings=tmp_path / "rec", results=tmp_path / "res")
+
+    assert (tmp_path / "res" / "v2-n2.md").exists() and not (tmp_path / "res" / "v2.md").exists()
+    assert summary["profile_ids"] == ["p01", "p02"]
