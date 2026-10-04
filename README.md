@@ -1,241 +1,257 @@
 # DevTelemetry
 
-> AI-powered usage analytics agent that tracks Claude Code token efficiency across engineering teams, scores developer habits, and auto-generates personalised cost-reduction guides.
+> Scores how efficiently each engineer on a team uses AI coding tools (Claude Code), ranks the team, and writes each engineer a coaching guide grounded in their own numbers.
 
 ![Python](https://img.shields.io/badge/Python-3.13-blue?style=flat-square&logo=python)
-![FastAPI](https://img.shields.io/badge/FastAPI-0.104-green?style=flat-square&logo=fastapi)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.136-green?style=flat-square&logo=fastapi)
+![React](https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react)
 ![Gemini](https://img.shields.io/badge/Gemini-3.8_Flash-orange?style=flat-square&logo=google)
 ![SQLite](https://img.shields.io/badge/SQLite-3-lightgrey?style=flat-square&logo=sqlite)
-![License](https://img.shields.io/badge/License-MIT-yellow?style=flat-square)
-![Live](https://img.shields.io/badge/Live-Render-46E3B7?style=flat-square&logo=render)
+[![CI](https://github.com/Priyanshh1407/DevTelemetry/actions/workflows/ci.yml/badge.svg)](https://github.com/Priyanshh1407/DevTelemetry/actions/workflows/ci.yml)
+
+🔗 **[Live demo → devtelemetry-1.onrender.com](https://devtelemetry-1.onrender.com/)** (Render free tier: the first load can take 30–60 s while it wakes up.)
+
+> **The data is simulated.** Engineers are personas with stable habits plus daily noise, calibrated to Anthropic's published Claude Code cost (about $13 per developer per active day, under $30 for 90% of users). Real usage can be sent through the [ingestion API](#sending-real-usage-data); no real producer is connected in the demo.
 
 ---
 
-## The Problem
+## The problem
 
-Engineering teams using AI coding tools like Claude Code have no visibility into whether their usage is efficient or wasteful. Based on Anthropic's published benchmarks, teams spend **$150–250 per developer per month** on AI tool tokens — with the top 10% of users spending 2–3× the average. The root causes are identifiable and fixable: poor prompt caching, defaulting to expensive models for simple tasks, and never using context management commands. But nobody is tracking them.
+AI coding tools are billed per token, and most of the cost comes from habits:
+- **Prompt caching:** re-sending the same context without it being served from cache.
+- **Model choice:** using the most expensive model for simple work.
+- **Context management:** letting the context grow instead of running `/compact`.
 
-Managers cannot answer "is our AI investment worth it?" Engineers have no feedback on their habits. Cost spirals silently.
+A manager sees only the total bill, and an engineer gets no feedback on their habits.
 
----
+## What it does
 
-## What DevTelemetry Does
-
-DevTelemetry runs as a daily agent that:
-
-1. **Ingests usage telemetry** for each engineer (token counts, model usage, cache performance, session patterns)
-2. **Scores each developer** on a weighted efficiency metric — not just spend, but quality of AI usage habits
-3. **Ranks the team** on a live leaderboard dashboard with 30-day trend charts
-4. **Generates personalised AI guides** using the Gemini API — specific to each engineer's actual waste patterns, not generic advice
-5. **Dispatches automated reports** — a detailed leaderboard to the manager and individual efficiency guides to each engineer
+1. **Takes in daily usage per engineer:** tokens split the way Anthropic's API reports them (uncached input, cache reads, cache writes, output), model mix, sessions and `/compact` uses. Data comes through a validated ingestion API; the simulator uses the same path.
+2. **Computes cost** from a dated list-price table, and an **efficiency score from 0 to 100** that rewards habits, not low spend.
+3. **Ranks the team** on a dashboard, with 30-day trends and a per-engineer score breakdown.
+4. **Writes coaching guides** with Gemini: structured JSON, validated, citing only the engineer's real numbers. If the model fails, a rule-based guide is built from the same numbers.
+5. **Sends alerts** by email and Slack: on demand from the dashboard, or on a saved schedule triggered by GitHub Actions.
 
 ---
 
 ## Demo
 
-![Team Overview Dashboard](screenshots/dashboard-overview.png)
+![Team overview](screenshots/dashboard-overview.png)
+![Leaderboard](screenshots/dashboard-leaderboard.png)
+![Coaching runbook](screenshots/ai-runbook.png)
 
-![Team Leaderboard](screenshots/dashboard-leaderboard.png)
+The console agent (`python main.py`) prints the latest leaderboard, a team memo, and guides for the bottom five. This is real output (2026-10-04, simulated team, trimmed):
 
-![AI Optimization Runbook](screenshots/ai-runbook.png)
-
-
-🔗 **[Live Demo → devtelemetry-1.onrender.com](https://devtelemetry-1.onrender.com/)**
-
-> ⚠️ Hosted on Render free tier — may take 30–60 seconds to wake up on first load.
-
-> **Note:** This project uses synthetic data modelled on Anthropic's published enterprise usage benchmarks. The data generation layer simulates realistic engineering team behaviour — the scoring engine, AI guide generator, dashboard, and notification pipeline are all fully functional.
-
-```
-$ python main.py
-
-Running DevTelemetry daily agent — 2024-01-15
-──────────────────────────────────────────────
-Scoring 10 engineers...
-
-Rank  Engineer        Score    Tokens      Est. Cost   Waste Pattern
-1     Priya S.        87.4     142,000     $1.84       —
-2     Aiko T.         79.1     198,000     $2.57       Low Haiku usage
-3     Sofia M.        71.3     225,000     $2.92       Infrequent /compact
-4     Rahul K.        58.6     287,000     $5.18       Mixed model usage
-5     James L.        47.2     318,000     $7.64       Low cache hit ratio
-6     Marcus B.       31.8     394,000     $14.20      No caching, heavy Opus
+```text
+=================================================================
+🏆 DEVTELEMETRY: EFFICIENCY LEADERBOARD — 2026-10-04
+=================================================================
+Rank  | Name                   | Score  | Spend ($)
+-----------------------------------------------------------------
+1     | Ryan Munoz             | 67.45  | $1.72
+2     | Connie Lawrence        | 57.49  | $4.63
 ...
+9     | Cristian Santos        | 49.62  | $2.13
+10    | Angie Henderson        | 42.66  | $6.51
 
-Generating AI guides for bottom 3 engineers...
-  ✓ Guide generated for James L.
-  ✓ Guide generated for Marcus B.
-  ✓ Guide generated for Chen W.
+=================================================================
+🚨 INDIVIDUAL COACHING GUIDES (BOTTOM 5)
+=================================================================
 
-Sending manager report via email... ✓
-Dashboard updated at http://localhost:8000 ✓
+--- Coaching for Angie Henderson (Rank: 10, Score: 42.66, Severity: critical) ---
+1. Discipline is your weakest area, sitting 25.71 points below its maximum. You used /compact
+   in only 14.3% of sessions over the last 7 days, which is just 2 of 14 sessions and earned
+   4.29 of 30 points. Run the /compact command frequently in your sessions to keep your
+   context window lean and improve your discipline score.
+2. Only 57.7% of prompt tokens were served from cache, contributing 23.07 of 40 points ...
+3. Your current model mix stands at Opus 22.0%, Sonnet 73.0%, and Haiku 5.0%, yielding
+   15.3 of 30 points. Route simpler tasks to Haiku and Sonnet instead of overusing Opus ...
 ```
 
-**Sample AI-generated guide output:**
-
-```
-GUIDE FOR: Marcus B. | Score: 31.8/100 | Cost today: $14.20
-
-Headline: You're spending 6× the team average — three fixable habits are
-the entire reason.
-
-1. PROMPT CACHING — saves ~85% on repeated input tokens
-   Problem: Your cache hit ratio is 6% vs team average of 58%.
-   Fix: Add a CLAUDE.md file to your project root with your coding
-        standards and architecture notes. Claude will cache this
-        automatically on every session.
-   Estimated saving: 50–70% token reduction
-
-2. MODEL SELECTION — Haiku costs 15× less than Opus
-   Problem: You're using Opus for 45% of tasks including simple ones.
-   Fix: Use /model in Claude Code to switch. Opus only for architecture
-        decisions. Sonnet for complex logic. Haiku for tests, docs,
-        simple refactors.
-   Estimated saving: 30–40% cost reduction
-
-3. CONTEXT MANAGEMENT — /compact prevents quadratic cost growth
-   Problem: 0 uses of /compact across 4 sessions today.
-   Fix: Run /compact every 30 minutes on long sessions or between
-        major task switches. Reduces context by 60–80%.
-   Estimated saving: 20–35% on long sessions
-```
+Every number in the guide comes from that engineer's data, and the first action is about their weakest area. The [evals](#ai-coaching-and-how-it-is-measured) check this automatically.
 
 ---
 
 ## Architecture
 
+```mermaid
+flowchart LR
+    subgraph Producers
+        SIM["Simulator<br/>data/seed.py"]
+        EXT["Real usage export<br/>(any client)"]
+    end
+    SIM --> ING
+    EXT -- "POST /api/ingest" --> ING["core/ingest.py<br/>validate · cost · upsert · rescore"]
+    ING --> DB[("SQLite")]
+    DB --> API["FastAPI<br/>api/routes.py"]
+    API --> UI["React dashboard<br/>(Vite, Recharts)"]
+    API --> COACH["ai/coaching_service.py<br/>stored guide or generate"]
+    COACH --> LLM["GuideProvider<br/>Gemini 3.8 Flash → Flash-Lite fallback"]
+    COACH --> DB
+    CRON["GitHub Actions cron<br/>every 15 min"] -- "POST /api/scheduled-tick" --> API
+    API --> NOTIFY["Email (SMTP) · Slack"]
+    CLI["main.py<br/>console agent"] --> DB
+    CLI --> COACH
 ```
-┌─────────────────────────────────────────────────────────┐
-│                      Daily Agent                        │
-│                     (main.py)                           │
-└──────────┬──────────────┬─────────────────┬────────────┘
-           │              │                 │
-    ┌──────▼──────┐ ┌─────▼──────┐  ┌──────▼──────┐
-    │   Data      │ │  Scoring   │  │     AI      │
-    │  Generator  │ │   Engine   │  │    Guide    │
-    │ (seed.py)   │ │(scorer.py) │  │ Generator   │
-    └──────┬──────┘ └─────┬──────┘  └──────┬──────┘
-           │              │                 │
-           └──────────────▼─────────────────┘
-                          │
-                   ┌──────▼──────┐
-                   │   SQLite    │
-                   │  Database   │
-                   └──────┬──────┘
-                          │
-           ┌──────────────┼─────────────────┐
-           │              │                 │
-    ┌──────▼──────┐ ┌─────▼──────┐  ┌──────▼──────┐
-    │  FastAPI    │ │   Email    │  │    Slack    │
-    │  Dashboard  │ │   Report   │  │    Post     │
-    └─────────────┘ └────────────┘  └─────────────┘
-```
+
+- **One write path.** Real and simulated data both go through `core/ingest.py`, so they get the same validation and the same cost and score.
+- **Sync handlers.** Blocking work (SQLite, LLM calls) runs in FastAPI's threadpool, so one slow guide doesn't stall the dashboard. Measured: leaderboard latency while a guide waits 1.5 s on the LLM went from 1.32 s to 0.016 s.
+- **Alert dispatch runs in the background.** `POST /api/trigger-alerts` answers 202 in 41 ms. A `dispatch_runs` ledger (single flight, enforced by the database) prevents double sends, and the dashboard polls its status.
 
 ---
 
-## Efficiency Scoring Formula
+## How the score works
 
-Each engineer receives a daily score from 0–100:
-
-```
-efficiency_score = (cache_hit_ratio   × 40)
-                 + (model_mix_score   × 30)
-                 + (session_discipline × 30)
-```
-
-| Factor | What it measures | Target |
+| Part | Points | Measures |
 |---|---|---|
-| `cache_hit_ratio` | `cache_read_tokens / total_input_tokens` | ≥ 60% |
-| `model_mix_score` | Weighted penalty for Opus on simple tasks | ≤ 20% Opus |
-| `session_discipline` | `/compact` usage rate and session length control | ≥ 1× per long session |
+| Cache | 40 | share of prompt tokens served from cache: `cache_read / (input + cache_read + cache_write)` |
+| Model mix | 30 | weighted use of cheaper models (Haiku 1.0, Sonnet 0.6, Opus 0.1) |
+| Discipline | 30 | `/compact` uses per session, **pooled over 7 days** |
 
-This rewards **efficient habits**, not just low spend — a productive engineer using many tokens correctly scores higher than an idle one.
+The engineer page shows the points in each part and names the area that lost the most.
 
----
+Two choices are measured, not assumed (simulation, 30 teams of 10):
+- **Pooling `/compact` over 7 days.** One day's ratio was mostly luck. Pooling cut its day-to-day noise by two thirds, and the bottom two (who get "critical" alerts) now match the habitually worst engineers 82% of the time instead of 65%.
+- **Weight sensitivity.** Moving any weight by ±20% keeps the ranking order very stable (Kendall τ 0.93–0.98), but in about 1 team in 10 it changes who is in the bottom two. So "critical" is a reason to talk, not a verdict.
 
-## Project Structure
-
-```
-devtelemetry/
-├── .env                      # API keys (never committed)
-├── .gitignore
-├── README.md
-├── requirements.txt
-├── main.py                   # daily agent entry point
-│
-├── data/
-│   ├── seed.py               # synthetic data generator
-│   ├── schema.sql            # database schema
-│   └── usage.db              # SQLite database (gitignored)
-│
-├── core/
-│   ├── models.py             # Engineer, DailyUsage dataclasses
-│   ├── scorer.py             # efficiency_score() function
-│   ├── leaderboard.py        # ranking and sorting logic
-│   └── db.py                 # database read/write helpers
-│
-├── ai/
-│   ├── guide_generator.py    # Gemini API integration
-│   └── prompts.py            # all system prompts as constants
-│
-├── notifications/
-│   ├── email_report.py       # HTML manager digest
-│   └── slack_post.py         # team channel announcement
-│
-├── api/
-│   └── main.py               # FastAPI app and routes
-│
-├── frontend/
-│   ├── index.html            # leaderboard + Chart.js trends
-│   ├── guide.html            # personal guide page
-│   └── style.css
-│
-└── tests/
-    ├── test_scorer.py
-    └── test_generator.py
-```
+Full rationale, field definitions and limitations: [docs/scoring.md](docs/scoring.md).
 
 ---
 
-## Getting Started
+## AI coaching and how it is measured
 
-### Prerequisites
+**Pipeline** (`ai/`):
+1. Only computed metrics go to the model, never names or emails (a test checks every prompt).
+2. Prompt v2 gives the model a block of facts, asks for JSON matching a schema, and requires it to start with the weakest area.
+3. The reply is validated with Pydantic. If it's invalid, one repair call feeds the error back. If that also fails, the engineer gets a rule-based guide built from their own sub-scores, marked as a fallback and never stored as a success.
+4. Guides are stored in SQLite, keyed by data date, severity, prompt version and model, so repeat views cost nothing and a new prompt or model regenerates them.
+5. **Model fallback:** if Gemini 3.8 Flash is out of quota (429) or overloaded (5xx), the request is retried once on Gemini 3.5 Flash-Lite. Free-tier quotas are per model, so the fallback has its own allowance. The main model is then skipped for 5 minutes.
 
-- Python 3.13+ (3.13 in Docker; CI also tests 3.14)
-- A free Gemini API key from [aistudio.google.com](https://aistudio.google.com)
+**Evals** (`evals/`): 30 fixed engineer profiles, 10 per weakest area, across all severity tiers. Rule-based checks run on each guide: valid structure, every cited number found in the inputs (within rounding), first action on the weakest area, and the right number of actions.
 
-### Installation
+Old prompt (v1, free text) vs the structured prompt (v2), both live on Gemini 3.5 Flash-Lite, same 30 profiles:
+
+| | v1 | v2 |
+|---|---|---|
+| Valid guide | 100% | 100% |
+| **First action targets the weakest area** | **50%** | **100%** |
+| Guides with no ungrounded number | 80% | 100% |
+| Cited numbers grounded | 97.4% of 267 | 100% of 442 |
+| Latency p50 / p95 | 1.8 / 2.7 s | 2.1 / 2.8 s |
+
+- **The main gain is targeting.** v1 talks about caching to people whose problem is model choice.
+- **v1 rarely invents numbers.** Reviewing each of its flagged numbers by hand found one wrong figure in 30 guides.
+- **Results depend on the model.** On 3.8 Flash, v1 already targeted 100% (10 profiles). That's why each eval run uses a single model.
+- **Free to reproduce.** Replies are recorded, so `python -m evals.run --pipeline v2` re-scores them without API calls. CI checks that the recordings still reproduce the published tables ([v1](evals/results/gemini-3.5-flash-lite/v1.md), [v2](evals/results/gemini-3.5-flash-lite/v2.md)).
+
+**Metering** (`GET /api/ai-stats`): every request records outcome, tokens (from the provider's usage data), latency, cost, model and prompt version. From two `main.py` runs on a fresh database:
+- $0.0010 per generated guide;
+- 50% cache hit rate (the second run served all five guides from the database);
+- 0% fallback rate;
+- p50 / p95 latency 2.1 / 5.3 s.
+
+---
+
+## Sending real usage data
+
+`POST /api/ingest` (admin token in `X-Admin-Token`) accepts up to 1,000 records per request, one per engineer per day. Field names follow Anthropic's `usage` object (`input_tokens` = uncached; see [docs/scoring.md](docs/scoring.md)):
+
+```json
+{"records": [{"user_id": "ada", "date": "2026-10-03", "name": "Ada Lovelace", "email": "ada@example.com",
+  "input_tokens": 400000, "output_tokens": 30000, "cache_read_tokens": 2500000, "cache_write_tokens": 150000,
+  "opus_pct": 0.2, "sonnet_pct": 0.6, "haiku_pct": 0.2, "session_count": 4, "compact_uses": 2, "git_commits": 3}]}
+```
+
+- **Idempotent:** resending a day updates it instead of duplicating it, and the engineer's scores are recomputed, because the `/compact` term pools 7 days.
+- **Validated per record:** these are rejected:
+  - negative counts;
+  - model shares that don't sum to 1;
+  - `compact_uses > session_count`;
+  - future dates;
+  - unknown fields;
+  - client-supplied cost or score.
+
+  The response lists each rejected record by index, with reasons; the rest are still written.
+- **Server-side cost:** computed from the dated price table in `core/pricing.py`; each row records which version was used (`cost_price_version`).
+- **New engineers:** `name` and `email` are required the first time an engineer appears.
+- **Measured:** 10,000 records in 0.66 s on SQLite.
+
+---
+
+## API
+
+| Method | Path | Notes |
+|---|---|---|
+| GET | `/health` | Database reachable, scoring version, latest data date, whether AI is configured |
+| GET | `/api/leaderboard` | Latest day, ranked, with 7-day trend |
+| GET | `/api/trends` | Team averages, last 30 days |
+| GET | `/api/engineer/{id}/details` | History, rank, severity, score breakdown |
+| GET | `/api/guide/{id}`, `/api/runbook-tasks/{severity}/{id}` | Coaching guide (stored or generated) |
+| GET | `/api/ai-stats` | Metering summary |
+| GET | `/api/settings`, `/api/dispatch-runs/{id}` | Alert schedule, dispatch status |
+| POST | `/api/settings`, `/api/trigger-alerts`, `/api/scheduled-tick`, `/api/ingest` | **Admin token required** |
+
+Interactive docs at `http://localhost:8000/docs`.
+
+---
+
+## Getting started
+
+Needs Python 3.13+ and Node 22+. A Gemini API key is optional: without one, guides use the rule-based fallback.
 
 ```bash
-# 1. Clone the repo
-git clone https://github.com/Priyanshh1407/devtelemetry.git
-cd devtelemetry
+git clone https://github.com/Priyanshh1407/DevTelemetry.git
+cd DevTelemetry
 
-# 2. Create and activate virtual environment
+# Backend (terminal 1)
 python -m venv venv
-source venv/bin/activate        # Mac/Linux
-venv\Scripts\activate           # Windows
-
-# 3. Install dependencies
+source venv/bin/activate              # Windows: venv\Scripts\activate
 pip install -r requirements.txt
+cp .env.example .env                  # then set GEMINI_API_KEY and ADMIN_TOKEN (see below)
+python data/seed.py                   # 30 days x 10 simulated engineers (deterministic)
+uvicorn api.main:app --reload         # API on http://localhost:8000
 
-# 4. Set up environment variables
-cp .env.example .env
-# Add your GEMINI_API_KEY to .env
-
-# 5. Seed the database with 30 days of synthetic data
-python data/seed.py
-
-# 6. Run the daily agent
-python main.py
+# Dashboard (terminal 2)
+cd frontend
+npm ci
+npm run dev                           # http://localhost:5173
 ```
 
-### Start the Dashboard
+Optional:
+- **Console agent:** `python main.py`.
+- **Reset the data:** `python data/seed.py --reset`.
+
+### With Docker
 
 ```bash
-uvicorn api.main:app --reload
-# Open http://localhost:8000
+docker compose up --build             # dashboard http://localhost:5173, API http://localhost:8000
 ```
+
+The backend seeds an empty database on start and keeps it on a named volume.
+
+### Configuration (`.env`)
+
+| Variable | Purpose |
+|---|---|
+| `GEMINI_API_KEY` | AI guides and team memo (free key: [aistudio.google.com](https://aistudio.google.com)) |
+| `GEMINI_MODEL`, `GEMINI_FALLBACK_MODEL` | Default `gemini-3.8-flash`, fallback `gemini-3.5-flash-lite` (empty = no fallback) |
+| `ADMIN_TOKEN` | Required for admin actions; unset = they answer 503. The dashboard asks for it once per tab. |
+| `EMAIL_SENDER`, `EMAIL_PASSWORD`, `EMAIL_RECIPIENT`, `SLACK_WEBHOOK_URL` | Alert delivery (optional) |
+| `PRODUCTION_MODE` | `false` (default) sends every email to `EMAIL_RECIPIENT` |
+| `FRONTEND_URL` | Dashboard origin allowed by CORS and used in links |
+| `VITE_API_URL` | Frontend build: the API's URL (default `http://127.0.0.1:8000`) |
+
+### Tests
+
+```bash
+pip install -r requirements-dev.txt
+pytest                                # backend
+python -m evals.run --pipeline v2     # re-score the recorded eval (no API calls)
+cd frontend && npm test && npm run lint
+```
+
+- **Coverage:** 306 backend tests at 97% coverage, plus 26 frontend tests.
+- **Offline by design:** the test suite blocks network access and never touches `data/usage.db`.
 
 ---
 
@@ -269,76 +285,43 @@ Notes: the value must be exactly `false` (other spellings count as on). If CI is
 
 ---
 
-## Sending real usage data
+## Known limitations
 
-`POST /api/ingest` (admin token in `X-Admin-Token`) accepts up to 1,000 records per request, one per engineer per day. Field names follow Anthropic's `usage` object (`input_tokens` = uncached; see [docs/scoring.md](docs/scoring.md)):
+- **Simulated data.** The demo has no real producer. The ingestion API is the contract a real one would use.
+- **Daily aggregates.** Cost is split across models by usage share, not per request.
+- **The model mix ignores task difficulty.** Using Opus for a hard design problem scores the same as using it for a typo.
+- **Goodhart's law.** Once `/compact` is scored it can be gamed. Treat the score as a conversation starter.
+- **Eval coverage.** Rule-based checks don't measure tone or helpfulness. The team memo still uses a free-text prompt with no grounding check, and in testing it once recommended a Claude Code feature that doesn't exist.
+- **Auth is a shared admin token.** There are no user accounts or roles.
+- **SQLite is a single writer.** That's fine at team scale; many teams writing at once would call for Postgres.
+- **Free-tier hosting.** On Render's free tier the database is reset on each deploy, and the first request after idling is slow.
 
-```json
-{"records": [{"user_id": "ada", "date": "2026-10-03", "name": "Ada Lovelace", "email": "ada@example.com",
-  "input_tokens": 400000, "output_tokens": 30000, "cache_read_tokens": 2500000, "cache_write_tokens": 150000,
-  "opus_pct": 0.2, "sonnet_pct": 0.6, "haiku_pct": 0.2, "session_count": 4, "compact_uses": 2, "git_commits": 3}]}
+---
+
+## Project structure
+
+```text
+ai/              coaching: provider + fallback model, prompts, schemas, rule-based fallback, storage, metering
+analysis/        weight-sensitivity analysis
+api/             FastAPI app, routes, admin-token check
+core/            scoring, pricing, ingestion, severity tiers, dispatch ledger, schedule, DB
+data/            schema, simulator, alert worker
+docs/            scoring.md
+evals/           eval profiles, checks, runner, recorded replies and results
+frontend/        React 19 + Vite + Tailwind + Recharts dashboard (Vitest tests)
+notifications/   email (Jinja2 templates) and Slack
+tests/           pytest suite (network blocked, mocked Gemini, temporary databases)
+main.py          console agent
 ```
 
-- **Idempotent:** resending a day updates it instead of duplicating it, and the engineer's scores are recomputed (the `/compact` term pools 7 days).
-- **Validated per record:** negative counts, model shares that don't sum to 1, `compact_uses > session_count`, future dates, unknown fields and client-supplied cost or score are rejected. The response lists each rejected record by index with reasons; the rest are still written.
-- **Server-side cost and score:** cost uses the dated Anthropic price table (`core/pricing.py`), recorded per row in `cost_price_version`.
-- `name` and `email` are required the first time an engineer appears.
-- The simulator (`data/seed.py`) writes through the same code path. Measured: 10,000 records in ~0.7 s on SQLite (~15k records/s).
+The engineering history lives in [FIX_LOG.md](FIX_LOG.md): what was wrong, how it was found, and what was measured before and after. [PROJECT_AUDIT_REPORT.md](PROJECT_AUDIT_REPORT.md) is the audit that started it.
 
 ---
 
-## AI provider
+## Licence
 
-Coaching guides and team memos are generated with **Gemini** (`gemini-3.8-flash` by default; set `GEMINI_MODEL` to change it). Prices per model and date are in `ai/providers.py`, and every request is metered (`GET /api/ai-stats`).
-
-The pipeline talks to a small `GuideProvider` interface (`generate(prompt, json_schema) -> text + usage + cost`), so adding another provider (e.g. Claude) means writing one class. Only the Gemini implementation exists today.
+No open-source licence is granted: all rights reserved. You're welcome to read the code and run it locally to evaluate it.
 
 ---
 
-## Tech Stack
-
-| Layer | Technology |
-|---|---|
-| Language | Python 3.13 |
-| AI Guide Generation | Google Gemini 3.8 Flash (structured JSON output, metered) |
-| Web API | FastAPI + Uvicorn |
-| Database | SQLite (built-in) |
-| Frontend | React 18 + Vite |
-| UI Styling | Tailwind CSS / CSS Modules |
-| Fake Data | Faker library |
-| Email Reports | smtplib / Gmail SMTP |
-| Deployment | Render (free tier) |
-
----
-
-## Roadmap
-
-- [x] Synthetic data generator with realistic benchmarks
-- [x] Weighted efficiency scoring engine
-- [x] AI-generated personalised guides via Gemini API
-- [x] FastAPI dashboard with Chart.js trend charts
-- [x] Automated manager email report
-- [ ] Slack bot integration (`/myusage` command)
-- [ ] Week-over-week improvement tracking
-- [ ] Budget threshold alerts
-- [x] Telemetry ingestion API (`POST /api/ingest`)
-- [ ] Claude provider (implement `GuideProvider`)
-- [ ] Before/after simulation for ROI measurement
-
----
-
-## Context and Motivation
-
-This project was built to explore a real gap: engineering managers adopting AI coding tools have no instrumentation layer to understand usage patterns, identify waste, or measure whether the investment is working. DevTelemetry is a prototype of what that instrumentation layer could look like.
-
-The data layer is intentionally synthetic — modelled on Anthropic's published enterprise benchmarks ($13/developer/active day average, 90th percentile at $30/day) — because real company telemetry is not accessible to an independent developer. The AI guide generation, scoring engine, dashboard, and notification pipeline are all fully functional against that synthetic data.
-
----
-
-## License
-
-MIT — see [LICENSE](LICENSE) for details.
-
----
-
-*Built by Priyansh Waghela · [LinkedIn](https://www.linkedin.com/in/priyansh-waghela-3b754b282/) 
+*Built by Priyansh Waghela · [LinkedIn](https://www.linkedin.com/in/priyansh-waghela-3b754b282/)*
