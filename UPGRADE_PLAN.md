@@ -245,6 +245,45 @@ Items:
 - [ ] DOC-01 Rewrite README from the code: accurate stack, real `main.py` output, scoring rationale link, architecture diagram (Mermaid), “Known limitations” section, measured numbers only; delete references to missing files or add `LICENSE` — S
 - [ ] Redeploy; `/health` endpoint; verify the Runbook works on the live URL; retake screenshots — S
 - [ ] Re-run the `project-interview-report` skill, then `project-mock-interview` — S
+### Phase 7 prep (2026-10-04, gathered while the Phase 6 eval ran)
+
+**README claim audit (current README → fix):**
+
+| README says | Reality | Fix |
+|---|---|---|
+| `python main.py` output dated 2024 with "Waste Pattern" column, "✓ Sending manager report via email" | Invented. `main.py` prints a leaderboard, a team report and guides for the bottom 5; it sends no email (dispatch is `POST /api/trigger-alerts`) | Paste real output from a temp-DB run (~6 Gemini calls, Flash-Lite fallback covers quota) |
+| Sample guide with "saves ~85%", "6× the team average", "Estimated saving: 50–70%" | Invented numbers; v2 deliberately has no model-estimated savings | Paste a real v2 guide from `evals/recordings/` |
+| "$150–250 per developer per month", "top 10% spend 2–3×" | No source in repo | Use the sourced figure already in the code/docs: ~$13/developer/active day, 90% under $30 (Anthropic) |
+| Architecture: ASCII box, "Daily Agent" at the centre | Real flow: producers → `POST /api/ingest` → SQLite → API → React; scheduler = GitHub Actions tick; LLM via `GuideProvider` with Flash-Lite fallback | Mermaid diagram |
+| Scoring table: "Weighted penalty for Opus on simple tasks", targets ≥60% / ≤20% Opus | Model mix ignores task difficulty; no targets in code | Short summary + link to docs/scoring.md (breakdown, 7-day pooling, sensitivity) |
+| Project tree: `core/models.py`, `core/leaderboard.py`, `frontend/index.html`, Chart.js, `api/main.py` only | Those files don't exist; frontend is React 19 + Vite + Recharts + Tailwind | Regenerate the tree from `git ls-files` |
+| Badges: FastAPI 0.104, License MIT | FastAPI 0.136.3; **no LICENSE file** | Fix badge; add LICENSE (needs your choice) or drop the badge |
+| Getting started: `python data/seed.py`, `uvicorn api.main:app` → "Open http://localhost:8000" | Dashboard is the Vite app (`cd frontend && npm ci && npm run dev`, :5173); :8000 is the API | Two-terminal quick start + `docker compose up` path; verify on a fresh clone |
+| Roadmap: "FastAPI dashboard with Chart.js" | Recharts | Rebuild roadmap from FIX_LOG |
+| (missing) | Evals, ingestion, metering, CI + off switches, admin token, known limitations | New sections, measured numbers only |
+
+**Measured numbers available (source):**
+- Tests: 295 backend, 26 frontend; coverage 97% of 1,267 statements (pytest-cov, 2026-10-04; CI gate ≥ 85%).
+- Ingestion: 10,000 records in 0.66 s on SQLite (FIX_LOG UPG-02).
+- Leaderboard latency while a guide waits 1.5 s on the LLM: 1.32 s → 0.016 s (FIX_LOG CONC-01).
+- Alert dispatch: `POST /api/trigger-alerts` answers 202 in 41 ms (FIX_LOG PERF-02).
+- Score: bottom-2 stability 65% → 82%; weight sensitivity τ 0.93–0.98 (docs/scoring.md).
+- Evals: v1 vs v2 on gemini-3.5-flash-lite, 30 profiles (pending: fills in when the run completes).
+- Dependencies: npm audit 0, pip-audit clean (FIX_LOG SEC-03).
+
+**Deploy checklist:**
+- [ ] Add `GET /health` (DB reachable, schema version; no secrets) + test; set `healthCheckPath: /health` in render.yaml.
+- [ ] render.yaml: frontend service has no `VITE_API_URL` (it's baked in at build time, so a missing value means the dashboard calls 127.0.0.1); add it, plus `GEMINI_FALLBACK_MODEL` documentation on the backend.
+- [ ] Get the branch onto GitHub: 68 commits on `phase-6-upgrades` are not pushed; `main` is at 561fc14. Merge via PR so CI runs on GitHub first.
+- [ ] Render: confirm which branch it deploys (`main` or `deployment`), set `ADMIN_TOKEN`, `FRONTEND_URL`, `GEMINI_API_KEY`; repository secrets `DEVTELEMETRY_API_URL` / `DEVTELEMETRY_ADMIN_TOKEN` for the scheduled tick (or leave `SCHEDULED_ALERTS_ENABLED=false`).
+- [ ] Verify live: `/health`, leaderboard, engineer page breakdown, Runbook guide (BUG-01 check in DevTools: no request to 127.0.0.1).
+- [ ] Retake the 3 screenshots + one of the score breakdown.
+- [ ] Fresh `git clone` into a temp dir and follow the README verbatim (< 10 min).
+
+**Repo hygiene before the rewrite:** `DEVTELEMETRY_INTERVIEW_REPORT.md`, `interview_study_guide.md` and `demo_commands.txt` are **tracked**, so they are public on GitHub once pushed: personal interview prep, not project docs. Decide: delete from the repo (keep locally, gitignore) or move under `docs/`. (`engineers_data.json` is already gitignored.)
+
+**Decisions needed from you:** licence (MIT as the badge says, or none); which branch Render deploys; whether to push/merge now; keep or delete the root notes files.
+
 Acceptance criteria:
 - Every README claim maps to code or a measured output. A fresh clone works by following the README in < 10 minutes.
 Verification commands:
