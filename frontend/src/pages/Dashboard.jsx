@@ -6,7 +6,7 @@ import {
 } from "recharts";
 import {
     Users, ChevronUp, Zap, Banknote, ChevronDown,
-    Download, LayoutDashboard, Activity, Bot, Settings, Plus,
+    Download, Settings,
     CheckCircle, Loader2, Mail, AlertTriangle
 } from "lucide-react";
 import Navbar from "../components/Navbar";
@@ -70,6 +70,20 @@ function Sparkline({ bars, faded }) {
 }
 
 // ─── Dashboard ────────────────────────────────────────────────────────────────
+// The leaderboard as shown, as a CSV download.
+function downloadLeaderboardCsv(team) {
+    const quote = (value) => (/[",\n]/.test(String(value)) ? `"${String(value).replace(/"/g, '""')}"` : value);
+    const rows = [["rank", "user_id", "name", "efficiency_score", "estimated_cost_usd"],
+                  ...team.map((e) => [e.rank, e.user_id, e.name, e.score, e.cost.toFixed(2)])];
+    const blob = new Blob([rows.map((r) => r.map(quote).join(",")).join("\n")], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "devtelemetry-leaderboard.csv";
+    link.click();
+    URL.revokeObjectURL(url);
+}
+
 export default function Dashboard() {
     const [hoveredRow, setHoveredRow] = useState(null);
 
@@ -113,6 +127,7 @@ export default function Dashboard() {
                     rank: index + 1,
                     name: eng.name,
                     score: eng.efficiency_score,
+                    cost: eng.estimated_cost_usd,
                     spend: `$${eng.estimated_cost_usd.toFixed(2)}`,
                     // Real 7-day change from the API (was: top 3 always "up", the rest "down")
                     ...describeTrend(eng.score_change_7d),
@@ -144,6 +159,10 @@ export default function Dashboard() {
 
     // 5. Calculate live KPI stats
     const latestStats = trendData.length > 0 ? trendData[trendData.length - 1] : { score: 0, cost: 0 };
+    // Real change in team spend from the previous day (was a hardcoded "-4.2%").
+    const previousStats = trendData.length > 1 ? trendData[trendData.length - 2] : null;
+    const spendChange = previousStats && previousStats.cost > 0
+        ? ((latestStats.cost - previousStats.cost) / previousStats.cost) * 100 : null;
 
     if (loading) return <div className="p-10 font-mono text-primary">Loading live telemetry...</div>;
 
@@ -229,10 +248,6 @@ export default function Dashboard() {
                         </div>
                         <div className="flex items-baseline gap-2 relative z-10">
                             <span className="text-3xl font-bold tracking-tight text-on-surface">{team.length}</span>
-                            <span className="flex items-center text-xs text-emerald-500">
-                                <ChevronUp size={14} />
-                                +1 this month
-                            </span>
                         </div>
                         <div className="absolute bottom-0 left-0 right-0 h-1 bg-primary/10" />
                     </div>
@@ -267,10 +282,12 @@ export default function Dashboard() {
                         </div>
                         <div className="flex items-baseline gap-2">
                             <span className="text-3xl font-bold tracking-tight text-on-surface">${latestStats.cost}</span>
-                            <span className="flex items-center text-xs text-rose-500">
-                                <ChevronDown size={14} />
-                                -4.2%
-                            </span>
+                            {spendChange !== null && (
+                                <span className={`flex items-center text-xs ${spendChange > 0 ? "text-rose-500" : "text-emerald-500"}`}>
+                                    {spendChange > 0 ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                                    {spendChange > 0 ? "+" : ""}{spendChange.toFixed(1)}% vs previous day
+                                </span>
+                            )}
                         </div>
                         {/* mini wave */}
                         <div className="absolute bottom-0 right-0 w-32 h-16 opacity-20 pointer-events-none">
@@ -360,13 +377,14 @@ export default function Dashboard() {
                                 Individual performance metrics breakdown
                             </p>
                         </div>
-                        <a
-                            href="#"
-                            className="flex items-center gap-1.5 text-primary font-mono text-xs tracking-wide hover:underline"
+                        <button
+                            type="button"
+                            onClick={() => downloadLeaderboardCsv(team)}
+                            className="flex items-center gap-1.5 text-primary font-mono text-xs tracking-wide hover:underline cursor-pointer"
                         >
                             EXPORT CSV
                             <Download size={16} />
-                        </a>
+                        </button>
                     </div>
 
                     <div className="glass-card rounded-xl overflow-hidden border border-outline-variant">
@@ -531,34 +549,6 @@ export default function Dashboard() {
                 </div>
             )}
 
-            {/* ── Mobile Bottom Nav ── */}
-            <nav className="md:hidden fixed bottom-0 left-0 w-full bg-surface-container border-t border-outline-variant h-16 flex items-center justify-around z-50">
-                {[
-                    { icon: LayoutDashboard, label: "Dash", active: true },
-                    { icon: Activity, label: "Stats", active: false },
-                    null,
-                    { icon: Bot, label: "AI", active: false },
-                    { icon: Settings, label: "Setup", active: false },
-                ].map((item) =>
-                    item === null ? (
-                        <div
-                            key="fab"
-                            className="w-12 h-12 bg-primary rounded-full flex items-center justify-center -mt-8 shadow-lg shadow-primary/20"
-                        >
-                            <Plus size={24} className="text-on-primary-container" />
-                        </div>
-                    ) : (
-                        <a
-                            key={item.label}
-                            href="#"
-                            className={`flex flex-col items-center gap-0.5 ${item.active ? "text-primary" : "text-on-surface-variant"}`}
-                        >
-                            <item.icon size={24} />
-                            <span className="font-mono text-[10px] tracking-widest uppercase">{item.label}</span>
-                        </a>
-                    )
-                )}
-            </nav>
         </div>
     );
 }

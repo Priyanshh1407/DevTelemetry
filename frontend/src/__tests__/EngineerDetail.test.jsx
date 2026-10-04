@@ -102,3 +102,18 @@ describe('EngineerDetail score breakdown (UPG-03)', { timeout: 30000 }, () => {
         expect(screen.queryByRole('region', { name: /score breakdown/i })).not.toBeInTheDocument();
     });
 });
+
+describe('EngineerDetail shows no placeholder assets (Phase 7)', { timeout: 30000 }, () => {
+    it('uses initials instead of a made-up avatar URL, and titles the page', async () => {
+        vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+            ok: true, status: 200, json: () => Promise.resolve(DETAILS),
+        }));
+
+        await renderDetail();
+
+        expect(await screen.findByText('Ada Lovelace')).toBeInTheDocument();
+        expect(screen.getByText('AL')).toBeInTheDocument();
+        expect(document.querySelector('img[src*="googleusercontent"]')).toBeNull();
+        expect(screen.getByText('Engineer detail')).toBeInTheDocument();
+    });
+});

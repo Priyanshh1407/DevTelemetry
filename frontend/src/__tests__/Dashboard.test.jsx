@@ -114,3 +114,41 @@ describe('Dashboard retry (TEST-01b)', { timeout: 30000 }, () => {
         expect(screen.queryByRole('alert')).not.toBeInTheDocument();
     });
 });
+
+describe('Dashboard shows real numbers only (Phase 7)', { timeout: 30000 }, () => {
+    function mockWithTrends(trends) {
+        vi.stubGlobal('fetch', vi.fn((url) => {
+            const body = url.endsWith('/api/leaderboard') ? LEADERBOARD
+                : url.endsWith('/api/trends') ? trends
+                : { frequency: 'Weekly', day: 'Friday', time: '17:00' };
+            return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(body) });
+        }));
+    }
+
+    it('shows the real day-over-day spend change and no invented team growth', async () => {
+        mockWithTrends([{ date: '2026-03-30', avg_score: 64, total_cost: 40.0 },
+                        { date: '2026-03-31', avg_score: 65, total_cost: 36.5 }]);
+        const { default: Dashboard } = await import('../pages/Dashboard');
+        render(<MemoryRouter><Dashboard /></MemoryRouter>);
+
+        expect(await screen.findByText(/-8\.8% vs previous day/)).toBeInTheDocument();
+        expect(screen.queryByText(/this month/)).not.toBeInTheDocument();
+        expect(screen.queryByText('-4.2%')).not.toBeInTheDocument();
+    });
+
+    it('exports the leaderboard as a CSV file', async () => {
+        const { fireEvent } = await import('@testing-library/react');
+        mockWithTrends([{ date: '2026-03-31', avg_score: 65, total_cost: 36.5 }]);
+        const blobs = [];
+        vi.stubGlobal('URL', { ...URL, createObjectURL: (blob) => { blobs.push(blob); return 'blob:csv'; },
+                               revokeObjectURL: () => {} });
+        const { default: Dashboard } = await import('../pages/Dashboard');
+        render(<MemoryRouter><Dashboard /></MemoryRouter>);
+
+        fireEvent.click(await screen.findByRole('button', { name: /export csv/i }));
+
+        const csv = await blobs[0].text();
+        expect(csv.split('\n')[0]).toBe('rank,user_id,name,efficiency_score,estimated_cost_usd');
+        expect(csv.split('\n')[1]).toBe('1,a,Ada,80,12.50');
+    });
+});
