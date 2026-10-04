@@ -57,6 +57,40 @@ function CostTooltip({ active, payload, label }) {
     );
 }
 
+// ─── Score breakdown (UPG-03): where the points come from ─────────────────────
+const AREAS = [
+    { key: "cache", label: "Prompt caching", max: 40 },
+    { key: "model_mix", label: "Model choice", max: 30 },
+    { key: "discipline", label: "Context management (/compact, 7 days)", max: 30 },
+];
+
+function ScoreBreakdown({ breakdown }) {
+    if (!breakdown) return null;
+    // The area that lost the most points is the one worth working on.
+    const weakest = AREAS.reduce((a, b) => (b.max - breakdown[b.key] > a.max - breakdown[a.key] ? b : a));
+    return (
+        <section aria-label="Score breakdown" className="mt-4 space-y-2 relative z-10">
+            {AREAS.map((area) => (
+                <div key={area.key}>
+                    <div className="flex justify-between font-mono text-[11px] text-on-surface-variant">
+                        <span className={area.key === weakest.key ? "text-error font-bold" : ""}>{area.label}</span>
+                        <span>{breakdown[area.key].toFixed(1)} / {area.max}</span>
+                    </div>
+                    <div className="h-1.5 rounded bg-surface-container-high overflow-hidden">
+                        <div
+                            className={`h-full ${area.key === weakest.key ? "bg-error" : "bg-primary"}`}
+                            style={{ width: `${(breakdown[area.key] / area.max) * 100}%` }}
+                        />
+                    </div>
+                </div>
+            ))}
+            <p className="font-mono text-[11px] text-on-surface-variant">
+                Biggest opportunity: {weakest.label.split(" (")[0].toLowerCase()}
+            </p>
+        </section>
+    );
+}
+
 export default function EngineerDetail() {
     const { userId } = useParams();
     const navigate = useNavigate();
@@ -200,6 +234,7 @@ export default function EngineerDetail() {
                                 <span className="text-2xl font-black text-on-surface">${latest.estimated_cost_usd.toFixed(2)}</span>
                             </div>
                         </div>
+                        <ScoreBreakdown breakdown={latest.score_breakdown} />
                     </div>
 
                     {/* Quick Gauge / Gauge Placeholder Container */}

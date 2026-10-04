@@ -17,6 +17,10 @@ POOL_DAYS = 7
 
 MODEL_WEIGHTS = {"haiku_pct": 1.0, "sonnet_pct": 0.6, "opus_pct": 0.1}
 
+# Maximum points per area. Judgment calls, not learned (there is no ground-truth label of an
+# "efficient engineer"); analysis/weight_sensitivity.py measures how much rankings depend on them.
+AREA_WEIGHTS = {"cache": 40, "model_mix": 30, "discipline": 30}
+
 
 def _model_mix(day):
     """Seed/pricing code nests the shares under "model_mix"; database rows store them flat."""
@@ -37,11 +41,12 @@ def cache_hit_ratio(day):
     return (day.get("cache_read_tokens") or 0) / total if total > 0 else 0.0
 
 
-def score_breakdown(day, recent=()):
+def score_breakdown(day, recent=(), weights=None):
     """Points per part for `day`, plus the total. `recent` holds earlier days for the same
     engineer (oldest first); only the last POOL_DAYS - 1 of them are used."""
     # 1. Cache hit ratio (40 pts)
-    cache_points = cache_hit_ratio(day) * 40
+    weights = weights or AREA_WEIGHTS
+    cache_points = cache_hit_ratio(day) * weights["cache"]
 
     # 2. Model mix (30 pts). Shares are normalized so rounding or bad data (e.g. 0.33 x 3, or a
     #    share above 1) can't push the score past its 30 points.
@@ -49,7 +54,7 @@ def score_breakdown(day, recent=()):
     share_total = sum((mix.get(key) or 0) for key in MODEL_WEIGHTS)
     mix_ratio = (sum((mix.get(key) or 0) * weight for key, weight in MODEL_WEIGHTS.items()) / share_total
                  if share_total > 0 else 0.0)
-    model_points = mix_ratio * 30
+    model_points = mix_ratio * weights["model_mix"]
 
     # 3. Session discipline (30 pts): /compact uses per session, pooled over the trailing week.
     #    A single day has only a handful of sessions, so its ratio is mostly luck (0/2, 1/2, 2/2
@@ -57,7 +62,7 @@ def score_breakdown(day, recent=()):
     window = list(recent)[-(POOL_DAYS - 1):] + [day] if POOL_DAYS > 1 else [day]
     sessions = sum(d.get("session_count") or 0 for d in window)
     compacts = sum(d.get("compact_uses") or 0 for d in window)
-    discipline_points = min(compacts / sessions, 1.0) * 30 if sessions > 0 else 0.0
+    discipline_points = min(compacts / sessions, 1.0) * weights["discipline"] if sessions > 0 else 0.0
 
     return {
         "cache": round(cache_points, 2),
