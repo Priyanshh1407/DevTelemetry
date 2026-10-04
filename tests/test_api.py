@@ -205,7 +205,8 @@ def test_guide_returns_parsed_tasks_for_latest_day(client, seeded_db):
 
     assert data["name"] == "Engineer 00"
     assert data["date"] == LATEST_DATE
-    assert [t["desc"] for t in data["guide"]] == ["Mock tip one", "Mock tip two"]
+    assert [t["title"] for t in data["guide"]] == ["Mock tip one", "Mock tip two"]
+    assert data["coaching"]["actions"][0]["focus"] == "cache"
     assert data["source"] == "ai"
 
 
@@ -221,7 +222,7 @@ def test_runbook_second_request_is_served_from_cache(client, seeded_db, mock_gem
     second = client.get(url).json()
 
     assert first == second
-    assert [t["desc"] for t in first["tasks"]] == ["Mock tip one", "Mock tip two"]
+    assert [t["title"] for t in first["tasks"]] == ["Mock tip one", "Mock tip two"]
     mock_gemini.models.generate_content.assert_called_once()
 
 
@@ -234,8 +235,8 @@ def test_runbook_failed_generation_is_not_cached(client, seeded_db, mock_gemini)
     first = client.get(url).json()
     second = client.get(url).json()
 
-    assert first["tasks"][0]["title"] == "AI Service Offline"
-    assert [t["desc"] for t in second["tasks"]] == ["Mock tip one", "Mock tip two"]
+    assert first["source"] == "unavailable"   # rule-based guide, served but not cached
+    assert [t["title"] for t in second["tasks"]] == ["Mock tip one", "Mock tip two"]
     assert mock_gemini.models.generate_content.call_count == 2
 
 
@@ -322,7 +323,7 @@ def test_llm_prompts_contain_no_name_or_email(client, seeded_db, mock_gemini, pa
     prompt = mock_gemini.models.generate_content.call_args.kwargs["contents"]
     assert "Engineer 04" not in prompt
     assert "@example.com" not in prompt
-    assert "efficiency_score" in prompt  # the metrics are still there
+    assert "efficiency score" in prompt.lower()  # the metrics are still there
 
 
 # ── BUG-08: an engineer missing from the latest day is not "Rank #1" ───────

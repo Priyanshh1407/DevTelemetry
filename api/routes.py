@@ -11,7 +11,7 @@ from data.alert_worker import overall_status, run_weekly_telemetry_check
 from api.security import require_admin
 from core.severity import severity_for_rank
 from core.scorer import cache_hit_ratio, score_breakdown, total_prompt_tokens
-from core.queries import latest_day_rows, latest_metrics_for_user, without_pii
+from core.queries import latest_day_rows, latest_metrics_for_user, recent_metrics_for_user, without_pii
 from core.dispatch import (DispatchBusy, DispatchCoolingDown, SlotAlreadyDispatched, finish_run, get_run,
                            start_run)
 from core.schedule import due_slot
@@ -87,17 +87,19 @@ def get_team_trends():
 def get_user_guide(user_id: str):
     with db_session() as conn:
         eng_dict = latest_metrics_for_user(conn, user_id)
+        window = recent_metrics_for_user(conn, user_id)
     if eng_dict is None:
         raise HTTPException(status_code=404, detail="Engineer not found")
 
     # Generate after the DB session closes: don't hold a connection open during an LLM call.
     # Only metrics go to the LLM, never the engineer's name or email.
-    result = generate_efficiency_guide(without_pii(eng_dict), severity="moderate")
+    result = generate_efficiency_guide(without_pii(eng_dict), "moderate", recent=window[:-1])
 
     return {
         "name": eng_dict["name"],
         "date": eng_dict["date"],
         "guide": result.tasks,
+        "coaching": result.guide,  # structured: headline + actions with their focus area
         "source": result.source
     }
     
@@ -414,6 +416,7 @@ def get_personalized_tasks(severity: Severity, user_id: str):
     # 1. Get the latest metrics for this dev (cheap; needed for the cache key)
     with db_session() as conn:
         engineer_data = latest_metrics_for_user(conn, user_id)
+        window = recent_metrics_for_user(conn, user_id)
 
     if engineer_data is None:
         return {"tasks": [{"title": "Data Missing", "desc": "No telemetry found for this user."}], "source": "none"}
@@ -427,7 +430,7 @@ def get_personalized_tasks(severity: Severity, user_id: str):
     logger.info("Runbook cache miss for %s; generating", user_id)
 
     # 3. Call Gemini
-    result = generate_efficiency_guide(without_pii(engineer_data), severity)
+    result = generate_efficiency_guide(without_pii(engineer_data), severity, recent=window[:-1])
 
     # 4. Cache only real answers. A fallback is returned but not stored, so the next
     #    request retries instead of serving an outage message until restart.

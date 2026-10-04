@@ -26,6 +26,14 @@ def latest_metrics_for_user(conn, user_id):
     return dict(row) if row else None
 
 
+def recent_metrics_for_user(conn, user_id, days=7):
+    """One engineer's last `days` days of metrics, oldest first (empty list if none)."""
+    rows = conn.execute("""
+        SELECT * FROM usage_metrics WHERE user_id = ? ORDER BY date DESC LIMIT ?
+    """, (user_id, days)).fetchall()
+    return [dict(r) for r in reversed(rows)]
+
+
 # Identity never leaves for the LLM: coaching needs the metrics, not who they belong to.
 PII_FIELDS = ("name", "email")
 
