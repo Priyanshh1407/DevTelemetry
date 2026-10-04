@@ -8,6 +8,8 @@ from core.db import db_session
 from core.queries import latest_day_rows
 from core.severity import severity_for_rank
 from ai.guide_generator import generate_team_report
+from ai.providers import get_provider
+from ai.store import record_request
 from notifications.email_report import send_daily_report, send_developer_alert, smtp_session
 from notifications.slack_post import send_slack_summary
 
@@ -92,7 +94,10 @@ def run_weekly_telemetry_check():
         "total_spend": total_cost,
         "critical_count": len(bottom_engineers)
     }
-    ai_memo = generate_team_report(team_summary_data)
+    report = generate_team_report(team_summary_data)
+    with db_session() as conn:
+        record_request(conn, "team_report", report.outcome, report.calls, model=get_provider().model)
+    ai_memo = report.text
 
     # --- 6. SEND ALL EMAILS OVER ONE SMTP CONNECTION ---
     logger.info("Sending developer alerts and the manager digest")

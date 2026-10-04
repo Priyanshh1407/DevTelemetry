@@ -1,6 +1,7 @@
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Depends, Response
 from core.db import db_session
-from ai.guide_generator import generate_efficiency_guide
+from ai.coaching_service import get_coaching
+from ai.store import ai_stats
 from typing import Literal
 from pydantic import BaseModel, Field, field_validator
 import logging
@@ -11,7 +12,7 @@ from data.alert_worker import overall_status, run_weekly_telemetry_check
 from api.security import require_admin
 from core.severity import severity_for_rank
 from core.scorer import cache_hit_ratio, score_breakdown, total_prompt_tokens
-from core.queries import latest_day_rows, latest_metrics_for_user, recent_metrics_for_user, without_pii
+from core.queries import latest_day_rows
 from core.dispatch import (DispatchBusy, DispatchCoolingDown, SlotAlreadyDispatched, finish_run, get_run,
                            start_run)
 from core.schedule import due_slot
@@ -85,22 +86,17 @@ def get_team_trends():
 
 @router.get("/guide/{user_id}")
 def get_user_guide(user_id: str):
-    with db_session() as conn:
-        eng_dict = latest_metrics_for_user(conn, user_id)
-        window = recent_metrics_for_user(conn, user_id)
-    if eng_dict is None:
+    coaching = get_coaching(user_id, "moderate")
+    if coaching is None:
         raise HTTPException(status_code=404, detail="Engineer not found")
-
-    # Generate after the DB session closes: don't hold a connection open during an LLM call.
-    # Only metrics go to the LLM, never the engineer's name or email.
-    result = generate_efficiency_guide(without_pii(eng_dict), "moderate", recent=window[:-1])
-
+    result = coaching.result
     return {
-        "name": eng_dict["name"],
-        "date": eng_dict["date"],
+        "name": coaching.latest["name"],
+        "date": coaching.latest["date"],
         "guide": result.tasks,
         "coaching": result.guide,  # structured: headline + actions with their focus area
-        "source": result.source
+        "source": result.source,
+        "cached": coaching.cached,
     }
     
 # Defines the shape of the data coming from React
@@ -404,37 +400,23 @@ def get_engineer_details(user_id: str):
             "patterns": patterns
         }
 
-# In-memory, per-process cache of successful AI guides only.
-# Key: (user_id, date of their latest metrics, severity), so new data produces a new guide.
-ai_task_cache = {}
-
-# Deliberately sync: the DB and Gemini calls below block, and FastAPI runs plain `def`
-# handlers in a threadpool. As `async def`, they ran on the event loop and stalled every
-# other request for the length of the LLM call.
+# Deliberately sync: the DB and LLM calls block, and FastAPI runs plain `def` handlers in a
+# threadpool. As `async def`, they ran on the event loop and stalled every other request for
+# the length of the LLM call.
 @router.get("/runbook-tasks/{severity}/{user_id}")
 def get_personalized_tasks(severity: Severity, user_id: str):
-    # 1. Get the latest metrics for this dev (cheap; needed for the cache key)
-    with db_session() as conn:
-        engineer_data = latest_metrics_for_user(conn, user_id)
-        window = recent_metrics_for_user(conn, user_id)
-
-    if engineer_data is None:
+    # Stored guide if this exact data/prompt/model was already coached; otherwise generate.
+    # Only successful AI guides are stored, so an outage is never served from the store.
+    coaching = get_coaching(user_id, severity)
+    if coaching is None:
         return {"tasks": [{"title": "Data Missing", "desc": "No telemetry found for this user."}], "source": "none"}
+    result = coaching.result
+    headline = result.guide["headline"] if result.guide else None
+    return {"tasks": result.tasks, "source": result.source, "headline": headline, "cached": coaching.cached}
 
-    # 2. Serve from cache if this exact data was already turned into a guide
-    cache_key = (user_id, engineer_data["date"], severity)
-    if cache_key in ai_task_cache:
-        logger.info("Runbook cache hit for %s", user_id)
-        return {"tasks": ai_task_cache[cache_key], "source": "ai"}
 
-    logger.info("Runbook cache miss for %s; generating", user_id)
-
-    # 3. Call Gemini
-    result = generate_efficiency_guide(without_pii(engineer_data), severity, recent=window[:-1])
-
-    # 4. Cache only real answers. A fallback is returned but not stored, so the next
-    #    request retries instead of serving an outage message until restart.
-    if not result.is_fallback:
-        ai_task_cache[cache_key] = result.tasks
-
-    return {"tasks": result.tasks, "source": result.source}
+@router.get("/ai-stats")
+def get_ai_stats(purpose: Literal["guide", "team_report"] = "guide", days: int = 30):
+    """Metering summary of AI requests (UPG-04): outcomes, cache hit rate, tokens, cost, latency."""
+    with db_session() as conn:
+        return ai_stats(conn, purpose=purpose, days=max(1, min(days, 365)))

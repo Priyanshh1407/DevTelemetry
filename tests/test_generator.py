@@ -16,7 +16,7 @@ USER_DATA = {"efficiency_score": 45.0, "cache_ratio": 0.2, "opus_pct": 0.8}
 def test_generate_team_report_success(mock_gemini):
     mock_gemini.models.generate_content.return_value.text = "This is a mocked AI summary for the team."
 
-    result = generate_team_report(TEAM_DATA)
+    result = generate_team_report(TEAM_DATA).text
 
     assert result == "This is a mocked AI summary for the team."
     mock_gemini.models.generate_content.assert_called_once()
@@ -25,13 +25,14 @@ def test_generate_team_report_success(mock_gemini):
 def test_generate_team_report_strips_bold_markdown(mock_gemini):
     mock_gemini.models.generate_content.return_value.text = "Team is **doing well**."
 
-    assert generate_team_report(TEAM_DATA) == "Team is doing well."
+    assert generate_team_report(TEAM_DATA).text == "Team is doing well."
 
 
 def test_generate_team_report_fallback_on_error(mock_gemini):
     mock_gemini.models.generate_content.side_effect = Exception("API rate limit exceeded")
 
-    assert "System Offline" in generate_team_report(TEAM_DATA)
+    report = generate_team_report(TEAM_DATA)
+    assert "System Offline" in report.text and report.outcome == "unavailable" and report.calls == []
 
 
 def test_generate_efficiency_guide_parses_numbered_list(mock_gemini):

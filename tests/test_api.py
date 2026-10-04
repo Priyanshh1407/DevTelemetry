@@ -221,7 +221,8 @@ def test_runbook_second_request_is_served_from_cache(client, seeded_db, mock_gem
     first = client.get(url).json()
     second = client.get(url).json()
 
-    assert first == second
+    assert first["tasks"] == second["tasks"] and first["headline"] == second["headline"]
+    assert (first["cached"], second["cached"]) == (False, True)
     assert [t["title"] for t in first["tasks"]] == ["Mock tip one", "Mock tip two"]
     mock_gemini.models.generate_content.assert_called_once()
 
