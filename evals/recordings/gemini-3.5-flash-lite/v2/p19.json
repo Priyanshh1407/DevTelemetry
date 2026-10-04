@@ -1,0 +1,12 @@
+{
+ "calls": [
+  {
+   "text": "{\n  \"headline\": \"Great work today with an efficiency score of 51.07 out of 100 and an estimated cost of $9.06. Let us refine your habits to improve further.\",\n  \"actions\": [\n    {\n      \"title\": \"Improve Prompt Caching\",\n      \"problem\": \"Your cache score is only 33.3 percent because only 33.3 percent of prompt tokens were served from cache, leaving this as your weakest area at 26.68 points below its maximum.\",\n      \"fix\": \"Structure your sessions to keep prompt prefixes stable so that more of your prompt tokens can be served from the cache and boost your cache score above 13.32 out of 40 points.\",\n      \"focus\": \"cache\"\n    },\n    {\n      \"title\": \"Maintain Strong Model Mix and Compact Usage\",\n      \"problem\": \"Your model mix stands at Opus 20.0 percent, Sonnet 69.0 percent, and Haiku 11.0 percent earning 16.32 out of 30 points, while /compact was used in 71.4 percent of sessions over the last 7 days earning 21.43 out of 30 points.\",\n      \"fix\": \"Continue using /compact which you already applied in 20 of 28 sessions over the last 7 days to maintain this solid habit alongside your current model distribution.\",\n      \"focus\": \"discipline\"\n    }\n  ]\n}",
+   "model": "gemini-3.5-flash-lite",
+   "input_tokens": 315,
+   "output_tokens": 333,
+   "latency_ms": 2191,
+   "cost_usd": 0.000927
+  }
+ ]
+}

@@ -1,0 +1,12 @@
+{
+ "calls": [
+  {
+   "text": "{\n  \"headline\": \"Efficiency score is 55.78 out of 100 with a cost today of $11.21\",\n  \"actions\": [\n    {\n      \"title\": \"Shift model mix away from Opus\",\n      \"problem\": \"Model mix is your weakest area, scoring 5.01 of 30 points, with Opus at 89.0%, Sonnet at 8.0%, and Haiku at 3.0%\",\n      \"fix\": \"Use Haiku and Sonnet more frequently instead of defaulting to Opus for tasks\",\n      \"focus\": \"model_mix\"\n    },\n    {\n      \"title\": \"Improve prompt token caching\",\n      \"problem\": \"Cache score is 30.08 of 40 points because 75.2% of prompt tokens were served from cache\",\n      \"fix\": \"Keep context windows consistent to increase cache hit rates\",\n      \"focus\": \"cache\"\n    },\n    {\n      \"title\": \"Increase compact command usage\",\n      \"problem\": \"Compact score is 20.69 of 30 points because it was used in 69.0% of sessions over the last 7 days\",\n      \"fix\": \"Run compact in 20 of 29 sessions to improve discipline scores\",\n      \"focus\": \"discipline\"\n    },\n    {\n      \"title\": \"Review session habits\",\n      \"problem\": \"Your efficiency score is 55.78 out of 100 and model_mix is 24.99 points below its maximum\",\n      \"fix\": \"Adopt better model selection habits to reduce the estimated cost today of $11.21\",\n      \"focus\": \"model_mix\"\n    }\n  ]\n}",
+   "model": "gemini-3.5-flash-lite",
+   "input_tokens": 307,
+   "output_tokens": 399,
+   "latency_ms": 2748,
+   "cost_usd": 0.00109
+  }
+ ]
+}

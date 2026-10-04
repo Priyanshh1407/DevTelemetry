@@ -1,0 +1,12 @@
+{
+ "calls": [
+  {
+   "text": "1. Your cache read to input token ratio is strong, but with 3,560,197 cache read tokens across 7 sessions, you could group your queries even more to maximize efficiency.\n\n2. You used the Opus model for 62 percent of your tasks while Sonnet was at 33 percent, so trying Sonnet for routine refactoring or debugging could help lower your daily cost below $3.96.\n\n3. You had 7 compact uses alongside 7 sessions, which indicates you are effectively resetting context, but keeping an eye on output tokens (27,247) by asking for more targeted code snippets will keep your terminal workflows snappy.",
+   "model": "gemini-3.5-flash-lite",
+   "input_tokens": 318,
+   "output_tokens": 143,
+   "latency_ms": 1667,
+   "cost_usd": 0.000453
+  }
+ ]
+}

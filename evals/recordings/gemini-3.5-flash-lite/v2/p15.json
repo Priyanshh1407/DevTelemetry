@@ -1,0 +1,12 @@
+{
+ "calls": [
+  {
+   "text": "{\n  \"headline\": \"Improve your Claude Code cost-efficiency today. Your current efficiency score is 52.11 out of 100.\",\n  \"actions\": [\n    {\n      \"title\": \"Use compact more often\",\n      \"problem\": \"Discipline is your weakest area, scoring 27.35 points below its maximum. Specifically, /compact was used in only 8.8% of sessions over the last 7 days, which is 3 of 34 sessions yielding 2.65 of 30 points.\",\n      \"fix\": \"Increase your usage of the /compact command to better manage context windows and improve your discipline score.\",\n      \"focus\": \"discipline\"\n    },\n    {\n      \"title\": \"Optimize prompt caching\",\n      \"problem\": \"Cache performance stands at 76.8% of prompt tokens served from cache, contributing 30.72 of 40 points.\",\n      \"fix\": \"Maintain or improve prompt caching habits to capture remaining points in the cache category.\",\n      \"focus\": \"cache\"\n    },\n    {\n      \"title\": \"Balance model selection\",\n      \"problem\": \"Model mix distribution is Opus 7.0%, Sonnet 78.0%, and Haiku 15.0%, earning 18.75 of 30 points.\",\n      \"fix\": \"Continue using a balanced model mix to keep your estimated cost today at $12.15 while working on other areas.\",\n      \"focus\": \"model_mix\"\n    }\n  ]\n}",
+   "model": "gemini-3.5-flash-lite",
+   "input_tokens": 293,
+   "output_tokens": 347,
+   "latency_ms": 2346,
+   "cost_usd": 0.000955
+  }
+ ]
+}

@@ -1,0 +1,12 @@
+{
+ "calls": [
+  {
+   "text": "1. With 7 git commits and 2 sessions, your session scope might be a bit wide; try breaking your work into smaller, more focused terminal sessions to keep context crisp.\n\n2. You had zero compact uses on March 31st; using the /compact command when switching tasks can help prevent context drift and keep your output tokens efficient.\n\n3. Your Sonnet usage stands at 68 percent while Opus is at 22 percent; routing straightforward tasks to Haiku or Sonnet more often could stretch your 4.42 dollar budget even further.",
+   "model": "gemini-3.5-flash-lite",
+   "input_tokens": 318,
+   "output_tokens": 118,
+   "latency_ms": 1212,
+   "cost_usd": 0.00039
+  }
+ ]
+}

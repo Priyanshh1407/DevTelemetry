@@ -1,0 +1,12 @@
+{
+ "calls": [
+  {
+   "text": "1. Your total context management shows 4640439 cache read tokens against 664692 input tokens, which indicates a strong caching baseline, but your 0 compact uses across 3 sessions means you are likely allowing long-running contexts to bloat over time without resetting.\n\n2. You recorded 67841 output tokens across only 1 git commits, pointing to an inefficient ratio of verbose code generation or extensive conversational back-and-forth for very few landed changes; you must enforce stricter output scopes for Claude Code.\n\n3. With Sonnet handling 81 percent of your workload and Opus at 14 percent, you should audit whether complex architectural reasoning from Opus was strictly necessary for tasks that Sonnet or Haiku could have resolved to lower your 5.88 dollar daily cost.\n\n4. Your session count of 3 suggests long, sprawling terminal sessions; breaking your work into smaller, isolated tasks will prevent context pollution and reduce the accumulation of redundant cache writes, which currently sit at 225154 tokens.\n\n5. You need to explicitly invoke context clearing commands or restart your Claude Code terminal sessions frequently to prevent stale codebase readouts from continuously recycling through your prompt cache.",
+   "model": "gemini-3.5-flash-lite",
+   "input_tokens": 316,
+   "output_tokens": 256,
+   "latency_ms": 2616,
+   "cost_usd": 0.000735
+  }
+ ]
+}

@@ -1,0 +1,12 @@
+{
+ "calls": [
+  {
+   "text": "{\n  \"headline\": \"Efficiency score is 57.85 out of 100 with model mix as the weakest area at 24.6 points below maximum\",\n  \"actions\": [\n    {\n      \"title\": \"Switch models to favor cheaper options\",\n      \"problem\": \"Model mix currently stands at Opus 88.0%, Sonnet 7.0%, Haiku 5.0%, yielding only 5.4 of 30 points and making it the weakest area with a deficit of 24.6 points below its maximum.\",\n      \"fix\": \"Reduce heavy reliance on Opus and route routine tasks to Sonnet and Haiku to improve the model mix score.\",\n      \"focus\": \"model_mix\"\n    },\n    {\n      \"title\": \"Maintain high prompt caching rates\",\n      \"problem\": \"Cache performance shows that 76.0% of prompt tokens were served from cache, earning 30.39 of 40 points.\",\n      \"fix\": \"Continue structuring prompts consistently to keep the cache hit rate stable and preserve these points.\",\n      \"focus\": \"cache\"\n    },\n    {\n      \"title\": \"Keep up compact session usage\",\n      \"problem\": \"Command /compact was used in 73.5% of sessions over the last 7 days across 25 of 34 sessions, earning 22.06 of 30 points.\",\n      \"fix\": \"Maintain this habit of using /compact regularly to manage context length and avoid unnecessary token expansion.\",\n      \"focus\": \"discipline\"\n    },\n    {\n      \"title\": \"Monitor daily spending levels\",\n      \"problem\": \"Estimated cost today reached $5.09 while overall efficiency remains at 57.85 out of 100.\",\n      \"fix\": \"Review daily expenditures alongside model choices to ensure spending aligns with improved efficiency targets.\",\n      \"focus\": \"discipline\"\n    }\n  ]\n}",
+   "model": "gemini-3.5-flash-lite",
+   "input_tokens": 304,
+   "output_tokens": 433,
+   "latency_ms": 2269,
+   "cost_usd": 0.001174
+  }
+ ]
+}

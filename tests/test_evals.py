@@ -16,6 +16,8 @@ from evals.run import run
     ("That is 1,250,000 tokens, or 1.2M; output was 600k.", [1_250_000, 1_200_000, 600_000]),
     ("Use /compact and Gemini-2.5 or prompt v2 with Haiku.", []),
     ("Cache reads were 11.53 million vs 1.24 billion; 3 thousand runs.", [11_530_000, 1_240_000_000, 3_000]),
+    ("It cost 11 dollars and 91 cents, or 8 dollar 11 cent yesterday.", [11.91, 8.11]),   # money in words
+    ("No compacts on March 31st or the 2nd; 3 sessions.", [3]),                            # dates aren't metrics
 ])
 def test_number_extraction(text, numbers):
     assert extract_numbers(text) == pytest.approx(numbers)

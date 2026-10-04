@@ -1,0 +1,12 @@
+{
+ "calls": [
+  {
+   "text": "{\n  \"headline\": \"Your efficiency score is 49.86 out of 100 with an estimated cost today of $10.30.\",\n  \"actions\": [\n    {\n      \"title\": \"Improve session compaction\",\n      \"problem\": \"Discipline is your weakest area, sitting 28.7 points below its maximum. Specifically, /compact was used in only 4.3% of sessions over the last 7 days, which is 1 of 23 sessions resulting in 1.3 of 30 points.\",\n      \"fix\": \"Make a concrete change to use the /compact command much more frequently across your development sessions to properly manage your context.\",\n      \"focus\": \"discipline\"\n    },\n    {\n      \"title\": \"Optimize your model selection\",\n      \"problem\": \"Your current model mix stands at Opus 14.0%, Sonnet 70.0%, and Haiku 16.0%, earning 17.82 of 30 points.\",\n      \"fix\": \"Adjust which models you call for routine tasks to better align with the scoring criteria and improve your model mix points.\",\n      \"focus\": \"model_mix\"\n    },\n    {\n      \"title\": \"Maintain high cache utilization\",\n      \"problem\": \"You achieved 76.8% of prompt tokens served from cache, accounting for 30.74 of 40 points.\",\n      \"fix\": \"Continue your current prompt patterns to ensure cache utilization remains steady and preserves your score in this category.\",\n      \"focus\": \"cache\"\n    }\n  ]\n}",
+   "model": "gemini-3.5-flash-lite",
+   "input_tokens": 292,
+   "output_tokens": 356,
+   "latency_ms": 2032,
+   "cost_usd": 0.000978
+  }
+ ]
+}

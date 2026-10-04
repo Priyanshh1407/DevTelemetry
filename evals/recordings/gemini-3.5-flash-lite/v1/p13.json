@@ -1,0 +1,12 @@
+{
+ "calls": [
+  {
+   "text": "1. Your cache read tokens are at 2366904 against nearly 9.7 million input tokens, meaning prompt caching isn't being fully utilized across your 3 sessions yet. Try keeping your active workspace context steady to let Claude cache more effectively and lower your 16.70 dollar daily spend.\n\n2. You recorded 6 git commits from 3 sessions, which is a solid output, but with 203788 output tokens, look into using more focused, incremental prompts to reduce unnecessary generation overhead.\n\n3. You only triggered compact uses once, so make sure to use the compact command more frequently during longer sessions to keep context lean and improve your model response quality, especially since you rely heavily on Sonnet at 65 percent.",
+   "model": "gemini-3.5-flash-lite",
+   "input_tokens": 321,
+   "output_tokens": 162,
+   "latency_ms": 1935,
+   "cost_usd": 0.000501
+  }
+ ]
+}

@@ -1,0 +1,12 @@
+{
+ "calls": [
+  {
+   "text": "{\n  \"headline\": \"Efficiency score is 50.87 out of 100 with estimated cost today at $5.88 and discipline as the weakest area\",\n  \"actions\": [\n    {\n      \"title\": \"Use compact more often\",\n      \"problem\": \"The /compact command was used in 2.7 percent of sessions over the last 7 days, which is only 1 of 37 sessions, causing discipline to be 29.19 points below its maximum\",\n      \"fix\": \"Run the /compact command frequently to manage context and improve your discipline score from its current low level\",\n      \"focus\": \"discipline\"\n    },\n    {\n      \"title\": \"Maintain cache efficiency\",\n      \"problem\": \"Cache currently serves 83.9 percent of prompt tokens from cache, giving you 33.56 of 40 points\",\n      \"fix\": \"Keep reusing your context to maintain the strong 83.9 percent cache rate and protect your score\",\n      \"focus\": \"cache\"\n    },\n    {\n      \"title\": \"Adjust your model mix\",\n      \"problem\": \"Your current model mix is Opus 14.0 percent, Sonnet 81.0 percent, and Haiku 5.0 percent, earning 16.5 of 30 points\",\n      \"fix\": \"Shift more tasks away from Opus 14.0 percent toward Sonnet 81.0 percent and Haiku 5.0 percent to raise your model mix points\",\n      \"focus\": \"model_mix\"\n    },\n    {\n      \"title\": \"Review session habits\",\n      \"problem\": \"With an efficiency score of 50.87 out of 100 and an estimated cost today of $5.88, your overall usage needs correction\",\n      \"fix\": \"Adopt better session discipline to ensure your 37 sessions yield higher points across all metrics\",\n      \"focus\": \"discipline\"\n    }\n  ]\n}",
+   "model": "gemini-3.5-flash-lite",
+   "input_tokens": 302,
+   "output_tokens": 447,
+   "latency_ms": 2592,
+   "cost_usd": 0.001208
+  }
+ ]
+}

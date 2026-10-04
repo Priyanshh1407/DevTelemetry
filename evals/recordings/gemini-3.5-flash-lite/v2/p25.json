@@ -1,0 +1,12 @@
+{
+ "calls": [
+  {
+   "text": "{\n  \"headline\": \"Your efficiency score is 46.87 out of 100 with a cost of 10.50 dollars today, placing you in the bottom two.\",\n  \"actions\": [\n    {\n      \"title\": \"Improve prompt caching immediately\",\n      \"problem\": \"Only 17.7 percent of prompt tokens were served from cache, earning 7.08 of 40 points in cache, making it your weakest area at 32.92 points below its maximum.\",\n      \"fix\": \"Keep sessions active longer and reuse context windows so cache hits increase beyond 17.7 percent.\",\n      \"focus\": \"cache\"\n    },\n    {\n      \"title\": \"Optimize your model mix percentages\",\n      \"problem\": \"Your current model mix is Opus 19.0 percent, Sonnet 73.0 percent, and Haiku 8.0 percent, which earned 16.11 of 30 points.\",\n      \"fix\": \"Shift more tasks to Haiku from 8.0 percent to reduce the cost impact of Opus at 19.0 percent.\",\n      \"focus\": \"model_mix\"\n    },\n    {\n      \"title\": \"Maintain high usage of the compact command\",\n      \"problem\": \"You used compact in 78.9 percent of sessions over the last 7 days, which is 30 of 38 sessions earning 23.68 of 30 points.\",\n      \"fix\": \"Continue using compact across all sessions to sustain your performance in discipline.\",\n      \"focus\": \"discipline\"\n    },\n    {\n      \"title\": \"Address overall daily spending\",\n      \"problem\": \"Your estimated cost today reached 10.50 dollars while your total efficiency score remains at 46.87 out of 100.\",\n      \"fix\": \"Review your workflow to ensure lower cost models handle routine prompts instead of driving up the 10.50 dollar total.\",\n      \"focus\": \"discipline\"\n    }\n  ]\n}",
+   "model": "gemini-3.5-flash-lite",
+   "input_tokens": 304,
+   "output_tokens": 458,
+   "latency_ms": 2777,
+   "cost_usd": 0.001236
+  }
+ ]
+}

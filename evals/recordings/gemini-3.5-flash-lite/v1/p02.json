@@ -1,0 +1,12 @@
+{
+ "calls": [
+  {
+   "text": "1. Your cache read to input token ratio looks solid, but with 5 compact uses across 7 sessions, you could benefit from running /compact slightly more often to keep context windows lean and reduce overhead.\n2. You used Opus for 77 percent of your workload today while handling 7 sessions and making 1 git commit, meaning you might save on your $13.44 daily cost by routing more exploratory or boilerplate tasks to Sonnet.\n3. With 1 git commit recorded for the day, trying to break down your workflow into smaller, more frequent incremental commits can help your Claude Code sessions stay hyper-focused and yield better terminal agent results.",
+   "model": "gemini-3.5-flash-lite",
+   "input_tokens": 323,
+   "output_tokens": 137,
+   "latency_ms": 1827,
+   "cost_usd": 0.000439
+  }
+ ]
+}

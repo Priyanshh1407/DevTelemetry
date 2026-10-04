@@ -1,0 +1,12 @@
+{
+ "calls": [
+  {
+   "text": "1. Your cache write tokens are at 271468 while cache read tokens are 639948, indicating poor context reuse across your 5 sessions; you must structure your prompts to maintain a stable system state and avoid invalidating the prompt cache prematurely.\n\n2. With an input token volume of 5126801 against only 116813 output tokens, your expansion ratio reveals excessive file dumping into the context window; stop feeding entire repositories or large log files into Claude Code and instead use targeted file paths or grep searches.\n\n3. You executed 3 compact uses across your sessions, which is insufficient for managing context growth given your massive input volume; trigger the compact command much earlier in long-running terminal sessions to prune redundant conversation history.\n\n4. Your model distribution shows 14 percent Opus usage and 79 percent Sonnet usage; evaluate whether tasks routed to Opus genuinely require its capability tier, or if Sonnet can handle them to prevent unnecessary cost inflation beyond your current 7.48 dollars per day.\n\n5. Your high token consumption yielded only 3 git commits for the entire day, indicating low implementation efficiency per token spent; tighten your feedback loops by writing smaller, localized code increments rather than relying on iterative, broad-brush terminal prompts.",
+   "model": "gemini-3.5-flash-lite",
+   "input_tokens": 317,
+   "output_tokens": 271,
+   "latency_ms": 2650,
+   "cost_usd": 0.000773
+  }
+ ]
+}

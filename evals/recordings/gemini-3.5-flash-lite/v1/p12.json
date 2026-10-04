@@ -1,0 +1,12 @@
+{
+ "calls": [
+  {
+   "text": "1. Your cache read tokens are at 6,823,342 compared to 608,166 input tokens, which is a solid caching baseline, but maintaining longer persistent sessions could help push that ratio even higher.\n2. You completed 6 git commits across 6 sessions with 0 compact uses; utilizing the /compact command when context gets long will help you preserve that valuable cache efficiency.\n3. With Sonnet driving 61 percent of your workload and Opus at 13 percent, you are striking a good balance, but routing simpler tasks to your 26 percent Haiku usage can help optimize your 8.03 dollar daily spend further.",
+   "model": "gemini-3.5-flash-lite",
+   "input_tokens": 320,
+   "output_tokens": 144,
+   "latency_ms": 1708,
+   "cost_usd": 0.000456
+  }
+ ]
+}

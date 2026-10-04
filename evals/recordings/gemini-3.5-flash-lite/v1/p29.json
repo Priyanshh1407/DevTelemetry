@@ -1,0 +1,12 @@
+{
+ "calls": [
+  {
+   "text": "1. With 3 sessions and only 1 git commit recorded, try grouping your exploratory prompts into tighter loops before committing to save on your 69,764 output tokens.\n\n2. You used Claude Opus for 69 percent of your workload today, which drove your daily cost to 11 dollars and 91 cents; consider shifting routine tasks to Sonnet to optimize expenses.\n\n3. You executed 3 compact uses across your sessions, which is a great start for managing context, but increasing this slightly during long terminal runs can help you stay even more efficient.",
+   "model": "gemini-3.5-flash-lite",
+   "input_tokens": 320,
+   "output_tokens": 120,
+   "latency_ms": 1479,
+   "cost_usd": 0.000396
+  }
+ ]
+}

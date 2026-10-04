@@ -1,0 +1,12 @@
+{
+ "calls": [
+  {
+   "text": "1. Your cache read tokens stand at 1,711,944 against 8,723,012 input tokens, which indicates a low prompt caching efficiency. You must structure your workflow to reuse context windows across your 2 daily sessions, keeping long-lived files and system prompts stable to maximize cache utilization and reduce redundant token billing.\n\n2. You recorded 0 git commits despite consuming 92,018 output tokens and spending $15.60 in estimated costs. This points to speculative loops or abandoned exploration; you need to break tasks into smaller, verifiable increments and commit working states frequently rather than generating massive uncommitted blocks of code.\n\n3. Your model distribution shows Opus at 8 percent, Sonnet at 60 percent, and Haiku at 32 percent. Since you are performing terminal agent tasks without producing functional commits, you should shift more of your initial reconnaissance and file searching workloads to Haiku to preserve your budget before scaling up to Sonnet and Opus.\n\n4. You only triggered compact_uses 1 time across your 2 sessions despite massive input volumes. You must proactively run the compact command or restart your terminal agent sessions regularly to prune dead conversation history and prevent exponential token inflation on subsequent turns.\n\n5. Your total input volume of over 8.7 million tokens suggests you are feeding entire directories or oversized files into the context. You should use precise file scoping, ignore irrelevant directories in your configuration, and pass targeted snippets to Claude Code instead of raw, unconstrained file dumps.",
+   "model": "gemini-3.5-flash-lite",
+   "input_tokens": 316,
+   "output_tokens": 319,
+   "latency_ms": 2684,
+   "cost_usd": 0.000892
+  }
+ ]
+}

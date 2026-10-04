@@ -1,0 +1,12 @@
+{
+ "calls": [
+  {
+   "text": "1. Your cache read tokens stand at 6734916 alongside 318760 cache writes, which is a solid foundation, but incorporating the compact command across your 7 daily sessions can help keep context windows even leaner.\n2. You logged 0 git commits for this date despite racking up 1890105 input tokens and an estimated cost of 8.9 dollars, so try breaking your workflow into smaller, committable chunks to track your progress more effectively.\n3. With 7 sessions and a heavy reliance on Sonnet at 73 percent, experimenting more with Haiku for lighter tasks could help optimize your overall token usage and project velocity.",
+   "model": "gemini-3.5-flash-lite",
+   "input_tokens": 319,
+   "output_tokens": 146,
+   "latency_ms": 1418,
+   "cost_usd": 0.000461
+  }
+ ]
+}

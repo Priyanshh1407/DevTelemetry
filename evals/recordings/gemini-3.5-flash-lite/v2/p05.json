@@ -1,0 +1,12 @@
+{
+ "calls": [
+  {
+   "text": "{\n  \"headline\": \"Your efficiency score is 67.95 out of 100 with an estimated cost today of $19.73.\",\n  \"actions\": [\n    {\n      \"title\": \"Optimize your model mix\",\n      \"problem\": \"Your weakest area is model_mix with Opus at 65.0 percent, Sonnet at 27.0 percent, and Haiku at 8.0 percent, leaving you 20.79 points below its maximum.\",\n      \"fix\": \"Shift more tasks to Sonnet and Haiku instead of relying so heavily on Opus.\",\n      \"focus\": \"model_mix\"\n    },\n    {\n      \"title\": \"Maintain strong cache habits\",\n      \"problem\": \"You achieved a cache score where 85.2 percent of prompt tokens were served from cache, earning 34.1 of 40 points.\",\n      \"fix\": \"Continue your current prompt patterns to keep cache utilization high.\",\n      \"focus\": \"cache\"\n    },\n    {\n      \"title\": \"Keep using the compact command\",\n      \"problem\": \"You used compact in 82.1 percent of sessions over the last 7 days, which is 23 of 28 sessions and 24.64 of 30 points.\",\n      \"fix\": \"Keep using compact regularly to maintain your discipline score.\",\n      \"focus\": \"discipline\"\n    }\n  ]\n}",
+   "model": "gemini-3.5-flash-lite",
+   "input_tokens": 296,
+   "output_tokens": 323,
+   "latency_ms": 2301,
+   "cost_usd": 0.000896
+  }
+ ]
+}
