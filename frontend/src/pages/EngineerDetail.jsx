@@ -116,7 +116,7 @@ export default function EngineerDetail() {
     if (loading) {
         return (
             <div className="min-h-screen bg-background text-on-surface font-body flex flex-col">
-                <Navbar />
+                <Navbar title="Engineer detail" />
                 <div className="flex-1 flex flex-col items-center justify-center gap-4">
                     <RefreshCw size={36} className="text-primary animate-spin" />
                     <p className="font-mono text-sm text-on-surface-variant animate-pulse tracking-widest uppercase">
@@ -130,7 +130,7 @@ export default function EngineerDetail() {
     if (error || !data) {
         return (
             <div className="min-h-screen bg-background text-on-surface font-body flex flex-col">
-                <Navbar />
+                <Navbar title="Engineer detail" />
                 <div className="flex-1 flex flex-col items-center justify-center gap-4 max-w-md mx-auto text-center px-4">
                     <AlertTriangle size={48} className="text-error" />
                     <h2 className="text-2xl font-bold text-on-surface">Error Loading Data</h2>
@@ -161,13 +161,12 @@ export default function EngineerDetail() {
     // Dynamic severity classes
     const sevClass = severityStyles[current_severity] || severityStyles.moderate;
 
-    // Profile avatar based on name character hash
-    const avatarIndex = (name.charCodeAt(0) + name.length) % 10;
-    const avatarUrl = `http://googleusercontent.com/profile/picture/${avatarIndex}`;
+    // Initials (there are no profile photos; this used to point at a made-up image URL)
+    const initials = name.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0].toUpperCase()).join("");
 
     return (
         <div className="min-h-screen bg-background text-on-surface font-body pb-12">
-            <Navbar />
+            <Navbar title="Engineer detail" />
 
             <div className="max-w-[1440px] mx-auto px-6 md:px-10 py-8 flex flex-col gap-8">
 
@@ -200,11 +199,12 @@ export default function EngineerDetail() {
                             }}
                         />
                         <div className="flex items-start gap-4 relative z-10">
-                            <img
-                                src={avatarUrl}
-                                alt={name}
-                                className="w-16 h-16 rounded-full border border-outline-variant object-cover shrink-0"
-                            />
+                            <div
+                                aria-hidden="true"
+                                className="w-16 h-16 rounded-full border border-outline-variant bg-surface-container-high flex items-center justify-center text-xl font-bold text-primary shrink-0"
+                            >
+                                {initials}
+                            </div>
                             <div className="flex flex-col gap-1.5">
                                 <h1 className="text-2xl font-bold tracking-tight text-on-surface">{name}</h1>
                                 <div className="flex items-center gap-1.5 text-on-surface-variant text-sm font-mono">
@@ -212,11 +212,11 @@ export default function EngineerDetail() {
                                 </div>
                                 <div className="flex flex-wrap gap-2 mt-1">
                                     <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-surface-container border border-outline-variant font-mono text-xs text-on-surface">
-                                        <Award size={12} className="text-secondary" />
+                                        <Award size={12} className="text-secondary" />
                                         {current_rank ? `Rank #${current_rank}` : "Not ranked today"}
                                     </span>
                                     <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full border font-mono text-xs font-bold uppercase tracking-wider ${sevClass.bg}`}>
-                                        <span className={`w-1.5 h-1.5 rounded-full ${sevClass.dot}`} />
+                                        <span className={`w-1.5 h-1.5 rounded-full ${sevClass.dot}`} />
                                         {current_severity ? `${current_severity} severity` : "No data today"}
                                     </span>
                                 </div>
