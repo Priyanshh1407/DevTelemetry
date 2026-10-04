@@ -8,7 +8,7 @@ from ai.fallback import rule_based_guide
 from ai.features import coaching_facts
 from ai.prompts import (PROMPT_VERSION, build_guide_prompt, build_guide_prompt_v2, build_repair_prompt,
                         build_team_report_prompt)
-from ai.providers import AIRateLimitedError, AIUnavailableError, get_provider
+from ai.providers import AINotConfiguredError, AIRateLimitedError, AIUnavailableError, get_provider
 from ai.schemas import GUIDE_JSON_SCHEMA, CoachingGuide
 
 load_dotenv()
@@ -93,6 +93,9 @@ def generate_efficiency_guide(day, severity="moderate", recent=()):
     except AIRateLimitedError:
         logger.warning("LLM rate limit hit; using the rule-based guide")
         return fallback("rate_limited")
+    except AINotConfiguredError:
+        logger.warning("AI is not configured (no GEMINI_API_KEY); using the rule-based guide")
+        return fallback("unavailable")
     except Exception as e:
         logger.error("Guide generation failed (%s): %s; using the rule-based guide", type(e).__name__, e)
         return fallback("unavailable")
@@ -160,7 +163,13 @@ def generate_team_report(team_summary):
         return TeamReport(text=response.text.replace('**', ''), outcome="ai", calls=[response])
     except AIRateLimitedError:
         logger.warning("LLM rate limit hit for the team report")
-        return TeamReport(text="Error generating team report: System Offline.", outcome="rate_limited")
+        return TeamReport(text="The AI team memo is unavailable right now (AI provider rate limit). "
+                               "The leaderboard has today's numbers.", outcome="rate_limited")
+    except AINotConfiguredError:
+        logger.warning("AI is not configured (no GEMINI_API_KEY); skipping the team memo")
+        return TeamReport(text="No AI team memo: GEMINI_API_KEY is not configured. "
+                               "The leaderboard has today's numbers.", outcome="unavailable")
     except Exception as e:
         logger.error("Gemini team report failed (%s): %s", type(e).__name__, e)
-        return TeamReport(text="Error generating team report: System Offline.", outcome="unavailable")
+        return TeamReport(text="The AI team memo is unavailable right now (the AI provider could not be reached). "
+                               "The leaderboard has today's numbers.", outcome="unavailable")
