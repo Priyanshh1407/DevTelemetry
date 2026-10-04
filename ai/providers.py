@@ -53,6 +53,10 @@ class AIUnavailableError(RuntimeError):
     """The AI provider can't be used (no API key, network failure, server error...)."""
 
 
+class AINotConfiguredError(AIUnavailableError):
+    """No API key: AI features are off by configuration (a supported setup, not an outage)."""
+
+
 class AIRateLimitedError(AIUnavailableError):
     """The provider rejected the request for quota/rate reasons (after the SDK's retries)."""
 
@@ -92,7 +96,7 @@ def get_client():
     if _client is None:
         api_key = os.getenv("GEMINI_API_KEY")
         if not api_key:
-            raise AIUnavailableError("GEMINI_API_KEY is not set")
+            raise AINotConfiguredError("GEMINI_API_KEY is not set")
         _client = genai.Client(
             api_key=api_key,
             http_options=types.HttpOptions(

@@ -32,7 +32,27 @@ def test_generate_team_report_fallback_on_error(mock_gemini):
     mock_gemini.models.generate_content.side_effect = Exception("API rate limit exceeded")
 
     report = generate_team_report(TEAM_DATA)
-    assert "System Offline" in report.text and report.outcome == "unavailable" and report.calls == []
+    assert "could not be reached" in report.text and report.outcome == "unavailable" and report.calls == []
+
+
+def test_without_an_api_key_ai_is_reported_as_not_configured_not_as_an_outage(monkeypatch, caplog):
+    import logging
+
+    import ai.providers as providers
+    from ai.guide_generator import generate_efficiency_guide
+
+    monkeypatch.setattr(providers, "_client", None)   # no key in the environment (conftest removes it)
+    caplog.set_level(logging.INFO)
+
+    report = generate_team_report(TEAM_DATA)
+    guide = generate_efficiency_guide({"input_tokens": 100, "output_tokens": 10, "cache_read_tokens": 50,
+                                       "cache_write_tokens": 0, "opus_pct": 0.2, "sonnet_pct": 0.6,
+                                       "haiku_pct": 0.2, "session_count": 2, "compact_uses": 1,
+                                       "estimated_cost_usd": 1.0, "efficiency_score": 50.0})
+
+    assert "GEMINI_API_KEY" in report.text and "offline" not in report.text.lower()
+    assert report.outcome == "unavailable" and guide.source == "unavailable"
+    assert not [r for r in caplog.records if r.levelno >= logging.ERROR]   # a supported setup, not an error
 
 
 def test_generate_efficiency_guide_parses_numbered_list(mock_gemini):
