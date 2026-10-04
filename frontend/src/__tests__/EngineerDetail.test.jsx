@@ -72,3 +72,33 @@ describe('EngineerDetail for someone not on today\'s leaderboard (BUG-08)', { ti
         expect(screen.getByText(/no data today/i)).toBeInTheDocument();
     });
 });
+
+describe('EngineerDetail score breakdown (UPG-03)', { timeout: 30000 }, () => {
+    it('shows points per area and marks the weakest one', async () => {
+        const breakdown = { cache: 12.0, model_mix: 11.7, discipline: 13.93, total: 37.63 };
+        vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+            ok: true, status: 200,
+            json: () => Promise.resolve({ ...DETAILS, latest: { ...DETAILS.latest, score_breakdown: breakdown } }),
+        }));
+
+        await renderDetail();
+
+        const panel = await screen.findByRole('region', { name: /score breakdown/i });
+        expect(panel).toHaveTextContent('12.0 / 40');
+        expect(panel).toHaveTextContent('11.7 / 30');
+        expect(panel).toHaveTextContent('13.9 / 30');
+        // cache lost 28 points, the most: it is the area to work on
+        expect(screen.getByText(/biggest opportunity: prompt caching/i)).toBeInTheDocument();
+    });
+
+    it('renders without a breakdown (older API responses)', async () => {
+        vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+            ok: true, status: 200, json: () => Promise.resolve(DETAILS),
+        }));
+
+        await renderDetail();
+
+        expect(await screen.findByText('Ada Lovelace')).toBeInTheDocument();
+        expect(screen.queryByRole('region', { name: /score breakdown/i })).not.toBeInTheDocument();
+    });
+});

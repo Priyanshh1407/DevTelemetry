@@ -28,11 +28,31 @@ Cost (`core/pricing.py`) bills each kind once at its own list price (dated price
 ## Why these choices
 
 - **Habits, not spend.** Cost depends mostly on how much someone works. The score asks whether that work is done efficiently, so it doesn't punish productive engineers.
-- **Weights (40/30/30, model weights 1.0/0.6/0.1) are judgment calls**, not learned from data. There is no ground-truth label of an "efficient engineer" to learn them from. Phase 6 (UPG-03) measures how much the leaderboard depends on them (rank stability under ±20% weight changes).
+- **Weights (40/30/30, model weights 1.0/0.6/0.1) are judgment calls**, not learned from data. There is no ground-truth label of an "efficient engineer" to learn them from. So how much the leaderboard depends on them is measured (see below).
 - **The discipline term is pooled over 7 days.** A single day has only 2–7 sessions, so the daily ratio was mostly luck: the same habit gives 0/2, 1/2 or 2/2. That one term carried almost all day-to-day rank noise (within-engineer daily SD 7.1 points vs 1.6 for cache and 0.7 for model mix). Because the bottom 2 get "critical" alerts, that noise meant unfair alerts. Pooling 7 days measures the habit:
   - daily SD 7.07 → 2.44 points;
   - the bottom 2 match the habitually worst engineers 82% of the time (median over 30 simulated teams), up from 65%.
   - **Cost:** a real change in habit takes about a week to show fully.
+
+## How much do the weights matter?
+
+`python -m analysis.weight_sensitivity` simulates 30 teams of 10 engineers (persona model, in memory). It ranks each team's latest day with the real weights, then again with one area weight moved by ±20%:
+
+| Weights | Mean Kendall τ | Worst team | Bottom 2 unchanged |
+|---|---|---|---|
+| baseline (40/30/30) | 1.000 | 1.000 | 100% |
+| cache −20% (32) | 0.933 | 0.733 | 90% |
+| cache +20% (48) | 0.941 | 0.778 | 83% |
+| model mix −20% (24) | 0.976 | 0.867 | 93% |
+| model mix +20% (36) | 0.969 | 0.867 | 93% |
+| discipline −20% (24) | 0.929 | 0.733 | 90% |
+| discipline +20% (36) | 0.942 | 0.778 | 93% |
+
+Kendall τ is rank agreement: 1.0 is the same order, 0 is unrelated.
+
+- **The ordering is robust:** τ stays at 0.93–0.98.
+- **The "critical" boundary is less certain:** in about 1 team in 10 (up to 17% when the cache weight rises), a 20% change in one weight swaps who is in the bottom 2.
+- **So "critical" is a prompt for a conversation, not a verdict,** especially for engineers close to the boundary.
 
 ## Severity tiers
 
