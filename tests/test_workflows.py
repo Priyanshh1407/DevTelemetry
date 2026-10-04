@@ -56,3 +56,13 @@ def test_workflows_request_least_privilege(name):
     permissions = load(name).get("permissions")
     assert permissions is not None, f"{name} must declare permissions explicitly"
     assert "write" not in str(permissions), f"{name} must not request write access"
+
+
+def test_frontend_container_serves_app_routes_not_404():
+    """Alert emails link to /runbook/<severity>/<id>: in the Docker image nginx must hand app
+    routes to index.html (the default config answered 404 for any deep link)."""
+    frontend = pathlib.Path(PROJECT_ROOT) / "frontend"
+    dockerfile = (frontend / "Dockerfile").read_text(encoding="utf-8")
+    assert "COPY nginx.conf /etc/nginx/conf.d/default.conf" in dockerfile
+    conf = (frontend / "nginx.conf").read_text(encoding="utf-8")
+    assert "try_files $uri $uri/ /index.html;" in conf
