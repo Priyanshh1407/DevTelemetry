@@ -85,6 +85,7 @@ def mock_gemini(monkeypatch):
     response.usage_metadata.candidates_token_count = 300
     response.usage_metadata.thoughts_token_count = 200
     monkeypatch.setattr(providers, "_client", client)
+    monkeypatch.setattr(providers, "_cooldown_until", {})   # no fallback cooldown leaks between tests
     return client
 
 

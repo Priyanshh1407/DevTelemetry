@@ -20,6 +20,10 @@ DEFAULT_GEMINI_MODEL = "gemini-3.8-flash"  # latest stable Flash (Gemini models 
 # Used when the main model is rate-limited or overloaded: the latest stable Flash-Lite. Quotas
 # are per model, so it has its own allowance. GEMINI_FALLBACK_MODEL="" switches it off.
 DEFAULT_GEMINI_FALLBACK_MODEL = "gemini-3.5-flash-lite"
+# After the main model fails on quota/overload, requests go straight to the fallback for this
+# long. Per process, keyed by model.
+MAIN_MODEL_COOLDOWN_S = 300
+_cooldown_until = {}
 
 # Paid-tier list prices, USD per 1M tokens, from https://ai.google.dev/gemini-api/docs/pricing
 # (last updated 2026-10-01; Flash-Lite prices from the same page). Thinking tokens are billed as output. Each model has a schedule of
@@ -106,22 +110,31 @@ class GeminiProvider:
 
     def generate(self, prompt, json_schema=None):
         """Asks the main model; if it is rate-limited or overloaded, asks the fallback model once.
-        The response names the model that actually answered (for cost and storage)."""
-        try:
-            return self._generate(self.model, prompt, json_schema)
-        except (AIRateLimitedError, AIOverloadedError) as e:
-            if not self.fallback_model:
-                raise
-            logger.warning("%s unavailable (%s); retrying on %s", self.model, type(e).__name__,
-                           self.fallback_model)
-            return self._generate(self.fallback_model, prompt, json_schema)
+        The response names the model that actually answered (for cost and storage); its latency is
+        what the caller waited, including a failed attempt on the main model."""
+        start = time.perf_counter()
+        if self.fallback_model and time.monotonic() < _cooldown_until.get(self.model, 0):
+            response = self._generate(self.fallback_model, prompt, json_schema)  # main model still cooling down
+        else:
+            try:
+                response = self._generate(self.model, prompt, json_schema)
+            except (AIRateLimitedError, AIOverloadedError) as e:
+                if not self.fallback_model:
+                    raise
+                # A used-up quota doesn't come back in seconds: skip the main model for a while
+                # instead of paying its timeout and retries on every request.
+                _cooldown_until[self.model] = time.monotonic() + MAIN_MODEL_COOLDOWN_S
+                logger.warning("%s unavailable (%s); using %s for the next %d s", self.model,
+                               type(e).__name__, self.fallback_model, MAIN_MODEL_COOLDOWN_S)
+                response = self._generate(self.fallback_model, prompt, json_schema)
+        response.latency_ms = int((time.perf_counter() - start) * 1000)
+        return response
 
     def _generate(self, model, prompt, json_schema):
         config = None
         if json_schema is not None:
             config = types.GenerateContentConfig(response_mime_type="application/json",
                                                  response_json_schema=json_schema)
-        start = time.perf_counter()
         try:
             response = get_client().models.generate_content(model=model, contents=prompt, config=config)
         except errors.APIError as e:
@@ -134,7 +147,6 @@ class GeminiProvider:
             raise
         except Exception as e:  # network errors, timeouts
             raise AIUnavailableError(f"{type(e).__name__}: {e}") from e
-        latency_ms = int((time.perf_counter() - start) * 1000)
 
         usage = getattr(response, "usage_metadata", None)
         input_tokens = _as_int(getattr(usage, "prompt_token_count", 0))
@@ -146,7 +158,7 @@ class GeminiProvider:
             prices = (0.0, 0.0)
         cost = (input_tokens * prices[0] + output_tokens * prices[1]) / 1_000_000
         return LLMResponse(text=response.text or "", model=model, input_tokens=input_tokens,
-                           output_tokens=output_tokens, latency_ms=latency_ms, cost_usd=round(cost, 6))
+                           output_tokens=output_tokens, latency_ms=0, cost_usd=round(cost, 6))  # set by generate()
 
 
 def _as_int(value):
