@@ -253,7 +253,7 @@ python -m evals.run --pipeline v2     # re-score the recorded eval (no API calls
 cd frontend && npm test && npm run lint
 ```
 
-- **Coverage:** 306 backend tests at 97% coverage, plus 26 frontend tests.
+- **Coverage:** 309 backend tests at 97% coverage, plus 33 frontend tests.
 - **Offline by design:** the test suite blocks network access and never touches `data/usage.db`.
 
 ---
