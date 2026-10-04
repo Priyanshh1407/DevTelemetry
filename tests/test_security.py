@@ -135,3 +135,14 @@ def test_cors_rejects_unknown_origin(client):
     response = _preflight(client, "https://evil.example")
 
     assert response.headers.get("access-control-allow-origin") is None
+
+
+def test_env_example_ships_no_secret_values():
+    """A copied .env.example must fail safe: an example admin token would be a public password."""
+    import pathlib
+
+    from dotenv import dotenv_values
+
+    example = dotenv_values(pathlib.Path(__file__).parent.parent / ".env.example")
+    secrets = ("GEMINI_API_KEY", "ADMIN_TOKEN", "EMAIL_PASSWORD", "SLACK_WEBHOOK_URL")
+    assert {k: example[k] for k in secrets} == dict.fromkeys(secrets, "")
