@@ -17,7 +17,7 @@ Baseline → after:
 | Tests touching real `data/usage.db` | yes (`test_api.py` read it through a CWD-relative path) | no; enforced by a session guard (mtime unchanged: 2026-07-01 11:58:33) |
 | Outbound network possible in tests | yes | blocked by a socket guard (proven by `test_outbound_network_is_blocked`) |
 
-### P0-2 — venv drift: tests couldn't even be collected (commit d71b9ac)
+### P0-2 — venv drift: tests couldn't even be collected (commit a6e7fd4)
 Situation: The project venv was used to run the test suite.
 Symptom: `ImportError: cannot import name 'genai' from 'google'` while collecting `test_api.py` and `test_generator.py`. Only the 4 scorer tests ran.
 Investigation: `pip list` in the venv showed `google-generativeai 0.8.6` (the deprecated SDK) and no `google-genai`. The code imports `from google import genai` (the new SDK). `requirements.txt` had no versions, so nothing recorded which SDK the code was written against.
@@ -27,7 +27,7 @@ Verification: `venv/Scripts/python -m pytest` collects all files.
 Trade-off / what I'd do at larger scale: Pinning only direct deps still lets transitive versions float. A full lockfile (`pip-tools` compile or `uv lock`) would make builds bit-for-bit reproducible.
 Interview version: "My tests passed on my global Python but couldn't even be collected in the project venv. The venv still had Google's deprecated SDK while the code imported the new one, and requirements.txt had no versions, so nothing caught it. I pinned the direct dependencies, checked they all support the Python version in my Dockerfile, and split test tooling into a dev requirements file so production images stay lean."
 
-### P0-3 — three different ideas of where the database lives (commit 8477616)
+### P0-3 — three different ideas of where the database lives (commit 619b65f)
 Situation: Making the API testable against a temporary database.
 Symptom: There was no single place to redirect the DB. `core/db.py` used the CWD-relative `data/usage.db`, the runbook route opened its own `sqlite3.connect('data/usage.db')`, and `alert_worker.py` built a third, file-relative path.
 Root cause: Connection logic was duplicated instead of going through the existing helper.
@@ -36,7 +36,7 @@ Verification: `test_db_path_points_at_tmp_db`. The full API suite runs against `
 Trade-off: Reading the env var on every connection is negligible for SQLite. A config object injected via FastAPI dependencies would be cleaner and comes with ERR-02.
 Interview version: "Before I could test anything I had to find where the database came from, and there were three answers: two working-directory-relative paths and one file-relative path. I routed everything through one helper that reads a DB_PATH override, which made the app independent of where you launch it and let every test get its own throwaway database."
 
-### P0-4 — test harness: isolated DB, mocked LLM, no network (commit a0dd073)
+### P0-4 — test harness: isolated DB, mocked LLM, no network (commit dc16253)
 What changed: `tests/conftest.py` adds:
 - A per-test temporary DB with deterministic data (10 engineers, scores strictly increasing with index, so rank and severity are predictable).
 - An autouse mock of the Gemini client.
@@ -48,7 +48,7 @@ What changed: `tests/conftest.py` adds:
 Why a socket guard: "0 network calls" is now enforced by the test run itself. If a future test accidentally reaches Gemini, SMTP, or Slack, it fails loudly instead of silently sending.
 Workaround to remove later: The conftest forces `GEMINI_API_KEY=test-dummy-key` before import because `guide_generator.py` constructs the client at import time and raises without a key (ERR-01). Delete that line once Phase 1 makes the client lazy.
 
-### P0-5 — 3 of 10 tests were failing (commit aebe0ef)
+### P0-5 — 3 of 10 tests were failing (commit b301c9e)
 Symptom: `AttributeError: module 'ai.guide_generator' has no attribute 'model'` in all three generator tests.
 Investigation: The tests used `@patch("ai.guide_generator.model")`, the old SDK's `GenerativeModel` object. After the SDK migration the module exposes `client` and calls `client.models.generate_content`, so the patch target no longer existed.
 Root cause: The tests weren't updated when the SDK changed, and with no CI nobody noticed.
@@ -56,7 +56,7 @@ Fix: The tests use the shared `mock_gemini` fixture and configure `client.models
 Verification: red (3 failed) → green (7 passed) in `tests/test_generator.py`.
 Interview version: "Three of my AI tests were failing, and the reason was that they mocked an object that stopped existing when I migrated SDKs. Mocks are coupled to the shape of the code they replace. That's why I now mock at one shared fixture, and why CI matters: it would have flagged this the day it broke."
 
-### P0-6 — characterization tests (commit 14f997e)
+### P0-6 — characterization tests (commit 7841196)
 What changed: 22 API tests pin current responses for `/leaderboard`, `/trends`, `/engineer/{id}/details` (rank and severity at every tier boundary: ranks 1, 5, 6, 8, 9, 10), `/settings`, `/guide`, and `/runbook-tasks` (including the in-memory cache: 2 requests → 1 LLM call).
 Known bugs recorded as strict xfails, verified to fail for the documented reason:
 - BUG-05: with 40 days of data, `/trends` ends at `2026-01-30` instead of the latest `2026-02-09`.
@@ -85,7 +85,7 @@ Baseline (end of Phase 0) → after:
 
 Order changed from the plan: ERR-01 → CONC-01 → BUG-02 → TEST-02 → BUG-01 → BUG-03 → SEC-01 → ML-01. BUG-01 (shared `api.js`) came before BUG-03 and SEC-01 so their UI changes could build on it.
 
-### ERR-01 — a missing API key took the whole API down (commit 0821da7)
+### ERR-01 — a missing API key took the whole API down (commit e14a0ea)
 Situation: Starting the backend without `GEMINI_API_KEY` (fresh clone, CI, a misconfigured deploy).
 Symptom: `ValueError: No API key was provided` at import. The leaderboard, trends, and settings (none of which use AI) were unreachable.
 Investigation: A subprocess test imports the app with the key blanked and calls `/api/leaderboard`. The traceback pointed at `genai.Client(...)` at module level in `ai/guide_generator.py`, imported by `api/routes.py`.
@@ -94,7 +94,7 @@ Fix: `get_client()` builds the client on first use and raises `AIUnavailableErro
 Verification: `test_api_boots_without_gemini_key` red → green; `test_missing_key_degrades_to_fallback_instead_of_raising`.
 Interview version: "My API wouldn't even start without the Gemini key, even though only one feature uses it, because the client was created when the module was imported. I made it lazy, so a missing key now degrades one feature instead of taking down the dashboard. The general lesson is not to let optional dependencies fail your startup."
 
-### CONC-01 — one slow LLM call froze every request (commit 9bb3890)
+### CONC-01 — one slow LLM call froze every request (commit 414f41f)
 Situation: The runbook endpoint calls Gemini, which can take seconds.
 Symptom: While one runbook was generating, unrelated requests like the leaderboard hung.
 Investigation: TestClient can't show this (each request gets its own event loop), so the test starts a real uvicorn server on loopback, stubs generation with a 1.5 s `time.sleep`, and times the leaderboard during it. Red: **1.32 s**, exactly the remaining sleep.
@@ -104,7 +104,7 @@ Verification: `test_slow_runbook_generation_does_not_block_leaderboard` 1.32 s �
 Trade-off / larger scale: The threadpool caps concurrent blocking calls. At high concurrency, go fully async (async SDK client and DB driver) or move generation to a background job.
 Interview version: "I measured that one slow LLM call made my leaderboard take 1.3 seconds instead of 16 milliseconds. The route was declared async but did blocking I/O, and in FastAPI that runs on the event loop and blocks everyone. Making it a sync def moves it to the threadpool. I wrote a regression test against a real server, because the test client hides this bug."
 
-### BUG-02 — an outage got cached as if it were an answer (commit dd01c97)
+### BUG-02 — an outage got cached as if it were an answer (commit 47064b7)
 Situation: The runbook page caches AI tasks in memory to avoid repeat LLM calls.
 Symptom: After one failed generation (429, timeout, no key), that engineer's runbook showed "AI Service Offline" until the server restarted, even after Gemini recovered. New daily data never refreshed a cached guide either.
 Investigation: Red tests. Fail once then succeed → the second response was still the outage text, with 1 generate call instead of 2. Insert a newer day of data → still 1 call.
@@ -114,7 +114,7 @@ Verification: `test_runbook_failed_generation_is_not_cached`, `test_runbook_cach
 Trade-off: The cache is still in-process (lost on restart, not shared between workers). UPG-01 persists guides in the `ai_guides` table.
 Interview version: "My fallback looked exactly like a real answer, so my cache stored the outage. One rate-limit blip meant a user saw 'service offline' until I restarted the server. I made the generator return a typed result with its source, cached only real answers, and put the data date in the cache key so new data invalidates old advice."
 
-### TEST-02 — tests could reach real SMTP and Slack (commit 98d0038)
+### TEST-02 — tests could reach real SMTP and Slack (commit eb36ab7)
 Situation: Writing tests for the notification senders.
 Symptom: With all email and Slack env vars removed, `send_developer_alert` still called SMTP and `send_slack_summary` still called `urlopen`. Red in 4/4 tests. This confirmed (beyond LIKELY) that the real `.env` contains SMTP credentials and a Slack webhook that were captured at import.
 Root cause: `load_dotenv()` plus module-level constants (`SENDER_EMAIL = os.getenv(...)`) froze configuration at import, so `monkeypatch.delenv` had no effect. Only the Phase 0 socket guard stood between a test and a real email.
@@ -122,7 +122,7 @@ Fix: Config is read inside the functions, and an autouse fixture deletes EMAIL_*
 Also fixed (new finding): the Slack "Open Dashboard" button was hardcoded to `http://localhost:5173`. It now uses `FRONTEND_URL` like the emails (`test_slack_dashboard_button_uses_frontend_url`).
 Interview version: "My tests could have emailed real people. The SMTP credentials were read into constants when the module loaded, so tests couldn't remove them. I only found out because I'd already blocked outbound sockets in tests. Reading config at call time made it controllable, and the socket guard stays as defense in depth."
 
-### BUG-01 — the AI runbook was empty on the live site (commit 17d6a2f)
+### BUG-01 — the AI runbook was empty on the live site (commit c920f32)
 Situation: Opening a runbook on the deployed dashboard.
 Symptom: Empty task list. The page fetched `http://127.0.0.1:8000/...`, which is the visitor's own machine.
 Investigation: A Vitest test stubs `VITE_API_URL=https://api.example.test` and asserts the requested URL. Red: `Received: "http://127.0.0.1:8000/api/runbook-tasks/moderate/eng-01"`. The default *is* 127.0.0.1, so without stubbing the env the test couldn't tell the two apart.
@@ -131,7 +131,7 @@ Fix: `src/api.js` holds `API_BASE`, `getJSON`, and `postJSON`. It throws `ApiErr
 Verification: `Runbook.test.jsx` (2), `api.test.js` (5); `grep 127.0.0.1 frontend/src` → only the dev default in `api.js`.
 Interview version: "My flagship page worked on my laptop and was empty in production, because one component hardcoded localhost. I centralized every API call in one client that reads the base URL from config and turns HTTP errors into exceptions, and I wrote a test that fails if any page bypasses it."
 
-### BUG-03 — "All alerts successfully dispatched!" when nothing was sent (commit a9c94f5)
+### BUG-03 — "All alerts successfully dispatched!" when nothing was sent (commit b9428c5)
 Symptom: With every SMTP send failing, the endpoint returned 200 and the success message. The Dashboard also showed "Alerts sent successfully!" for a 500, because the body had no `message` and that was the fallback string.
 Investigation: Red tests with SMTP mocked. All sends failing → 200; nothing configured → "success"; no data → 200; an internal error → its message (including a file path) echoed to the client.
 Root cause: Failures were swallowed at three layers. Senders printed and returned None, the worker ignored return values, and the endpoint hardcoded success.
@@ -139,7 +139,7 @@ Fix: Senders return `sent`/`failed`/`skipped`. The worker returns a summary (cou
 Verification: `tests/test_alerts.py` (6), sender return-value tests.
 Interview version: "The system reported success no matter what happened. I made each layer return what actually happened and mapped that to honest status codes, including a 502 with per-recipient results for partial failure, so an operator can see exactly who didn't get their email."
 
-### SEC-01 — anyone could trigger the email blast (commit e8e6f4c)
+### SEC-01 — anyone could trigger the email blast (commit 9749b7d)
 Situation: The public deployment exposed `POST /api/trigger-alerts` (11 emails, a Slack post, and a Gemini call per hit) and `POST /api/settings` with no auth and CORS `*`.
 Investigation: Red tests: no token → 200; and **5 concurrent triggers → 5 dispatches**.
 Fix:
@@ -154,7 +154,7 @@ Verification: `tests/test_security.py` (12), `api.test.js` adminPost tests (3).
 Trade-off: `sessionStorage` is readable by any script on the page (XSS). An httpOnly cookie avoids that but brings CSRF handling. Acceptable for a single-admin demo; name the trade-off if asked.
 Interview version: "My live demo had an unauthenticated endpoint that sends emails, and a test showed five simultaneous clicks sent five batches. I added an admin token that fails closed, a single-flight lock with a cooldown, and locked CORS to my frontend. I kept the token out of the JavaScript bundle on purpose, because anything shipped to the browser is public."
 
-### ML-01 — cost was a random number (commit 9395fbb)
+### ML-01 — cost was a random number (commit bf41563)
 Symptom: `estimated_cost_usd = random.uniform(5, 30)` in the seed. Every dollar figure in the product was noise: Spearman(cost, tokens) **+0.059** on a 300-row seeded DB (measured with a scratch script that seeds a temp DB with `random.seed(42)`).
 Fix: `core/pricing.py` holds a dated price table (`PRICE_TABLE_VERSION = "2026-09-25"`, Anthropic list prices: Opus 5.5 $4/$20, Sonnet 5.5 $2/$10, Haiku 4.5 $1/$5 per MTok; 5-minute cache writes at 1.25× input; cache reads $0.20 / $0.20 / $0.10). `estimate_cost()` bills uncached input, output, cache reads, and cache writes per model, weighted by the normalized model mix, and rejects negative or empty input. The seed and the legacy JSON generator use it.
 Stated assumptions: `input_tokens` includes cache reads (matching how the scorer computes hit ratio), and daily tokens are split across models by the mix. Both are revisited in ML-03 / UPG-02.
@@ -186,25 +186,25 @@ Baseline (end of Phase 1) → after:
 
 Decision recorded: **ARCH-02 uses a GitHub Actions cron** calling an authenticated tick endpoint (chosen by the developer over APScheduler, a Render Cron Job, or removing scheduling).
 
-### BUG-05 — the dashboard showed the oldest month, not the latest (commit e4ef771)
+### BUG-05 — the dashboard showed the oldest month, not the latest (commit 984ff19)
 Symptom: On the local DB (2026-04-30 → 07-01), `/trends` returned 04-30 → 05-29, so the "latest" KPI was a month stale.
 Root cause: `ORDER BY date ASC LIMIT 30` keeps the first 30 rows. Same bug in engineer history.
 Fix: Select the newest 30 in a subquery (`ORDER BY date DESC LIMIT 30`), then re-sort ascending for the chart.
 Verification: The strict xfail from Phase 0 flipped to XPASS (so pytest failed until the marker was removed), plus a new history test.
 Interview version: "Classic LIMIT bug: ascending order plus LIMIT gives you the oldest rows. I'd recorded it as an expected failure in strict mode before fixing anything, so the fix had to flip that test, and it now guards against regression."
 
-### VAL-01 — any string was accepted as a schedule or severity (commit 93c455c)
+### VAL-01 — any string was accepted as a schedule or severity (commit e202cc7)
 Symptom: `{"frequency":"Hourly","day":"Funday","time":"99:99"}` was saved. Every made-up severity in the runbook URL was a new cache entry and a new paid Gemini call.
 Fix: `Literal` types for frequency, weekday and severity, plus a 24-hour `HH:MM` pattern, so these return 422 before any work. **Biweekly/Monthly were removed** from the UI and API, because no scheduler ever implemented them. The frontend renders FastAPI's 422 detail list as "field: message".
 Interview version: "Validation at the boundary is also cost control: an unvalidated path parameter let anyone mint new cache keys, and each one was a paid LLM call."
 
-### BUG-06 — every seed run added a new team (commit f67af7f)
+### BUG-06 — every seed run added a new team (commit d8db62a)
 Symptom: The local DB had grown to 30 engineers over 63 dates.
 Root cause: Fresh random UUIDs on every run; `INSERT OR IGNORE` never collided.
 Fix: A seeded RNG (`random.Random` + `Faker.seed_instance`, default 42), deterministic IDs, `--reset` (keeps alert settings), and CLI flags. Email local parts are sanitized.
 Verification: `tests/test_seed.py`: run twice gives 10 engineers, the same seed gives identical rows, and a different seed gives different rows.
 
-### ML-02 — rankings were noise; the README benchmark was off by 15× (commit dd119f6)
+### ML-02 — rankings were noise; the README benchmark was off by 15× (commit 40a0aa7)
 Symptom: Every engineer-day was an independent uniform draw. The "bottom 2" matched the chronic worst performers at chance level (0.24 vs 0.20). Cost was $0.81/day against the $13/day the README cites. Rows were inconsistent, e.g. **4 /compact uses in a 2-session day** (hidden by the scorer's `min(ratio, 1)` cap).
 Investigation: Fetched the source the README cites (https://code.claude.com/docs/en/costs): "~$13 per developer per active day … below $30 per active day for 90% of users". The claim was legitimate; the generator was wrong.
 Fix: Each engineer gets persona habits drawn once (activity, cache hit ratio, Opus/Haiku share, /compact rate, sessions, output/write ratios, commit rate). Days add noise around them, weekends run at 35% volume, and /compact uses are binomial(sessions, rate). Volume is calibrated to the published figure.
@@ -212,28 +212,28 @@ Result: weekday mean $13.68, p90 $23.42. Bottom-2 stability is 0.71 averaged ove
 **Finding, not tuned away:** A 30-seed sweep gave median stability 0.65. Almost all the remaining daily rank noise comes from the score's `compacts / sessions` term (within-engineer daily SD 7.1 points vs 1.6 for cache and 0.7 for mix). A binomial ratio over 2–7 sessions is genuinely that noisy, so this is a **scoring-formula issue for ML-03** (pool over a window), not something to hide by making the simulator less noisy. The stability test asserts the honest property (mean over 5 seeds ≥ 0.55, every seed above the old generator's 0.27) rather than one lucky seed ≥ 0.70.
 Interview version: "My leaderboard ranked random noise. The 'worst performers' changed every day because each day was an independent random draw. I modeled engineers as personas with stable habits, calibrated volume to Anthropic's published $13-per-day figure, and measured rank stability. That measurement told me something I didn't expect: most of the remaining noise comes from my own scoring formula, which scores a ratio of tiny daily counts. That's a scoring fix, so I logged it instead of fudging the simulator to pass a threshold."
 
-### ARCH-01 (partial, pulled forward) — one severity rule (commit 5c82a18)
+### ARCH-01 (partial, pulled forward) — one severity rule (commit a11ff8b)
 The top-5/bottom-2 rule existed in `routes.py`, `alert_worker.py`, an unused copy in `Dashboard.jsx`, and a different rule in `main.py`. `core/severity.py` now owns it. Behavior is unchanged (the Phase 0 boundary tests stayed green), plus unit tests that document the small-team quirk (≤ 6 engineers: nobody is critical). Done now so BUG-04 wouldn't add a fifth copy.
 
-### BUG-04 — the "daily agent" ranked people who don't exist (commit acdd3f3)
+### BUG-04 — the "daily agent" ranked people who don't exist (commit 6db1c99)
 Symptom: `python main.py` (README step 6) seeded SQLite, then opened `engineers_data.json` and crashed on every fresh clone. When the JSON existed (locally, untracked), it came from a different generator, so the agent ranked different people than the dashboard (red test: printed "Randy Perry", not the DB's best engineer).
 Fix: `core/queries.latest_day_rows()` is shared by the agent and the alert worker. `without_pii()` strips email before anything goes to the LLM (tested). The JSON path and `generate_mock_data` are deleted.
 Verification: an in-process ranking test, and a subprocess "fresh clone" test from an empty directory with no key: exit 0 with fallback guides. Also verified on a `git archive` copy.
 Note: your local `engineers_data.json` is now unused; delete it whenever you like.
 
-### ERR-02 — connections leaked; templates depended on the working directory (commit b967d84)
+### ERR-02 — connections leaked; templates depended on the working directory (commit 6460414)
 Symptom: The audit claimed `with sqlite3.connect()` doesn't close. My first test said it did. I investigated instead of accepting either result: handlers run in a worker thread, and sqlite checks the *creating thread before the closed state*, so touching a closed connection from the test thread raised the thread error, which the test misread. With connections tracked using `check_same_thread=False`, 6 endpoints were confirmed leaking (Python 3.14 still doesn't close in `__exit__`).
 Fix: `db_session()` commits on success, rolls back on error, and always closes. Every caller uses it. `/guide` now calls the LLM *after* its DB session ends instead of holding a connection open during generation. Email templates resolve from the module's location. The dead `get_daily_records` (it queried a non-existent table) is removed.
 Interview version: "A test that passes for the wrong reason is worse than no test. My leak test passed because of an unrelated sqlite threading error. I proved the leak by making the closed state observable, then fixed it with a session context manager."
 
-### SEC-02 — HTML injection in emails (commit 9c75cd9)
+### SEC-02 — HTML injection in emails (commit b8470cb)
 Jinja had no autoescape, so the LLM-written summary and engineer names went into email HTML raw (red: `<img onerror>` and `<script>` came through). Fixed with `select_autoescape(["html"])`; no template uses `|safe`.
 
-### BUG-07 — fake trend arrows and random sparklines (commit 0237063)
+### BUG-07 — fake trend arrows and random sparklines (commit c0a2dad)
 Symptom: The top 3 always showed "up" and everyone else "down". The Activity bars were `Math.random()`.
 Fix: `/api/leaderboard` adds `score_change_7d` (latest minus the previous 7-day average; null without history) and `recent_activity` (7 days of prompt tokens) from **one window query**, not one query per engineer. The Dashboard shows the signed change and scales bars to the team's busiest day. The Phase 0 key-set characterization test caught the shape change and was updated on purpose.
 
-### PERF-02 — background dispatch on a DB-enforced ledger (commits 193ec20, 90c914a, e1f2c3f)
+### PERF-02 — background dispatch on a DB-enforced ledger (commits 089c89b, 5a27e25, e44aa22)
 Situation: Sending about a dozen emails (one SMTP login each, 10 s timeouts), a Slack post and a Gemini call happened inside the HTTP request, past typical proxy timeouts. A retry after a timeout would have sent everything twice. The Phase 1 single-flight lock lived in process memory.
 Fix:
 1. A `dispatch_runs` table. A **partial unique index** (`WHERE status = 'running'`) lets the database reject a second concurrent run (8-thread race: exactly 1). `UNIQUE(slot)` gives at-most-once per scheduled slot. The cooldown is measured from the last delivering run, so it survives restarts. A `running` row older than 15 minutes is marked `abandoned`. Check-and-insert happens under `BEGIN IMMEDIATE`.
@@ -243,7 +243,7 @@ Fix:
 Trade-offs: `BackgroundTasks` runs in the web process. If the process dies mid-dispatch, the run becomes `abandoned`, not retried, because email at-most-once beats duplicates. At higher volume this would move to a real job queue.
 Interview version: "The send button did a minute of work inside one HTTP request, and a retry could double-send. I moved the work to a background task tracked in a dispatch table, and let the database enforce the invariants: a partial unique index means only one run can be 'running', even across processes, and a unique slot column means a scheduled alert can't go out twice. The endpoint went from blocking for the whole dispatch to answering in 41 milliseconds."
 
-### ARCH-02 — scheduled alerts that actually fire (commit f14ae39)
+### ARCH-02 — scheduled alerts that actually fire (commit 21f6c55)
 Situation: The saved schedule never fired in production. `clock.py` wasn't deployed, couldn't be imported from the package, compared the server's clock (UTC on Render) to the saved time, and kept "already ran" in memory. Render's free tier sleeps, so an in-process scheduler would miss its times.
 Decision (developer's choice): a **GitHub Actions cron** every 15 minutes calls `POST /api/scheduled-tick`.
 Fix:
@@ -254,7 +254,7 @@ Fix:
 Not verifiable from here: the workflow only runs from the default branch with the two secrets set (see "Before you deploy" in the report).
 Interview version: "The free tier sleeps, so I made the scheduler external and the endpoint idempotent: GitHub pings it every 15 minutes, the API works out whether a slot in the admin's timezone is due, and a unique constraint guarantees each slot sends at most once, even if GitHub retries or runs late."
 
-### DX-01 — Docker data handling (commit 19ee73c)
+### DX-01 — Docker data handling (commit 472a8c3)
 - The image seeded at **build** time (data aged until the next deploy). It now seeds at container start with `--if-empty`, which never touches existing data.
 - Compose's bind mount of `./data/usage.db` made Docker create a *directory* when the file was missing. The DB is now at `DB_PATH=/app/db/usage.db` on a named volume.
 - New finding, fixed: `.dockerignore` didn't exclude `*.db`, so a local `docker build` copied the developer's own database into the image.
@@ -278,7 +278,7 @@ Baseline (end of Phase 2) → after:
 | Off switch for GitHub Actions | none | repository variables per workflow, plus a guard test |
 | CI verified on clean environments | n/a | `git archive` of HEAD, fresh venvs from pinned requirements: 192 passed on **3.10** and **3.14**; clean `npm ci`: lint 0, 23 tests, build OK |
 
-### TEST-01c (part 1) — a lint baseline CI can enforce (commit b1c49aa)
+### TEST-01c (part 1) — a lint baseline CI can enforce (commit af42372)
 Finding: `ruff check .` reported 45 issues locally, mostly import order and `dict()` style. They came from a **personal user-level ruff config** on the developer's machine, because the project had none. CI would have used different rules, so "passes locally" would not have meant "passes in CI".
 Fix: `ruff.toml` pins the project rules (pyflakes, serious pycodestyle errors, bugbear; target py310). The 8 real findings were fixed:
 - exception chaining (`raise … from e`) for the HTTP errors raised inside `except` blocks;
@@ -289,7 +289,7 @@ Fix: `ruff.toml` pins the project rules (pyflakes, serious pycodestyle errors, b
 ESLint went from 15 errors to 0 (unused imports and props). These were pulled forward from the Phase 4 hygiene bundle because CI must start green.
 Interview version: "My linter gave different answers on my machine and in CI, because a personal config was being picked up. Pinning the rules in the repo makes the result the same everywhere. That's the whole point of CI."
 
-### TEST-01a — tests where the decisions are (commit 75ff98d)
+### TEST-01a — tests where the decisions are (commit f1b2703)
 Most of TEST-01a was already done during Phases 1–2: notifications with mocked SMTP and Slack, runbook caching, severity tiers. Coverage showed the remaining business logic with no tests:
 - what the **worker** sends: rank, team size and severity per engineer for teams of 10, 7 and 3;
 - the **waste-pattern diagnosis** in the manager digest (Opus > 50% wins over a low score);
@@ -299,12 +299,12 @@ Most of TEST-01a was already done during Phases 1–2: notifications with mocked
 
 These tests pin existing correct behaviour, so they passed immediately. To make sure they can fail, the Opus threshold was temporarily mutated (0.50 → 0.70) and the tests caught it.
 
-### TEST-01b — Dashboard error state (commit 6b06b5e)
+### TEST-01b — Dashboard error state (commit 7c2c417)
 Symptom: With the backend down, or one endpoint returning 500, the Dashboard only logged to the console and rendered an **empty leaderboard that looked like a team with no data**.
 Fix: An alert shows the API's message and a **Retry** button that re-runs the fetch. The first version reset state inside the effect; the react-hooks lint rule flagged it (extra cascading render), so the reset moved into the click handler.
 Verification: network failure and a single endpoint's 500 both show the error (red before the fix), and Retry recovers. EngineerDetail, previously untested, now has tests for its rendering and its 404 message.
 
-### TEST-01c (part 2) + OPS-01 — CI and the off switches (commit b73d1b4)
+### TEST-01c (part 2) + OPS-01 — CI and the off switches (commit 29f17c3)
 CI runs on every push and pull request:
 - **backend** on Python **3.10** (what `Dockerfile.backend` ships) and **3.14** (local dev): ruff, then pytest with an 85% coverage gate; the coverage table is written to the run's summary page;
 - **frontend** on Node **22**: `npm ci`, ESLint, Vitest, production build.
@@ -341,20 +341,20 @@ Baseline (end of Phase 3) → after:
 | Python in Docker / CI | 3.10 (EOL Oct 2026) / 3.10 + 3.14 | **3.13** / 3.13 + 3.14 |
 | `print()` in server code | 29 calls | 0 (ruff `T20` enforces it) |
 
-### ARCH-01 — prompts module and shared queries (commits 697a76f, cfd33bb, 108047a)
+### ARCH-01 — prompts module and shared queries (commits c5b3f81, e04cb2a, 9c9d523)
 - **Golden-file tests first:** the exact text of all four prompts (three severities plus the team report) was snapshotted from the old code. The prompts then moved **verbatim** into `ai/prompts.py`, and the snapshots prove they're byte-identical. Changing a prompt is now a reviewed diff (`UPDATE_GOLDEN=1`), never a refactoring side effect. The snapshot also documents a quirk: top performers ("low") get the "slightly below average" nudge. That's left for UPG-01.
 - `core/queries.latest_metrics_for_user()` replaces two copies of the same query. The empty `core/models.py` and `core/leaderboard.py` are deleted.
 - The email template coloured the rank with its own `rank <= 5` rule, a hidden copy of the tier logic. It now follows the severity from `core/severity.py` (red test: a "moderate" engineer at rank 3 showed green).
 
-### Privacy — the LLM gets metrics, never identity (commit 0dcd82b)
+### Privacy — the LLM gets metrics, never identity (commit 481fd6a)
 Found while consolidating queries: `/api/guide` and the CLI agent sent the engineer's **name** to Gemini (only email was stripped, and only in the CLI). `without_pii()` now removes name and email on every path to the LLM. The tests assert the prompts contain the metrics but no name or email (red before).
 
-### BUG-08 — "Rank #1" for someone with no data today (commit a4b713e)
+### BUG-08 — "Rank #1" for someone with no data today (commit 1127a7e)
 Symptom: an engineer with history but no row on the latest day (a new hire, a missed sync) showed **Rank #1, low severity** on their details page.
 Root cause: `current_rank = 1` was a default that was only overwritten if the loop found them.
 Fix: rank comes from the shared `latest_day_rows()` query. Someone absent from that day gets `null`, and the page says "Not ranked today" / "No data today".
 
-### ML-03a — token fields match Anthropic's API (commit 3fe9b67)
+### ML-03a — token fields match Anthropic's API (commit 0d137a0)
 Situation: in Anthropic's `usage` object, `input_tokens` counts **uncached** tokens only (`cache_read_input_tokens` and `cache_creation_input_tokens` are separate). This schema stored "prompt tokens including cache reads" in `input_tokens`, so the hit ratio and any future real-data ingestion didn't line up.
 Fix:
 - `input_tokens` is now uncached; total prompt = input + cache_read + cache_write; hit ratio = cache_read / total prompt.
@@ -365,7 +365,7 @@ Fix:
 
 Interview version: "My schema used a different meaning for input tokens than Anthropic's API, which would have made real data ingestion subtly wrong. I aligned the fields and wrote a versioned, idempotent migration that runs on startup inside one transaction. I tested it on a copy of real data before trusting it, and it's tracked in a meta table so it can never run twice."
 
-### ML-03b — measure the habit, not the dice roll (commit 78eb2d4)
+### ML-03b — measure the habit, not the dice roll (commit 4fd01c5)
 Situation: the discipline term scored one day's `compacts / sessions`. With 2–7 sessions a day that's mostly luck (0/2, 1/2, 2/2 for the same habit). It carried almost all day-to-day rank noise, and the bottom 2 get "critical" emails.
 Fix:
 - The discipline term is pooled over the scored day plus up to 6 earlier days.
@@ -382,14 +382,14 @@ Property tests (2,000 random cases each): the score stays in [0, 100]; moving to
 Trade-off: a real change in habit takes about a week to show fully.
 Interview version: "I measured that one score component carried almost all the day-to-day ranking noise. It was a ratio of two to seven events a day, so the same habit could score 0, 15 or 30. Pooling it over a week cut that noise by two thirds and made the bottom-two list match the genuinely worst engineers 82% of the time instead of 65%. I fixed it in the formula, not by making the simulation less random, and the stability test now guards it."
 
-`docs/scoring.md` (commit a2de67a) explains the formula, the field mapping, why the weights are judgment calls, and the known limitations (model mix ignores task difficulty, Goodhart's law for `/compact`, no outcome measure, simulated data).
+`docs/scoring.md` (commit 7e91547) explains the formula, the field mapping, why the weights are judgment calls, and the known limitations (model mix ignores task difficulty, Goodhart's law for `/compact`, no outcome measure, simulated data).
 
-### Hygiene — logging, not printing (commits 68eed08, f061e50)
+### Hygiene — logging, not printing (commits 641cd3f, 8d9d7b0)
 Symptom (seen twice during Phases 2 and 4): under `pytest -s` some dispatch tests ended in `error`.
 Root cause: the worker and notifiers `print()`ed emoji. On a console or redirected output using cp1252 that raised `UnicodeEncodeError` **inside the dispatch**, so nothing was sent. It would also hit anyone running the API on Windows with output redirected. Red test: a cp1252 stdout reproduced the crash.
 Fix: server modules use loggers (a handler that can't encode a character reports it instead of raising into the caller). The CLIs keep `print` for their own output and configure logging. Ruff `T20` forbids `print` elsewhere. Stray notes and the Vite template README were removed.
 
-### SEC-03 / DX-02 — dependencies and Python version (commits 77d8bad, e7b3b19)
+### SEC-03 / DX-02 — dependencies and Python version (commits 93eb1f8, 576340f)
 - **npm:**
   - `npm audit fix` and `npm update` crashed with an internal error in npm 10.9.2 (`Cannot read properties of null (reading 'edgesOut')`), even after a clean `npm ci`.
   - Workaround: installed react-router-dom 7.18.4 and vite 8.3.2 explicitly, and applied the in-range transitive updates with npm 11 via `npx`.
@@ -409,7 +409,7 @@ Decisions (developer):
 
 Tests: 297 backend (from 219), 26 frontend; coverage 97%; ruff and ESLint clean.
 
-### UPG-01 — grounded, structured, stored coaching + evals (commits 287dae1, 19c291a, 4679f95, 51fc41b, c34f1fc, 2454bda, cba392a, 4336025, 4b25241, f4ca5ea, 28a0fb3, 838855c)
+### UPG-01 — grounded, structured, stored coaching + evals (commits f59a62e, 7a0c2be, eb963ba, 1d27cc7, c89e0d2, 45b2594, 2c3e611, ba8e58b, a255d45, 939072c, d0c396a, 178638f)
 **Before:**
 - The guide was free text split into tasks by line heuristics.
 - Failures were cached in process memory.
@@ -475,7 +475,7 @@ Tests: 297 backend (from 219), 26 frontend; coverage 97%; ruff and ESLint clean.
 
 Interview version: "On the same model and the same 30 profiles, the structured prompt fixed targeting from 50% to 100%: the old prompt talked about caching to people whose problem was model choice. Grounding improved less than I expected, because when I reviewed every flagged number, most were my checker's mistakes, not the model's. I fixed three checker bugs before trusting the table, and the old prompt had one genuinely wrong number in 30 guides."
 
-### UPG-04 — the app meters its own AI calls (commit 4679f95)
+### UPG-04 — the app meters its own AI calls (commit eb963ba)
 Every model request is recorded in `ai_requests`: purpose, outcome, tokens from the provider's usage metadata, latency, cost, prompt version and model.
 
 `GET /api/ai-stats` returns:
@@ -488,11 +488,11 @@ Every model request is recorded in `ai_requests`: purpose, outcome, tokens from 
 
 The team memo is metered too.
 
-### UPG-03 — explainable score, measured weight sensitivity (commit ed38610)
+### UPG-03 — explainable score, measured weight sensitivity (commit 74ea1fd)
 - The engineer page shows points per area out of each maximum and names the area that lost the most points.
 - `analysis/weight_sensitivity.py`: 30 simulated teams, each area weight moved ±20%. Mean Kendall τ 0.93–0.98. The bottom 2 are unchanged in 83–93% of teams, so in about 1 team in 10, a 20% weight change swaps who gets a "critical" alert. Written up in docs/scoring.md with that caveat.
 
-### UPG-02 — telemetry ingestion API (commit dcc9ad8)
+### UPG-02 — telemetry ingestion API (commit 41f6f10)
 `POST /api/ingest` (admin token): up to 1,000 records per request, with field names from Anthropic's usage object.
 
 **Validation is per record:**
@@ -510,12 +510,12 @@ The team memo is metered too.
 
 **Measured on SQLite:** 10,000 records in 0.66 s (~15k/s), re-send 0.57 s, validation alone ~100k/s.
 
-### Model update (commit 2454bda)
+### Model update (commit 45b2594)
 - `gemini-2.5-flash` → `gemini-3.8-flash`.
 - A partial v1 run on 2.5 (4 calls) was discarded so both prompts are compared on the same model.
 - Actual spend so far: $0 (free tier). Reported costs are list-price equivalents.
 
-### Phase 6 recheck against the plan (commit 71897f6)
+### Phase 6 recheck against the plan (commit b0cc951)
 - **Verification command:** the plan's `python -m evals.run --pipeline v2` crashed, because it replayed on 3.8 Flash, which has no v2 recordings. Evals now default to the model of the published comparison.
 - **CI check:** CI now verifies that the committed recordings reproduce the committed results exactly.
 - **Labels:** a free re-score had relabelled the published tables "replay". Tables now say the replies are recorded live calls, and a replay with unchanged numbers leaves them alone.
@@ -532,7 +532,7 @@ Decisions (developer):
 
 Tests: 309 backend, 33 frontend; coverage 97%; ruff and ESLint clean.
 
-### /health and deploy config (commit 12bd54e)
+### /health and deploy config (commit c11a718)
 - **`GET /health`:**
   - Reports whether the database is reachable, the scoring version, the latest data date, and whether AI is configured (a boolean, never the key).
   - Returns 503 with no internal details when the database is down.
@@ -540,7 +540,7 @@ Tests: 309 backend, 33 frontend; coverage 97%; ruff and ESLint clean.
   - Uses `/health` as the health check.
   - The dashboard service declares `VITE_API_URL`. Vite bakes it in at build time; without it the live dashboard calls `127.0.0.1`.
 
-### Leftover from Phase 6: the app's own AI numbers (commit 8e4f856)
+### Leftover from Phase 6: the app's own AI numbers (commit 2eed50f)
 Captured by running `main.py` twice on a throwaway database while 3.8 Flash was out of free-tier quota.
 
 **Two bugs found:**
@@ -557,7 +557,7 @@ Captured by running `main.py` twice on a throwaway database while 3.8 Flash was 
 - cache hit rate 50% (the second run served all five guides from the database);
 - fallback rate 0%.
 
-### DOC-01: the README rewritten from the code (commits f5975a5, 0d73364)
+### DOC-01: the README rewritten from the code (commits e3f2cb8, b09ee95)
 **Removed:**
 - an invented `main.py` run (dated 2024, claimed to send email);
 - a sample guide with made-up savings percentages;
@@ -573,7 +573,7 @@ Captured by running `main.py` twice on a throwaway database while 3.8 Flash was 
 
 **Screenshots:** retaken with Playwright driving Edge, after UI-01.
 
-### Fresh clone, README followed word for word (commit 0cd97f9)
+### Fresh clone, README followed word for word (commit 3b990d3)
 **Result:** API and dashboard working in about 4 minutes on Python 3.13 / Node 22 (target < 10).
 
 **Found:**
@@ -581,7 +581,7 @@ Captured by running `main.py` twice on a throwaway database while 3.8 Flash was 
   - Fix: optional secrets are now empty (fail safe), and a test guards it.
 - **Tab title:** it was Vite's "frontend".
 
-### UI-01 (new finding): mock-up content shown as product (commits 5447bec, 72d501a)
+### UI-01 (new finding): mock-up content shown as product (commits c401f39, 4cd647e)
 **Found while retaking screenshots.** The Runbook showed:
 - invented metrics: "MTTR: 4h", "Ratio 1:5", "> 85% token utilization";
 - invented stakeholders with stock photos;
@@ -613,7 +613,7 @@ Interview version: "When I retook the screenshots I noticed the runbook page sti
 
 ---
 
-## Verification of Phases 0–7 (2026-10-04, commit 226ba5f)
+## Verification of Phases 0–7 (2026-10-04, commit e991763)
 
 **Method:** a new clone, a new Python 3.13 virtualenv from the pinned requirements, a clean `npm ci`, no `.env` (no API key, no secrets). Each phase was checked against its own acceptance criteria in UPGRADE_PLAN.md.
 
@@ -632,8 +632,8 @@ Interview version: "When I retook the screenshots I noticed the runbook page sti
 | 7 | README followed on a fresh clone | API + dashboard working in ~4 min |
 
 **Found and fixed by this verification:**
-- **No key reported as an outage:** running without a Gemini key (documented as supported) printed "System Offline" and logged errors. It's now reported as "not configured" (commit 59c2daf).
-- **Docker dashboard 404 on app routes:** it answered 404 for `/engineer/…` and `/runbook/…`, so the runbook links in alert emails broke in Docker. Fixed with `frontend/nginx.conf`, verified live (commit 226ba5f).
+- **No key reported as an outage:** running without a Gemini key (documented as supported) printed "System Offline" and logged errors. It's now reported as "not configured" (commit 72b983b).
+- **Docker dashboard 404 on app routes:** it answered 404 for `/engineer/…` and `/runbook/…`, so the runbook links in alert emails broke in Docker. Fixed with `frontend/nginx.conf`, verified live (commit e991763).
 - **Leaderboard latency threshold:** the concurrency test asserts < 0.5 s, looser than the plan's 200 ms. The measured value (13 ms) meets the plan; the threshold is left loose so the test doesn't flap on slow CI machines.
 
 **Not verifiable locally (need GitHub / Render):**

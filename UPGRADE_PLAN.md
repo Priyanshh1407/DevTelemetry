@@ -155,7 +155,7 @@ Goal: One source of truth per concept; remove what doesn’t exist; make the sco
 Why this order: Refactoring is safe only once Phase 3 tests exist.
 Items:
 - [x] ARCH-01 `core/severity.py` (single tier rule used by API, worker, and CLI); `core/queries.py`; delete empty `models.py`/`leaderboard.py` or implement them; delete `get_daily_records`; prompts move to `ai/prompts.py` — M
-  - *Partly done in Phase 2:* `core/severity.py` (commit 5c82a18) and `core/queries.py` (BUG-04) exist and are used by the API, worker and CLI. Remaining: empty `models.py`/`leaderboard.py`, prompts into `ai/prompts.py`, other duplicated queries.
+  - *Partly done in Phase 2:* `core/severity.py` (commit a11ff8b) and `core/queries.py` (BUG-04) exist and are used by the API, worker and CLI. Remaining: empty `models.py`/`leaderboard.py`, prompts into `ai/prompts.py`, other duplicated queries.
 - [x] ML-03 Cache ratio on total prompt tokens (verify Anthropic semantics first), mix normalized/capped, sub-score breakdown returned by the API, rationale + limitations in `docs/scoring.md` — `core/scorer.py`, `api/routes.py` — S–M
   - *Decisions (2026-10-03, developer):* token fields match Anthropic's `usage` semantics (with a data migration); the `/compact` term is pooled over 7 days. Result: bottom-2 stability median 0.65 → 0.82 over 30 seeds; property tests in place.
   - *New input from ML-02:* the `compacts / sessions` term causes almost all daily rank noise (within-engineer daily SD 7.1 pts vs 1.6 cache, 0.7 mix). Score it over a rolling window (pooled compacts / pooled sessions over 7 days) or shrink it toward the engineer's mean; re-measure bottom-2 stability (Phase 2: 5-seed mean 0.71, 30-seed median 0.65).
@@ -288,7 +288,7 @@ Items:
 - **Render deploys the `deployment` branch.** After the merge, `deployment` must be updated to the merged `main` for the live demo to change, so `/health` and the render.yaml fixes ship that way.
 - **Notes files: untrack, keep locally** (gitignore).
   - `interview_study_guide.md` and `demo_commands.txt` are already on `origin/main` (561fc14), so they stay in old history.
-  - `DEVTELEMETRY_INTERVIEW_REPORT.md` was added in unpushed d319069. Pushing would publish it in history unless the unpushed commits are rewritten without it. **Ask before pushing:** rewrite (backup branch first) or accept.
+  - `DEVTELEMETRY_INTERVIEW_REPORT.md` was added in unpushed 0388a33. Pushing would publish it in history unless the unpushed commits are rewritten without it. **Ask before pushing:** rewrite (backup branch first) or accept.
 
 Acceptance criteria:
 - Every README claim maps to code or a measured output. A fresh clone works by following the README in < 10 minutes.
