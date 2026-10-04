@@ -65,19 +65,48 @@ def _recording_path(recordings, pipeline, profile_id):
     return recordings / pipeline / f"{profile_id}.json"
 
 
-def run(pipeline, mode, profiles=None, recordings=RECORDINGS, results=RESULTS, pause_s=0.0):
+# Provider capacity outcomes (nothing billed): worth waiting out in a live eval, because they
+# say nothing about prompt quality. Backoff in seconds before each retry.
+CAPACITY_SOURCES = ("rate_limited", "unavailable")
+CAPACITY_BACKOFF_S = (30, 60)
+
+
+def _has_recording(path):
+    return path.exists() and bool(json.loads(path.read_text(encoding="utf-8"))["calls"])
+
+
+def _replay(pipeline, profile, path):
+    calls = json.loads(path.read_text(encoding="utf-8"))["calls"]
+    with provider_override(ReplayProvider(calls)):
+        return generate(pipeline, profile)
+
+
+def _live(pipeline, profile, sleep):
+    result = generate(pipeline, profile)
+    for wait in CAPACITY_BACKOFF_S:
+        if result.source not in CAPACITY_SOURCES:
+            break
+        sleep(wait)
+        result = generate(pipeline, profile)
+    return result
+
+
+def run(pipeline, mode, profiles=None, recordings=RECORDINGS, results=RESULTS, pause_s=0.0,
+        only_missing=False, sleep=time.sleep):
+    """`only_missing` (live): replay profiles that already have a recorded reply, call the API
+    only for the rest, so finishing an interrupted run never pays for the same profile twice."""
     profiles = profiles if profiles is not None else load()
     rows = []
-    for index, profile in enumerate(profiles):
-        if mode == "live" and pause_s and index:
-            time.sleep(pause_s)  # stay under the free tier's requests-per-minute limit
+    live_calls = 0
+    for profile in profiles:
         path = _recording_path(recordings, pipeline, profile["id"])
-        if mode == "replay":
-            calls = json.loads(path.read_text(encoding="utf-8"))["calls"]
-            with provider_override(ReplayProvider(calls)):
-                result = generate(pipeline, profile)
+        if mode == "replay" or (only_missing and _has_recording(path)):
+            result = _replay(pipeline, profile, path)
         else:
-            result = generate(pipeline, profile)
+            if pause_s and live_calls:
+                sleep(pause_s)  # stay under the provider's requests-per-minute limit
+            live_calls += 1
+            result = _live(pipeline, profile, sleep)
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(json.dumps({"calls": [c.__dict__ for c in result.calls]}, indent=1) + "\n",
                             encoding="utf-8")
@@ -130,8 +159,10 @@ def main(argv=None):
     parser.add_argument("--mode", choices=["replay", "live"], default="replay")
     parser.add_argument("--pause", type=float, default=0.0,
                         help="seconds between profiles in live mode (free-tier rate limits)")
+    parser.add_argument("--only-missing", action="store_true",
+                        help="live mode: replay profiles already recorded, call the API only for the rest")
     args = parser.parse_args(argv)
-    summary, _ = run(args.pipeline, args.mode, pause_s=args.pause)
+    summary, _ = run(args.pipeline, args.mode, pause_s=args.pause, only_missing=args.only_missing)
     print(report(summary, []).split("## Per profile")[0])  # noqa: T201
 
 
