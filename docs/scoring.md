@@ -65,7 +65,7 @@ Engineers without data on the latest day are not ranked. In a team of 6 or fewer
 - **The model mix ignores task difficulty.** Using Haiku for everything, including architecture work, earns full points. The data has no task-complexity signal, so "Opus on simple tasks" can't be distinguished from "Opus on hard tasks".
 - **Goodhart's law.** Once people know `/compact` is scored, they can game it (compacting needlessly). Treat the score as a conversation starter, not a performance metric.
 - **No outcome measure.** `git_commits` is collected but not scored. The score measures how tokens are used, not what was delivered.
-- **The data is simulated.** Engineers are personas with stable habits plus daily noise, calibrated to Anthropic's published Claude Code cost (~$13 per developer per active day, under $30 for 90% of users). Real telemetry ingestion is planned (UPG-02).
+- **The data is simulated.** Engineers are personas with stable habits plus daily noise, calibrated to Anthropic's published Claude Code cost (~$13 per developer per active day, under $30 for 90% of users). Real data can be sent through `POST /api/ingest` (UPG-02), which applies the same cost and score.
 - **Cost is split across models by share of usage**, not by real per-request token counts, because the data is a daily aggregate.
 
 ## Changing the formula

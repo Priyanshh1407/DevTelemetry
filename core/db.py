@@ -49,6 +49,7 @@ def db_session():
 # table, so databases created earlier get these via ALTER TABLE (additive and idempotent).
 ADDED_COLUMNS = [
     ("alert_settings", "timezone", "TEXT NOT NULL DEFAULT 'UTC'"),
+    ("usage_metrics", "cost_price_version", "TEXT"),  # price table used for estimated_cost_usd
 ]
 
 
@@ -64,11 +65,13 @@ def _set_meta(conn, key, value):
                  "ON CONFLICT(key) DO UPDATE SET value = excluded.value", (key, str(value)))
 
 
-def _rescore_all(conn):
-    """Recomputes every stored efficiency score with the current formula."""
+def rescore(conn, user_ids=None):
+    """Recomputes stored efficiency scores with the current formula, for the given engineers
+    (default: everyone). Each day is scored with its trailing window, like at write time."""
     from core.scorer import score_history  # local import: core.scorer has no DB dependency
 
-    user_ids = [r["user_id"] for r in conn.execute("SELECT DISTINCT user_id FROM usage_metrics")]
+    if user_ids is None:
+        user_ids = [r["user_id"] for r in conn.execute("SELECT DISTINCT user_id FROM usage_metrics")]
     for user_id in user_ids:
         days = [dict(r) for r in conn.execute(
             "SELECT * FROM usage_metrics WHERE user_id = ? ORDER BY date", (user_id,))]
@@ -100,7 +103,7 @@ def _migrate_data(conn):
         meta["scoring_version"] = None  # the hit ratio changed, so scores must be recomputed
 
     if meta.get("scoring_version") != str(SCORING_VERSION):
-        _rescore_all(conn)
+        rescore(conn)
         _set_meta(conn, "scoring_version", SCORING_VERSION)
 
 

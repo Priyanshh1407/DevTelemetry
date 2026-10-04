@@ -19,8 +19,7 @@ import sys
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from core.db import db_session, init_db
-from core.scorer import POOL_DAYS, calculate_efficiency_score
-from core.pricing import estimate_cost
+from core.ingest import UsageRecord, upsert_usage
 
 DEFAULT_SEED = 42
 
@@ -132,54 +131,27 @@ def generate_historical_data(days_back=30, num_engineers=10, seed=DEFAULT_SEED, 
     fake.seed_instance(seed)
     engineers = make_engineers(rng, fake, num_engineers)
     personas = {eng["user_id"]: make_persona(rng) for eng in engineers}
-    history = {eng["user_id"]: [] for eng in engineers}  # earlier days, for the pooled score terms
     end_date = end_date or date.today()
+
+    # Build the batch, then write it through the same ingestion path as POST /api/ingest:
+    # same validation, server-side cost and score, idempotent upsert (re-running refreshes
+    # the generated days instead of duplicating them).
+    records = []
+    for day_offset in range(days_back):
+        day = end_date - timedelta(days=days_back - day_offset - 1)
+        for eng in engineers:
+            metrics = daily_metrics(rng, personas[eng["user_id"]], day)
+            mix = metrics.pop("model_mix")
+            records.append(UsageRecord(user_id=eng["user_id"], date=day, name=eng["name"], email=eng["email"],
+                                       **metrics, **mix))
 
     with db_session() as conn:
         if reset:
             reset_data(conn)
-
-        for eng in engineers:
-            conn.execute(
-                "INSERT OR IGNORE INTO engineers (user_id, name, email) VALUES (?, ?, ?)",
-                (eng["user_id"], eng["name"], eng["email"])
-            )
-
-        for day_offset in range(days_back):
-            day = end_date - timedelta(days=days_back - day_offset - 1)
-            current_date = day.isoformat()
-
-            for eng in engineers:
-                metrics = daily_metrics(rng, personas[eng["user_id"]], day)
-                # Cost is derived from the usage above (was random.uniform(5, 30), unrelated to tokens)
-                metrics["estimated_cost_usd"] = round(estimate_cost(
-                    input_tokens=metrics["input_tokens"],
-                    output_tokens=metrics["output_tokens"],
-                    cache_read_tokens=metrics["cache_read_tokens"],
-                    cache_write_tokens=metrics["cache_write_tokens"],
-                    model_mix=metrics["model_mix"],
-                ), 4)
-                recent = history[eng["user_id"]]
-                efficiency_score = calculate_efficiency_score(metrics, recent[-(POOL_DAYS - 1):])
-                recent.append(metrics)
-                mix = metrics["model_mix"]
-
-                # INSERT OR IGNORE + UNIQUE(user_id, date): existing days are kept, so a re-run is a no-op
-                conn.execute("""
-                    INSERT OR IGNORE INTO usage_metrics
-                    (user_id, date, input_tokens, output_tokens, cache_read_tokens, cache_write_tokens,
-                    opus_pct, sonnet_pct, haiku_pct, session_count, compact_uses, git_commits,
-                    estimated_cost_usd, efficiency_score)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """, (
-                    eng["user_id"], current_date, metrics["input_tokens"], metrics["output_tokens"],
-                    metrics["cache_read_tokens"], metrics["cache_write_tokens"],
-                    mix["opus_pct"], mix["sonnet_pct"], mix["haiku_pct"],
-                    metrics["session_count"], metrics["compact_uses"], metrics["git_commits"],
-                    metrics["estimated_cost_usd"], efficiency_score
-                ))
-
-        conn.commit()
+        inserted, updated, rejected = upsert_usage(conn, list(enumerate(records)))
+    if rejected:  # the generator produced data the API would refuse: a bug, not something to skip
+        raise RuntimeError(f"simulated records failed validation: {rejected[:3]}")
+    print(f"Ingested {inserted} new and {updated} refreshed engineer-days.")
     print("Historical data successfully injected into the database!")
 
 
