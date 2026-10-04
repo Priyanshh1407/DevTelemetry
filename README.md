@@ -36,9 +36,12 @@ A manager sees only the total bill, and an engineer gets no feedback on their ha
 
 ## Demo
 
-![Team overview](screenshots/dashboard-overview.png)
-![Leaderboard](screenshots/dashboard-leaderboard.png)
-![Coaching runbook](screenshots/ai-runbook.png)
+![Team overview: averages, 30-day trends](screenshots/dashboard-overview.png)
+![Leaderboard with 7-day score change and activity](screenshots/dashboard-leaderboard.png)
+![Engineer page with the score breakdown](screenshots/engineer-detail.png)
+![Coaching runbook: the engineer's numbers and their guide](screenshots/ai-runbook.png)
+
+Screenshots: local run of this repository, 2026-10-04, simulated team.
 
 The console agent (`python main.py`) prints the latest leaderboard, a team memo, and guides for the bottom five. This is real output (2026-10-04, simulated team, trimmed):
 
