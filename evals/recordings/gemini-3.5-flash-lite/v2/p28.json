@@ -1,0 +1,12 @@
+{
+ "calls": [
+  {
+   "text": "{\n  \"headline\": \"Great work on achieving an efficiency score of 50.84 / 100 while maintaining a strong model mix and /compact usage.\",\n  \"actions\": [\n    {\n      \"title\": \"Improve Prompt Caching\",\n      \"problem\": \"Currently, cache is your weakest area at 27.1% of prompt tokens served from cache, earning 10.82 of 40 points, which is 29.18 points below its maximum.\",\n      \"fix\": \"Keep sessions active and structured to allow more prompt tokens to be served from cache and boost your score above 10.82 of 40 points.\",\n      \"focus\": \"cache\"\n    },\n    {\n      \"title\": \"Maintain Balanced Model Mix\",\n      \"problem\": \"Your current model mix consists of Opus 10.0%, Sonnet 64.0%, and Haiku 26.0%, contributing 19.62 of 30 points to your efficiency score.\",\n      \"fix\": \"Continue using this balanced model mix of Opus 10.0%, Sonnet 64.0%, and Haiku 26.0% to keep your model mix performance steady.\",\n      \"focus\": \"model_mix\"\n    }\n  ]\n}",
+   "model": "gemini-3.5-flash-lite",
+   "input_tokens": 314,
+   "output_tokens": 289,
+   "latency_ms": 2029,
+   "cost_usd": 0.000817
+  }
+ ]
+}

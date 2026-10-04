@@ -1,0 +1,12 @@
+{
+ "calls": [
+  {
+   "text": "{\n  \"headline\": \"Great job achieving a 49.27 efficiency score while managing $14.10 today\",\n  \"actions\": [\n    {\n      \"title\": \"Increase compact usage\",\n      \"problem\": \"Your weakest area is discipline at 29.03 points below its maximum, and /compact was used in only 3.2% of sessions over the last 7 days, which is 1 of 31 sessions yielding 0.97 of 30 points.\",\n      \"fix\": \"Make it a habit to run the /compact command more frequently during your coding sessions to improve your context management discipline and score.\",\n      \"focus\": \"discipline\"\n    },\n    {\n      \"title\": \"Maintain model balance\",\n      \"problem\": \"Your model mix stands at Opus 10.0%, Sonnet 69.0%, and Haiku 21.0%, contributing 19.02 of 30 points to your overall efficiency score.\",\n      \"fix\": \"Keep utilizing this balanced mix of models to sustain your strong performance while keeping your daily spending at $14.10.\",\n      \"focus\": \"model_mix\"\n    }\n  ]\n}",
+   "model": "gemini-3.5-flash-lite",
+   "input_tokens": 315,
+   "output_tokens": 270,
+   "latency_ms": 1754,
+   "cost_usd": 0.00077
+  }
+ ]
+}

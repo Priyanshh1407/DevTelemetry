@@ -1,0 +1,12 @@
+{
+ "calls": [
+  {
+   "text": "{\n  \"headline\": \"Maintain strong habits while addressing model mix efficiency to improve your 69.65 out of 100 score.\",\n  \"actions\": [\n    {\n      \"title\": \"Optimize your model selection balance\",\n      \"problem\": \"Your current model mix stands at Opus 69.0%, Sonnet 25.0%, Haiku 6.0%, which results in a score of 8.37 out of 30 points and makes this your weakest area at 21.63 points below its maximum.\",\n      \"fix\": \"Shift more routine tasks away from Opus toward Sonnet and Haiku to balance your model mix and capture better cost efficiency.\",\n      \"focus\": \"model_mix\"\n    },\n    {\n      \"title\": \"Continue your strong context management\",\n      \"problem\": \"You successfully used /compact in 87.5% of sessions over the last 7 days, totaling 21 of 24 sessions and earning 26.25 of 30 points.\",\n      \"fix\": \"Maintain this excellent discipline of utilizing /compact frequently to keep your estimated cost today at $11.91 well managed.\",\n      \"focus\": \"discipline\"\n    }\n  ]\n}",
+   "model": "gemini-3.5-flash-lite",
+   "input_tokens": 318,
+   "output_tokens": 277,
+   "latency_ms": 1969,
+   "cost_usd": 0.000788
+  }
+ ]
+}

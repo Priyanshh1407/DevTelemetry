@@ -1,0 +1,12 @@
+{
+ "calls": [
+  {
+   "text": "{\n  \"headline\": \"Great efficiency at 66.21 out of 100 today, with strong habits in caching and session management.\",\n  \"actions\": [\n    {\n      \"title\": \"Shift model mix away from Opus\",\n      \"problem\": \"Model mix scored 7.05 of 30 points because Opus usage is at 77.0%, while Sonnet is 18.0% and Haiku is 5.0%, leaving this as the weakest area at 22.95 points below maximum.\",\n      \"fix\": \"Use Sonnet and Haiku more frequently for routine tasks instead of relying primarily on Opus to improve your model mix score.\",\n      \"focus\": \"model_mix\"\n    },\n    {\n      \"title\": \"Maintain strong cache and compact habits\",\n      \"problem\": \"Cache served 86.5% of prompt tokens from cache giving 34.61 of 40 points, and compact was used in 81.8% of sessions over the last 7 days representing 27 of 33 sessions and 24.55 of 30 points.\",\n      \"fix\": \"Continue using /compact regularly in your sessions and keep taking advantage of prompt caching to maintain your high performance in these areas.\",\n      \"focus\": \"discipline\"\n    }\n  ]\n}",
+   "model": "gemini-3.5-flash-lite",
+   "input_tokens": 318,
+   "output_tokens": 299,
+   "latency_ms": 1814,
+   "cost_usd": 0.000843
+  }
+ ]
+}

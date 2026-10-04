@@ -1,0 +1,12 @@
+{
+ "calls": [
+  {
+   "text": "1. Your cache read to input token ratio shows you are interacting frequently, but with 0 compact uses, you might benefit from using /compact during your 5 sessions to keep context fresh and manage token overhead more efficiently.\n\n2. You recorded 181,242 output tokens and 2 git commits today, suggesting longer generation cycles per task; breaking your work into smaller, more granular prompts can help reduce output volume and improve code precision.\n\n3. With Sonnet handling 69 percent of your workload and Opus at 14 percent, consider shifting a bit more of your exploratory or lighter querying to Haiku, which is currently at 17 percent, to further optimize your daily 8 dollar 11 cent estimated cost.",
+   "model": "gemini-3.5-flash-lite",
+   "input_tokens": 320,
+   "output_tokens": 154,
+   "latency_ms": 1838,
+   "cost_usd": 0.000481
+  }
+ ]
+}

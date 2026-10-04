@@ -1,0 +1,12 @@
+{
+ "calls": [
+  {
+   "text": "1. Your cache read to input token ratio shows solid context reuse, but with 164,476 cache write tokens across 4 sessions, you could group your initial prompts together to maximize savings even further.\n\n2. You only had 1 git commit from 4 sessions, suggesting your feedback loops might be a bit long; try breaking your tasks down so you can commit more frequently and keep your output tokens focused below your current 86,465 daily average.\n\n3. Since Opus made up 72 percent of your usage for a single commit, try starting your sessions with Sonnet or Haiku for initial scaffolding and planning before switching to Opus for complex refactoring to optimize your 4.87 dollar daily spend.",
+   "model": "gemini-3.5-flash-lite",
+   "input_tokens": 319,
+   "output_tokens": 154,
+   "latency_ms": 1768,
+   "cost_usd": 0.000481
+  }
+ ]
+}

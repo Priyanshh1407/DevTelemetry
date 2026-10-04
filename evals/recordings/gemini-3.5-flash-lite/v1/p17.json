@@ -1,0 +1,12 @@
+{
+ "calls": [
+  {
+   "text": "1. Your Opus model usage sits at 73 percent with 3,001,826 input tokens processed, which is excessively high for routine terminal agent tasks; you must shift standard coding, refactoring, and debugging workflows to Sonnet, which currently accounts for only 22 percent of your distribution.\n\n2. You recorded 3,032,848 cache write tokens against 8,726,040 cache read tokens, indicating poor context reuse across your 2 session count; you need to maintain persistent terminal sessions longer to avoid invalidating the prompt cache and incurring unnecessary write penalties.\n\n3. With only 3 git commits resulting from 3,001,826 input tokens and 122,005 output tokens, your token-to-code efficiency is critically low; you must break your engineering tasks into smaller, more focused sub-tasks before invoking Claude Code to prevent massive context bloat.\n\n4. You only triggered 1 compact use across your entire daily workflow despite massive token volumes; you should proactively execute the compact command or clear conversation history regularly to prevent stale context from inflating your input token costs.\n\n5. Your haiku percentage is sitting at a negligible 5 percent; you should aggressively route preliminary file searches, syntax checks, and simple code formatting tasks to Haiku to optimize your daily spend away from the 11.16 USD baseline.",
+   "model": "gemini-3.5-flash-lite",
+   "input_tokens": 319,
+   "output_tokens": 297,
+   "latency_ms": 2440,
+   "cost_usd": 0.000838
+  }
+ ]
+}

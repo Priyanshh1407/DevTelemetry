@@ -1,0 +1,12 @@
+{
+ "calls": [
+  {
+   "text": "1. Your cache read tokens are at 6,459,741 while your writes are 184,545, so try to keep your current terminal context windows open longer between sessions to maximize that caching efficiency.\n\n2. You only used the compact command 1 time across your 5 sessions, so incorporating it more frequently will help keep your input tokens of 1,768,030 leaner.\n\n3. With 5 sessions resulting in only 2 git commits, breaking your workflow into more frequent, smaller, and targeted tasks will help align your 91,519 output tokens with more shipping milestones.",
+   "model": "gemini-3.5-flash-lite",
+   "input_tokens": 321,
+   "output_tokens": 137,
+   "latency_ms": 1354,
+   "cost_usd": 0.000439
+  }
+ ]
+}

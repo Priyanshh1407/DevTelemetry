@@ -1,0 +1,12 @@
+{
+ "calls": [
+  {
+   "text": "1. With 2 sessions and 6 git commits yielding an estimated cost of $5.80, you are making steady progress, but your cache read tokens of 1466634 compared to 3813382 input tokens show room to improve your prompt caching efficiency by keeping active context windows open longer between queries.\n2. You only used compact once across your sessions, so leaning on the compact command more frequently can help manage your token load and keep your interactions streamlined.\n3. You are leveraging Sonnet for 64 percent of your work, which is a solid balance, but experimenting with Haiku for your simpler tasks beyond your current 26 percent could help optimize your overall output costs.",
+   "model": "gemini-3.5-flash-lite",
+   "input_tokens": 318,
+   "output_tokens": 151,
+   "latency_ms": 1569,
+   "cost_usd": 0.000473
+  }
+ ]
+}

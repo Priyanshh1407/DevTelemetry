@@ -30,7 +30,15 @@ EXPECTED_ACTIONS = {
 }
 
 
+# Prose a number reader would otherwise split or misread: "11 dollars and 91 cents" (one
+# amount, 11.91) and ordinal dates such as "March 31st" (not a metric).
+_MONEY_WORDS = re.compile(r"\b(\d+) dollars?(?: and)? (\d{1,2}) cents?\b")
+_ORDINAL = re.compile(r"\b\d{1,2}(?:st|nd|rd|th)\b")
+
+
 def extract_numbers(text):
+    text = _MONEY_WORDS.sub(lambda m: f"${m[1]}.{int(m[2]):02d}", text)
+    text = _ORDINAL.sub(" ", text)
     numbers = []
     for whole, decimals, suffix in _NUMBER.findall(text):
         value = float(whole.replace(",", "") + (decimals or ""))

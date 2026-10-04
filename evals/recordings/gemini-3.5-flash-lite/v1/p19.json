@@ -1,0 +1,12 @@
+{
+ "calls": [
+  {
+   "text": "1. Your cache read tokens stand at 2715263 against 5191583 input tokens, giving you a strong caching foundation. To push that ratio higher, try to keep your ongoing terminal sessions open longer rather than starting new ones, which will preserve your prompt cache across queries.\n\n2. You recorded 4 compact uses across your 4 sessions today. Leveraging the compact command more frequently during long debugging stretches can help reduce context bloat and keep your token efficiency sharp.\n\n3. With 3 git commits from 4 sessions, your output-to-commit ratio suggests you are doing deep exploration. Try breaking your tasks into smaller, atomic terminal prompts to maximize the effectiveness of your 69 percent Sonnet usage.",
+   "model": "gemini-3.5-flash-lite",
+   "input_tokens": 320,
+   "output_tokens": 155,
+   "latency_ms": 1697,
+   "cost_usd": 0.000483
+  }
+ ]
+}

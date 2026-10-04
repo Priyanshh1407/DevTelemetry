@@ -1,0 +1,12 @@
+{
+ "calls": [
+  {
+   "text": "{\n  \"headline\": \"Let us boost your efficiency score of 63.49 out of 100 by refining your model choices.\",\n  \"actions\": [\n    {\n      \"title\": \"Shift model mix\",\n      \"problem\": \"Your current model mix stands at Opus 89.0%, Sonnet 6.0%, and Haiku 5.0%, making model_mix your weakest area at 24.75 points below its maximum.\",\n      \"fix\": \"Use Haiku and Sonnet more frequently for lighter tasks instead of relying so heavily on Opus.\",\n      \"focus\": \"model_mix\"\n    },\n    {\n      \"title\": \"Maintain cache levels\",\n      \"problem\": \"You achieved a cache score where 83.8% of prompt tokens were served from cache, earning 33.53 of 40 points.\",\n      \"fix\": \"Keep up your current prompt structure to ensure these high cache percentages continue.\",\n      \"focus\": \"cache\"\n    },\n    {\n      \"title\": \"Continue using compact\",\n      \"problem\": \"You used /compact in 82.4% of sessions over the last 7 days, totaling 28 of 34 sessions and earning 24.71 of 30 points.\",\n      \"fix\": \"Maintain this strong habit of using /compact regularly to keep your discipline score high.\",\n      \"focus\": \"discipline\"\n    }\n  ]\n}",
+   "model": "gemini-3.5-flash-lite",
+   "input_tokens": 295,
+   "output_tokens": 325,
+   "latency_ms": 2139,
+   "cost_usd": 0.000901
+  }
+ ]
+}

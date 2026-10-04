@@ -1,0 +1,12 @@
+{
+ "calls": [
+  {
+   "text": "{\n  \"headline\": \"Improve your Claude Code efficiency score from 50.02 out of 100 by managing context and models better.\",\n  \"actions\": [\n    {\n      \"title\": \"Use compact more often\",\n      \"problem\": \"Discipline is your weakest area, sitting at 28.64 points below its maximum. Specifically, /compact was used in only 4.5% of sessions over the last 7 days, which is just 2 of 44 sessions, earning you 1.36 of 30 points.\",\n      \"fix\": \"Run the /compact command more frequently during your coding sessions to maintain better context discipline.\",\n      \"focus\": \"discipline\"\n    },\n    {\n      \"title\": \"Optimize prompt caching\",\n      \"problem\": \"Your cache score is currently 30.12 of 40 points, with 75.3% of prompt tokens served from cache.\",\n      \"fix\": \"Structure your prompts and files to maximize cache retention and improve this score further.\",\n      \"focus\": \"cache\"\n    },\n    {\n      \"title\": \"Refine your model selection\",\n      \"problem\": \"Your model mix score is 18.54 of 30 points, based on a usage breakdown of Opus 10.0%, Sonnet 73.0%, and Haiku 17.0%.\",\n      \"fix\": \"Adjust how often you select Opus versus Sonnet and Haiku to balance cost and capability.\",\n      \"focus\": \"model_mix\"\n    }\n  ]\n}",
+   "model": "gemini-3.5-flash-lite",
+   "input_tokens": 293,
+   "output_tokens": 352,
+   "latency_ms": 1931,
+   "cost_usd": 0.000968
+  }
+ ]
+}

@@ -1,0 +1,12 @@
+{
+ "calls": [
+  {
+   "text": "{\n  \"headline\": \"Great engineering performance today with an efficiency score of 56.48 out of 100 and an estimated cost today of $8.03.\",\n  \"actions\": [\n    {\n      \"title\": \"Increase compact usage\",\n      \"problem\": \"Discipline is your weakest area, and /compact was used in 7.1% of sessions over the last 7 days, which is only 2 of 28 sessions.\",\n      \"fix\": \"Run the /compact command more frequently during your coding sessions to improve your discipline score of 2.14 out of 30 points.\",\n      \"focus\": \"discipline\"\n    },\n    {\n      \"title\": \"Maintain your model mix\",\n      \"problem\": \"Your model mix scored 19.17 of 30 points by using Opus 13.0%, Sonnet 61.0%, and Haiku 26.0%.\",\n      \"fix\": \"Continue using this balanced distribution of models while keeping cache performance strong at 87.9% of prompt tokens served from cache.\",\n      \"focus\": \"model_mix\"\n    }\n  ]\n}",
+   "model": "gemini-3.5-flash-lite",
+   "input_tokens": 314,
+   "output_tokens": 261,
+   "latency_ms": 1950,
+   "cost_usd": 0.000747
+  }
+ ]
+}

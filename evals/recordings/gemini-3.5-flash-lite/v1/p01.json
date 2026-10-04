@@ -1,0 +1,12 @@
+{
+ "calls": [
+  {
+   "text": "1. Your cache write tokens are at 602,562 while your cache read tokens are 1,895,014, suggesting you could benefit from keeping your session contexts active slightly longer to maximize prompt caching efficiency across your 7 sessions.\n\n2. You are currently using Opus for 9 percent of your tasks while Sonnet sits at 74 percent; consider routing more of your routine coding and refactoring tasks to Haiku or Sonnet to optimize your 16.40 dollar daily cost.\n\n3. You recorded 4 compact uses for 8 git commits, which is a great balance, but triggering context compacting just a bit earlier in longer sessions could help reduce your 10,145,598 input token count.",
+   "model": "gemini-3.5-flash-lite",
+   "input_tokens": 322,
+   "output_tokens": 163,
+   "latency_ms": 2243,
+   "cost_usd": 0.000504
+  }
+ ]
+}

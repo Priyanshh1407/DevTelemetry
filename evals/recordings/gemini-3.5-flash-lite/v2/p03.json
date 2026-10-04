@@ -1,0 +1,12 @@
+{
+ "calls": [
+  {
+   "text": "{\n  \"headline\": \"Great work today with your efficiency score at 54.59 out of 100, but discipline needs attention.\",\n  \"actions\": [\n    {\n      \"title\": \"Improve session discipline\",\n      \"problem\": \"The weakest area is discipline, and context management (/compact) was used in only 3.6 percent of sessions over the last 7 days, amounting to 1 of 28 sessions, giving 1.07 of 30 points and sitting 28.93 points below its maximum.\",\n      \"fix\": \"Increase your usage of /compact during your workflow to better manage your context and improve your score in discipline.\",\n      \"focus\": \"discipline\"\n    },\n    {\n      \"title\": \"Maintain strong cache performance\",\n      \"problem\": \"You achieved a strong cache rate where 88.9 percent of prompt tokens were served from cache, earning 35.58 of 40 points.\",\n      \"fix\": \"Keep using your current prompting habits that successfully maintain this high cache rate for your estimated cost today of $8.11.\",\n      \"focus\": \"cache\"\n    }\n  ]\n}",
+   "model": "gemini-3.5-flash-lite",
+   "input_tokens": 314,
+   "output_tokens": 261,
+   "latency_ms": 2149,
+   "cost_usd": 0.000747
+  }
+ ]
+}

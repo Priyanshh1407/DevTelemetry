@@ -1,0 +1,12 @@
+{
+ "calls": [
+  {
+   "text": "{\n  \"headline\": \"Improve your Claude Code efficiency score of 43.08 out of 100 by fixing prompt caching and session discipline.\",\n  \"actions\": [\n    {\n      \"title\": \"Boost prompt caching immediately\",\n      \"problem\": \"Cache is your weakest area at 10.6 percent of prompt tokens served from cache, earning only 4.24 of 40 points and falling 35.76 points below its maximum.\",\n      \"fix\": \"Keep context windows stable and reuse existing prompts to maximize cache hits and stop wasting tokens on uncached requests.\",\n      \"focus\": \"cache\"\n    },\n    {\n      \"title\": \"Optimize model mix usage\",\n      \"problem\": \"Your model mix stands at Opus 14.0 percent, Sonnet 79.0 percent, and Haiku 7.0 percent, contributing 16.74 of 30 points to your score.\",\n      \"fix\": \"Route simpler tasks to Haiku and reserve Opus strictly for complex reasoning to improve your model mix points.\",\n      \"focus\": \"model_mix\"\n    },\n    {\n      \"title\": \"Maintain command discipline\",\n      \"problem\": \"You used the slash compact command in 73.7 percent of sessions over the last 7 days, totaling 28 of 38 sessions and earning 22.11 of 30 points.\",\n      \"fix\": \"Use the slash compact command consistently in every session to keep context under control and maintain high discipline scores.\",\n      \"focus\": \"discipline\"\n    },\n    {\n      \"title\": \"Reduce daily spending\",\n      \"problem\": \"Your estimated cost today reached 7.48 dollars while your overall efficiency score remains at 43.08 out of 100.\",\n      \"fix\": \"Apply cached prompts and lower cost models to bring your daily spending down from 7.48 dollars.\",\n      \"focus\": \"cache\"\n    }\n  ]\n}",
+   "model": "gemini-3.5-flash-lite",
+   "input_tokens": 303,
+   "output_tokens": 442,
+   "latency_ms": 2148,
+   "cost_usd": 0.001196
+  }
+ ]
+}

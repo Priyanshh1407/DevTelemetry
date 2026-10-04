@@ -1,0 +1,12 @@
+{
+ "calls": [
+  {
+   "text": "1. You used Opus for 89 percent of your sessions today, but shifting some routine tasks or exploration to Sonnet or Haiku could help reduce your estimated cost of $8.46 per day.\n\n2. With 5 compact uses across 6 sessions, you are managing context well, but reviewing your 241,121 cache write tokens alongside your 4,583,311 cache read tokens can help you keep prompt caching as efficient as possible.\n\n3. Your output-to-input token ratio shows active coding, but keeping your initial prompts slightly more focused can help reduce your 643,206 input tokens and make your 6 daily git commits even more streamlined.",
+   "model": "gemini-3.5-flash-lite",
+   "input_tokens": 319,
+   "output_tokens": 151,
+   "latency_ms": 1600,
+   "cost_usd": 0.000473
+  }
+ ]
+}

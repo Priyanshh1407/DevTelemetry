@@ -1,0 +1,12 @@
+{
+ "calls": [
+  {
+   "text": "1. Your cache read tokens are at 9,245,947, which is a solid baseline, but keeping your sessions open longer or batching context can help push that efficiency even higher.\n2. With Opus driving 72 percent of your usage and an estimated cost of 13 dollars and 98 cents for 5 sessions, routing simpler tasks or exploratory queries to Haiku or Sonnet could help you save on token expenses.\n3. You logged 4 compact uses across 5 sessions, which is great for keeping context clean, but remember to lean on compaction regularly before starting massive new tasks to protect your output quality.",
+   "model": "gemini-3.5-flash-lite",
+   "input_tokens": 322,
+   "output_tokens": 135,
+   "latency_ms": 1756,
+   "cost_usd": 0.000434
+  }
+ ]
+}

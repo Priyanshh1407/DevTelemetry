@@ -1,0 +1,12 @@
+{
+ "calls": [
+  {
+   "text": "{\n  \"headline\": \"Your efficiency score is 49.52 out of 100, with cache as your weakest area.\",\n  \"actions\": [\n    {\n      \"title\": \"Improve cache usage\",\n      \"problem\": \"Only 15.1 percent of prompt tokens were served from cache, giving you 6.05 of 40 points in this area.\",\n      \"fix\": \"Keep your sessions running longer and reuse context so that more prompt tokens are served from the cache.\",\n      \"focus\": \"cache\"\n    },\n    {\n      \"title\": \"Adjust model selection\",\n      \"problem\": \"Your model mix is currently Opus 11.0 percent, Sonnet 73.0 percent, and Haiku 16.0 percent, resulting in 18.27 of 30 points.\",\n      \"fix\": \"Use cheaper models like Haiku more often for simpler tasks to improve your model mix score.\",\n      \"focus\": \"model_mix\"\n    },\n    {\n      \"title\": \"Maintain compaction habits\",\n      \"problem\": \"You used compact in 84.0 percent of sessions over the last 7 days, totaling 21 of 25 sessions and 25.2 of 30 points.\",\n      \"fix\": \"Continue using compact consistently across your sessions to maintain your strong discipline score.\",\n      \"focus\": \"discipline\"\n    }\n  ]\n}",
+   "model": "gemini-3.5-flash-lite",
+   "input_tokens": 292,
+   "output_tokens": 321,
+   "latency_ms": 1994,
+   "cost_usd": 0.00089
+  }
+ ]
+}

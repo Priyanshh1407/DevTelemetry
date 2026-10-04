@@ -1,0 +1,12 @@
+{
+ "calls": [
+  {
+   "text": "1. Your cache read to input token ratio shows heavy context reliance, with 7,125,281 cache read tokens against 1,903,453 input tokens, indicating you are repeatedly passing large state across only 2 sessions; you must scope your terminal agent working directory down using .claudeignore to exclude irrelevant large files and build artifacts before launching sessions.\n\n2. You recorded zero compact uses despite processing over 7.1 million cached tokens and generating 141,928 output tokens, which means your conversation history is bloating unchecked; you need to proactively run the /compact command every 30 to 45 minutes to prune redundant context and lower your overall token overhead.\n\n3. With only 2 git commits resulting from 2 sessions and a total spend of $14.75, your output-to-commit ratio suggests your sessions are meandering or poorly structured; you should write comprehensive, atomic prompt specifications before starting Claude Code to achieve your implementation goals in fewer, denser execution cycles.\n\n4. Model distribution shows Sonnet at 62 percent and Opus at 14 percent, yet your complex architectural reasoning or edge-case debugging might be running on the more expensive Opus tier unnecessarily; shift routine refactoring and boilerplate tasks entirely to Haiku, which currently sits at 24 percent, to optimize cost efficiency.\n\n5. Your high session volume relative to output volume points to frequent session restarts or context dumping; maintain persistent, well-documented markdown plan files in your repository so that when you do spin up a new session, Claude reads a concise roadmap instead of requiring massive context re-discovery.",
+   "model": "gemini-3.5-flash-lite",
+   "input_tokens": 319,
+   "output_tokens": 341,
+   "latency_ms": 2738,
+   "cost_usd": 0.000948
+  }
+ ]
+}
