@@ -14,3 +14,8 @@ engineers_data.json
 # Test artifacts
 .coverage
 .pytest_cache/
+
+# Personal interview notes (kept locally, not part of the project)
+DEVTELEMETRY_INTERVIEW_REPORT.md
+interview_study_guide.md
+demo_commands.txt
