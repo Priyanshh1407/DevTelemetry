@@ -26,6 +26,7 @@ For this project, “interview-ready” means four things:
 | 4 | Architecture cleanup | ARCH-01, ML-03, lint/hygiene, SEC-03, DX-02 | ~2 days | Single source of truth for severity and queries |
 | 6 | Interview upgrades | UPG-01, UPG-02, UPG-03, UPG-04 | ~5–7 days | Eval numbers, ingestion contract, LLM cost tracking |
 | 7 | Ship & document | README rewrite, diagram, deploy, re-run interview report | ~1.5 days | Honest, clickable demo |
+| 8 | Measured features | UPG-05 coaching impact, UPG-06 what-if savings, UPG-07 anomaly detection, UPG-08 grounded team memo | ~5–7 sessions | A causal-inference story (regression to the mean), grounded savings, an evaluated detector |
 
 Phase 5 (Performance) is merged away. The only real performance problems (CONC-01, PERF-02) are correctness/resilience issues and are fixed in Phases 1–2 with measured before/after numbers.
 
@@ -298,6 +299,137 @@ Interview payoff:
 - A recruiter-clickable demo that holds up when an engineer opens the code.
 Risk / rollback:
 - Render free-tier cold start. Mention it upfront when demoing.
+
+---
+
+## Phase 8 — Measured Features (planned 2026-10-04)
+
+**Goal:** four features that widen the project's scope, each ending in a *measured* claim the way the Phase 6 evals do.
+
+**Why these:**
+- **Real telemetry is out of scope.** There is no access to real office usage, and the developer's own usage wouldn't represent one, so the real-telemetry connector was rejected.
+- **Each feature has an honest measurement:**
+  - *8a:* a simulated ground truth to check a causal estimate against;
+  - *8b:* exact re-pricing;
+  - *8c:* injected incidents with known positions;
+  - *8d:* an eval set.
+
+**Order:** 8a → 8b → 8c → 8d. 8a creates `coaching_events`, which the dashboard uses; 8d uses 8c's anomaly count. Each can ship on its own.
+
+**Ground rules (same as Phases 0–7):**
+- **Branch and commits:** branch `phase-8-features`; red→green tests; one commit per item; a FIX_LOG entry per item.
+- **Approvals:** push and PR only with approval, and **never push `deployment`** (Render auto-deploys it). Each live Gemini eval run needs approval and uses `--model gemini-3.5-flash-lite` (free-tier quota).
+- **Reuse:**
+  - `core/scorer.score_breakdown` / `score_history`;
+  - `core/pricing.estimate_cost`;
+  - `ai/features.coaching_facts`;
+  - `core/ingest.upsert_usage`;
+  - the in-memory simulation pattern in `analysis/weight_sensitivity.py`;
+  - the `evals/` harness (`--profiles`, `--only-missing`, recordings).
+
+Items:
+
+- [ ] **UPG-05 Did the coaching work? Measuring impact without fooling yourself** (flagship)
+  - **Problem it solves in THIS project:**
+    - The app sends guides but never checks whether anyone improved.
+    - The engineers who get the critical runbook are the **bottom 2 by that day's score** (`data/alert_worker.py`, `core/severity.py`). Selecting on a low score guarantees regression to the mean, so a naive before/after shows improvement even when coaching does nothing.
+    - Nothing records who was coached, and simulated personas never change habits, so there is no ground truth to validate a method against.
+  - **What gets built:**
+    - **`coaching_events` table** (`data/schema.sql`): `user_id`, `coached_on`, `severity`, `target_area`, `source` (`dispatch` | `simulated`), `UNIQUE(user_id, coached_on)`. `data/alert_worker.py` inserts a row for each **critical** engineer whose alert was actually `sent`; the target area is `coaching_facts(...)["weakest_area"]`.
+    - **Simulated truth** (`data/seed.py`):
+      - A weekly coaching day coaches the bottom 2.
+      - The coached persona's habit for the target area improves by a configurable true effect (`cache_hit` +Δ, `opus_share` −Δ moved to Sonnet, `compact_rate` +Δ), with an adherence probability.
+      - `--coaching-effect none|small|moderate` (default `moderate` for the demo) writes `source='simulated'` events.
+      - The simulator stays deterministic. Re-check the persona-stability test and record any threshold change with its measured value.
+    - **Estimators** (`core/impact.py`, pure functions; the outcome is points in the targeted area from `score_breakdown`):
+      - *naive:* mean of days +1..+7 minus the coaching-day value. Kept to show the bias.
+      - *difference-in-differences:* (coached: mean of +1..+7 minus mean of −14..−1, **excluding the selection day**) minus (the same for uncoached engineers in the same calendar windows, which cancels the weekday mix and team trends).
+      - A 95% bootstrap CI over events, with a fixed seed.
+    - **Validation** (`analysis/coaching_impact.py`): ~200 simulated teams × true effect ∈ {0, moderate}. It reports each method's mean estimate, bias, CI coverage, and the "coaching works" false-positive rate under no effect, written up in `docs/impact.md`.
+    - **Product:**
+      - `GET /api/coaching-impact?days=` returns per-event before/after plus `{did, ci_low, ci_high, n_events, naive}`.
+      - Dashboard "Coaching impact" card: the estimate ± CI, with the naive number labelled "naive before/after (biased by regression to the mean)".
+      - Coaching-day markers on the engineer trend chart.
+  - **Evidence it produces:** a table showing that with **no** true effect the naive method claims improvement, while difference-in-differences stays ≈ 0 with ~95% coverage, and that it recovers a known effect.
+  - **Talking point:** "The obvious metric said coaching worked even when I'd set the true effect to zero. It was regression to the mean, because we coach whoever had the worst day. I fixed the method, and proved it on a simulation where I knew the right answer."
+  - **Follow-ups the interviewer will ask + what you must understand:**
+    - What regression to the mean is, and why selecting on a low score causes it.
+    - The parallel-trends assumption.
+    - Why exclude the selection day from the baseline.
+    - Why not just randomize (ethics/practicality; a random holdout is the gold standard).
+    - Bootstrap CIs.
+    - What would change with real data.
+  - **Effort:** M–L (~2–3 sessions) | **Interview impact:** 5 | **Buzzword risk:** Low (it produces numbers)
+
+- [ ] **UPG-06 What-if savings calculator** (grounded savings in the guides)
+  - **Problem it solves in THIS project:** engineers see a score, not money. The Phase 6 guide schema dropped `est_saving` because a model-estimated saving is an ungrounded number by construction.
+  - **What gets built:**
+    - **Re-pricing** (`core/whatif.py`): re-prices an engineer's last 30 days of actual tokens with `estimate_cost` under target levers:
+      - *cache:* the same prompt tokens re-split between `input` and `cache_read` at the target hit ratio, cache writes unchanged;
+      - *model:* a target Opus share, moved to Sonnet.
+
+      It returns current vs projected monthly cost and the saving per lever and combined. Inputs are validated (cache hit ≤ 0.97; shares in [0, 1]).
+    - **Data-driven defaults:** the team's top-quartile cache hit and Opus share, not invented targets.
+    - **API and UI:** `GET /api/engineer/{id}/what-if?cache_hit=&opus_pct=` (invalid values → 422), and a debounced sliders panel on `EngineerDetail.jsx`.
+    - **Guides cite real savings:** add computed savings (e.g. `saving_month_usd_cache_to_team_p75`) to `coaching_facts`. Prompt **v3** may cite them, and they're grounded because code computed them. Add a golden prompt test.
+  - **Evidence it produces:**
+    - property tests: a higher cache hit never costs more; less Opus never costs more; no change gives the identical cost;
+    - a **live v2 vs v3 eval on Flash-Lite, 30 profiles (needs approval)** with no regression in validity, targeting or grounding.
+  - **Talking point:** "The model isn't allowed to estimate savings, because it would make them up. The code re-prices the engineer's real tokens under a target habit, and the guide quotes that number."
+  - **Effort:** S–M (~1–2 sessions) | **Interview impact:** 4 | **Buzzword risk:** Low
+
+- [ ] **UPG-07 Cost anomaly detection, measured on injected incidents**
+  - **Problem it solves in THIS project:** a runaway agent loop or broken caching shows up only as a bigger bill. The roadmap's "budget alerts" were never built.
+  - **What gets built:**
+    - **Detector** (`core/anomaly.py`):
+      - A per-engineer robust baseline: the median and MAD of daily cost over the previous 28 days **of the same day type** (weekday vs weekend, so weekend dips aren't flagged). At least 8 baseline days, otherwise not evaluated.
+      - Flag when robust z = 0.6745·(x − median)/MAD ≥ 3.5 **and** x − median ≥ a $ floor.
+      - Name the driver: uncached input (caching broke), Opus share, or output volume.
+    - **Evaluation** (`analysis/anomaly_eval.py`): injects known incidents into simulated teams (runaway-loop days with tokens ×3–6; cache-breakage days with hit ~10%). Over ~200 simulations it reports precision, recall and false alarms per engineer-month for three detectors (robust, a fixed `$30/day` threshold, mean ± 3σ), written up in `docs/anomalies.md`.
+    - **Product:**
+      - `GET /api/anomalies?days=14`;
+      - a dashboard "Spend anomalies" list, and anomaly days marked on the engineer page;
+      - a line in the manager digest;
+      - seed `--incidents` for the demo. Detection never reads the injection.
+  - **Evidence it produces:** the robust detector beats both baselines on F1 with ≤ 1 false alarm per engineer-month.
+  - **Talking point:** "A fixed threshold either misses a light user's runaway loop or pages a heavy user every Monday. Comparing each person to their own normal, with weekends separate, caught N% of injected incidents at under one false alarm a month."
+  - **Follow-ups:**
+    - Why median/MAD instead of mean/σ (outliers inflate σ).
+    - Seasonality (the weekday/weekend split).
+    - Choosing the threshold (the precision/recall trade-off).
+    - The cold start.
+  - **Effort:** S–M (~1–2 sessions) | **Interview impact:** 4 | **Buzzword risk:** Low
+
+- [ ] **UPG-08 Grounded team memo**
+  - **Problem it solves in THIS project:** the manager's team memo still uses a free-text prompt with no grounding check. In Phase 7 testing it recommended a Claude Code feature that doesn't exist (`.claudedir`); this is a documented README limitation.
+  - **What gets built:**
+    - **Pipeline:** a `TeamMemo` schema (`ai/schemas.py`: summary plus 1–2 focus areas with `Literal` areas) and team facts: team size, average score, total cost, team-wide points lost per area, critical count, anomaly count (UPG-07). The structured `team-v2` prompt replaces `build_team_report_prompt`, with the same pipeline as the guides: JSON schema, validation, one repair, a rule-based memo fallback. Metering is already in place.
+    - **"Invented feature" guard:** an allowlist of real Claude Code commands (**verify against Claude Code's docs before writing it**). An eval check fails any `/command` outside it.
+    - **Evals:** ~15 simulated team-day profiles. Checks: valid, grounded numbers, names the team's biggest area, no unknown commands.
+  - **Evidence it produces:** a **live old-vs-new memo eval on Flash-Lite (needs approval)**. Then the README limitation is removed.
+  - **Effort:** S (~1 session) | **Interview impact:** 3 | **Buzzword risk:** Low
+
+Acceptance criteria (phase):
+- **UPG-05:**
+  - with no true effect, naive is clearly > 0 while difference-in-differences is ≈ 0 with 90–98% CI coverage;
+  - with the moderate effect, difference-in-differences is within ±10% of the truth.
+- **UPG-06:** the savings properties hold; v3 does not regress on any eval metric against v2 (same model, same 30 profiles).
+- **UPG-07:** the robust detector beats both baselines on F1 with ≤ 1 false alarm per engineer-month.
+- **UPG-08:** the new memo is 100% valid, with no ungrounded numbers and no unknown commands on the eval set.
+- **Every phase:**
+  - every number in docs, README and FIX_LOG is copied from a script's output;
+  - coverage stays ≥ 85%, with the new `core/` modules near 100%.
+
+Verification commands:
+- `pytest && ruff check . && npm --prefix frontend test && npm --prefix frontend run lint && npm --prefix frontend run build`. Bare `pytest`, exactly as CI runs it.
+- `python -m analysis.coaching_impact`, `python -m analysis.anomaly_eval`
+- `python -m evals.run --pipeline v3 --mode live --model gemini-3.5-flash-lite` (approval), then replay in CI.
+- A fresh clone + `docker compose up --build` + a browser check (Playwright + Edge) of the new panels; retake the screenshots.
+
+Risk / rollback:
+- **Simulation risk (UPG-05):** the coaching effect changes the simulated data. Personas, eval profiles and the published eval recordings must not change. `evals/profiles.json` is generated independently; confirm that the committed eval tables still reproduce.
+- **Prompt change (UPG-06):** prompt v3 changes the stored guide key (`prompt_version`), so existing guides regenerate once.
+- **Deploy:** only on the developer's explicit go-ahead.
 
 ---
 
