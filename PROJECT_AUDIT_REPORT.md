@@ -321,6 +321,15 @@ Not run: the live Render deployment (I didn’t want to trigger side effects on 
 - **New, fixed:** BUG-08 (an engineer absent from the latest day showed "Rank #1, low"); LLM prompts included engineer **names** (privacy); `print()` with emoji crashed the dispatch on cp1252 output; the email template kept a hidden copy of the tier rule; npm 10.9.2 can't run `audit fix` here (worked around).
 - **Open P0/P1:** none. Remaining work is Phase 6 (interview upgrades) and Phase 7 (README rewrite, deploy).
 
+### Status after Phase 6 (2026-10-04)
+- **Done:**
+  - UPG-02: validated, idempotent ingestion API; the simulator uses the same path.
+  - UPG-03: score breakdown in the UI; weight sensitivity measured.
+  - UPG-04: every AI request metered.
+  - UPG-01: built (provider interface, structured v2 prompt, repair + rule-based fallback, guides stored in SQLite, eval harness), with the v1 baseline measured live on gemini-3.8-flash (n=10).
+- **Pending:** the v2 live eval (free-tier quota: 20 requests/day).
+- **New, fixed:** the eval checker misread "N million"; live evals burned time on an exhausted daily quota; the README pointed at a non-existent `CLAUDE_MIGRATION.md`.
+
 ---
 
 ## 5. Hygiene Bundle (P3)
@@ -353,12 +362,13 @@ Not run: the live Render deployment (I didn’t want to trigger side effects on 
 
 - “CI is green on GitHub.” *(updated after Phase 3)* CI exists and every step passes on clean environments (192 backend tests on Python 3.10 and 3.14, 23 frontend tests, 96% coverage), but say “green on GitHub” only after you’ve seen the run in the Actions tab.
 - “It shows how much each engineer spends.” *(updated after Phase 1)* Cost is now computed from token usage with dated list prices (ML-01 fixed), but the usage itself is synthetic, and the per-model split is an assumption (tokens allocated by model mix). Say “estimated from usage with list prices”.
-- “It tracks Claude Code usage.” *(updated after Phase 2)* Nothing ingests real telemetry yet (UPG-02). Data is a persona-based simulation calibrated to Anthropic’s published ~$13/developer/day figure. Say “simulated, calibrated to published costs”.
+- “It tracks Claude Code usage.” *(updated after Phase 6)* There is an ingestion API with Anthropic’s usage field names (UPG-02), but no real producer is connected; the dashboard data is a persona-based simulation. Say “it has a validated ingestion contract; the demo runs on simulated data calibrated to published costs”.
 - “Scheduled alerts run in production.” *(updated after Phase 2)* The mechanism exists and is tested (GitHub Actions tick → idempotent endpoint), but it only runs once merged to the default branch with the two secrets set. Don’t claim it’s live until you’ve seen a scheduled run in the Actions tab.
-- “AI guides are persisted.” *(updated after Phase 1)* Only successful guides are cached now (BUG-02 fixed), but in process memory: lost on restart, not shared between workers. The `ai_guides` table is still unused (UPG-01).
+- ~~“AI guides are persisted.”~~ *(true after Phase 6: stored in `coaching_guides`, keyed by data date, severity, prompt version and model)*
 - “Production-ready” or “it has user authentication.” *(updated after Phase 1)* Mutating endpoints now need a shared admin token (SEC-01 fixed), but there are no user accounts or roles, and the token sits in sessionStorage (XSS-readable).
-- “Switching to Claude takes 5 minutes.” There’s still no provider abstraction (UPG-01 adds one), and the referenced doc doesn’t exist.
-- “Uses Gemini 1.5 Flash / Chart.js / React 18.” It doesn’t (DOC-01).
+- “Switching to Claude takes 5 minutes.” *(updated after Phase 6)* There is a `GuideProvider` interface, but only Gemini implements it. Say “adding a provider means writing one class”, not that it’s been done.
+- *(added after Phase 6)* “v2 improved grounding by X%.” Not measured yet (the v2 live run is pending), and on the n=10 baseline v1 invented no numbers, so expect a small grounding difference. Quote eval numbers with their n and model.
+- “Uses Gemini 1.5 Flash / Chart.js / React 18.” It doesn’t (DOC-01). *(Phase 6: the README now says Gemini 3.8 Flash; the Chart.js and React 18 mentions are fixed in the Phase 7 README rewrite.)*
 - ~~“The trend arrows / sparklines show performance trends.”~~ *(fixed in BUG-07: they now come from a real 7-day score change and daily token volume)*
 - Any percentage like “reduces cost by X%”. Nothing has been measured.
 

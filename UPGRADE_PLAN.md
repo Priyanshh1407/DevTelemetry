@@ -177,7 +177,7 @@ Risk / rollback:
 
 ## Phase 6 — Interview Upgrades
 
-- [ ] **UPG-01 Grounded, structured, persisted AI coaching + eval harness** (flagship)
+- [~] **UPG-01 Grounded, structured, persisted AI coaching + eval harness** (flagship) — *built and tested; v1 baseline measured live (n=10). The v2 live run waits for the free-tier quota (20 requests/day). Deviations: guides are stored in a new `coaching_guides` table (`ai_guides` dropped when empty); the action schema uses `focus` instead of `metric_cited`/`est_saving`, because a model-estimated saving would be an ungrounded number by construction.*
   - Problem it solves in THIS project: LLM output is parsed by line heuristics (LLM-01), failures are cached (BUG-02), nothing is persisted (`ai_guides` unused), and nobody knows whether the advice cites the engineer’s real numbers, which the prompt asks for.
   - What gets built (scope-limited):
     - Gemini `response_schema` / JSON mode that returns `{headline, actions:[{title, problem, fix, metric_cited, est_saving}]}`, validated by Pydantic, with one repair retry that feeds the validation error back.
@@ -195,7 +195,7 @@ Risk / rollback:
     - Cost per guide (ties to UPG-04).
   - Effort: L | Interview impact: 5 | Buzzword risk: Low (it produces numbers)
 
-- [ ] **UPG-02 Telemetry ingestion API + real cost model** (flagship, SDE)
+- [x] **UPG-02 Telemetry ingestion API + real cost model** (flagship, SDE) — *10k records in 0.66 s on SQLite; the simulator shares the code path.*
   - Problem it solves in THIS project: Data only comes from a generator writing directly to SQLite. Cost is random (ML-01). The README promises tracking real usage but there is no input contract.
   - What gets built (scope-limited):
     - `POST /api/ingest` (admin-token protected) that accepts a batch of per-engineer daily usage records, modeled on the fields Claude Code’s OpenTelemetry token/cost metrics or Anthropic’s usage report expose. **Verify the current field names in the docs before designing the schema, and say “modeled on”, not “compatible with”, unless you test it.**
@@ -213,7 +213,7 @@ Risk / rollback:
     - How a real producer would authenticate.
   - Effort: M–L | Interview impact: 4 | Buzzword risk: Low
 
-- [ ] **UPG-03 Explainable score + sensitivity check**
+- [x] **UPG-03 Explainable score + sensitivity check** — *Kendall τ 0.93–0.98 under ±20%; bottom 2 unchanged in 83–93% of teams.*
   - Problem it solves in THIS project: The score is a black box in the UI, and its weights (40/30/30, Haiku = 1.0) are arbitrary (ML-03).
   - What gets built: API returns sub-scores; EngineerDetail shows the breakdown; `docs/scoring.md` explains the rationale; a small script perturbs each weight ±20% and reports rank stability (Kendall τ vs baseline) on the simulated team.
   - Evidence it produces: “rankings have Kendall τ ≥ <x> under ±20% weight changes”, i.e. whether conclusions are robust to the arbitrary choices.
@@ -221,7 +221,7 @@ Risk / rollback:
   - Follow-ups the interviewer will ask + what you must understand: what Kendall τ measures; why not learn the weights (no ground-truth label of ‘efficient’); Goodhart’s law (engineers gaming `/compact`).
   - Effort: S–M | Interview impact: 3 | Buzzword risk: Low
 
-- [ ] **UPG-04 LLM cost & latency tracking for the app’s own AI calls**
+- [x] **UPG-04 LLM cost & latency tracking for the app’s own AI calls** — *`ai_requests` table + `GET /api/ai-stats`.*
   - Problem it solves in THIS project: A token-efficiency tool that doesn’t measure its own token spend. There is no visibility into Gemini latency or failures.
   - What gets built: Record `usage_metadata` tokens, latency in ms, model, prompt_version, and outcome (ok/repaired/fallback) per generation in `ai_guides` (or an `llm_calls` table); a small `/api/ai-stats` endpoint; cache hit rate.
   - Evidence it produces: p50/p95 generation latency, tokens and $ per guide, cache hit rate, fallback rate.
@@ -234,7 +234,7 @@ Acceptance criteria (phase):
 - Ingest idempotency and rejection tests pass.
 - All metrics in resume bullets come from these outputs.
 Verification commands:
-- `pytest -q && python -m evals.run --prompt-version v2`
+- `pytest -q && python -m evals.run --pipeline v2` (replay; add `--mode live` only with approval)
 Risk / rollback:
 - UPG-01 depends on Gemini structured-output support for the pinned SDK version, so check the SDK docs first. Run evals against recorded responses in CI and live only manually (cost and rate limits).
 
