@@ -640,3 +640,9 @@ Interview version: "When I retook the screenshots I noticed the runbook page sti
 - CI green on github.com;
 - the OPS-01 switches on GitHub;
 - the live deploy and live Runbook check.
+
+### First CI run on GitHub (PR #1)
+- **Failure:** backend failed on both Python versions with `ModuleNotFoundError: No module named 'core'` while loading `tests/conftest.py`. Frontend passed.
+- **Root cause:** there was no pytest configuration. CI and the README run the plain `pytest` command, which does not put the repository root on the import path. Every local run (including the Phase 3 claim that all CI steps were reproduced, and the Phase 0–7 verification above) used `python -m pytest`, which does. **That claim was wrong in this one detail.**
+- **Fix:** `pytest.ini` (`pythonpath = .`, `testpaths = tests`). Bare `pytest` with CI's exact flags passes on a clean clone: 309 tests, 97% coverage.
+- **Lesson:** reproduce CI by running its exact command, not an equivalent one.
