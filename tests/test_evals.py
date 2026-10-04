@@ -86,7 +86,7 @@ def test_replay_run_scores_recorded_guides(tmp_path):
     hallucinated = good.replace("Keep one session per task", "This saves 60% of your bill; keep one session per task")
     recordings = {"p01": [_call(good)], "p02": [_call(hallucinated)], "p03": [_call("oops"), _call("oops")]}
     for pid, calls in recordings.items():
-        path = tmp_path / "recordings" / "gemini-3.8-flash" / "v2" / f"{pid}.json"
+        path = tmp_path / "recordings" / "gemini-3.5-flash-lite" / "v2" / f"{pid}.json"
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps({"calls": calls}), encoding="utf-8")
     # profile p02/p03 have other weakest areas; reuse p01's numbers only for p01's guide
@@ -99,7 +99,7 @@ def test_replay_run_scores_recorded_guides(tmp_path):
     assert by_id["p03"]["source"] == "invalid_output" and not by_id["p03"]["valid"]
     assert summary["valid_rate"] == pytest.approx(2 / 3, abs=0.001)
     assert summary["llm_calls"] == 4 and summary["cost_usd"] == pytest.approx(4 * 0.00124)
-    assert (tmp_path / "results" / "gemini-3.8-flash" / "v2-n3.md").exists()
+    assert (tmp_path / "results" / "gemini-3.5-flash-lite" / "v2-n3.md").exists()
 
 
 def test_live_retries_capacity_errors_and_only_missing_skips_recorded_profiles(tmp_path, mock_gemini):
@@ -111,7 +111,7 @@ def test_live_retries_capacity_errors_and_only_missing_skips_recorded_profiles(t
     good = _call(json.dumps({"headline": "Fix caching first.", "actions": [
         {"title": "Reuse cache", "problem": "Cache hits are low today.", "fix": "Keep one session per task.",
          "focus": "cache"}]}))
-    recorded = tmp_path / "recordings" / "gemini-3.8-flash" / "v2" / "p01.json"
+    recorded = tmp_path / "recordings" / "gemini-3.5-flash-lite" / "v2" / "p01.json"
     recorded.parent.mkdir(parents=True)
     recorded.write_text(json.dumps({"calls": [good]}), encoding="utf-8")
 
@@ -152,13 +152,13 @@ def test_live_run_stops_when_the_quota_is_used_up(tmp_path, mock_gemini):
 def test_a_subset_run_is_labelled_with_its_size(tmp_path):
     profiles = load()[:2]
     for p in profiles:
-        path = tmp_path / "rec" / "gemini-3.8-flash" / "v2" / f"{p['id']}.json"
+        path = tmp_path / "rec" / "gemini-3.5-flash-lite" / "v2" / f"{p['id']}.json"
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps({"calls": [_call("not json"), _call("still not json")]}), encoding="utf-8")
 
     summary, _ = run("v2", "replay", profiles=profiles, recordings=tmp_path / "rec", results=tmp_path / "res")
 
-    out = tmp_path / "res" / "gemini-3.8-flash"
+    out = tmp_path / "res" / "gemini-3.5-flash-lite"
     assert (out / "v2-n2.md").exists() and not (out / "v2.md").exists()
     assert summary["profile_ids"] == ["p01", "p02"]
 
@@ -178,3 +178,43 @@ def test_a_live_eval_uses_one_model_and_never_the_fallback(tmp_path, mock_gemini
     models = {c.kwargs["model"] for c in mock_gemini.models.generate_content.call_args_list}
     assert models == {"gemini-3.5-flash-lite"}
     assert (tmp_path / "rec" / "gemini-3.5-flash-lite" / "v2" / "p01.json").exists()
+
+
+@pytest.mark.parametrize("pipeline", ["v1", "v2"])
+def test_committed_recordings_reproduce_the_committed_results(tmp_path, pipeline):
+    """The published eval table must follow from the published recordings, offline (this is
+    what CI checks). If the checker or scoring changes, re-score and commit the new results."""
+    import evals.run as runner
+
+    model = runner.EVAL_MODEL
+    committed = json.loads((runner.RESULTS / model / f"{pipeline}.json").read_text(encoding="utf-8"))
+
+    summary, rows = runner.run(pipeline, "replay", results=tmp_path, model=model)
+
+    assert len(rows) == 30
+    volatile = {"run_at", "mode"}
+    assert {k: v for k, v in summary.items() if k not in volatile} == \
+           {k: v for k, v in committed["summary"].items() if k not in volatile}
+
+
+def test_the_default_eval_model_has_complete_recordings(tmp_path, monkeypatch):
+    import evals.run as runner
+
+    monkeypatch.setattr(runner, "RESULTS", tmp_path)   # don't rewrite the committed results
+    assert runner.main(["--pipeline", "v2"]) is None   # the plan's verification command, replay
+    assert (tmp_path / runner.EVAL_MODEL / "v2.md").exists()
+
+
+def test_a_replay_with_unchanged_numbers_leaves_published_results_alone(tmp_path):
+    import shutil
+
+    import evals.run as runner
+
+    published = tmp_path / runner.EVAL_MODEL / "v2.json"
+    published.parent.mkdir(parents=True)
+    shutil.copy(runner.RESULTS / runner.EVAL_MODEL / "v2.json", published)
+    before = published.read_bytes()
+
+    runner.run("v2", "replay", results=tmp_path)
+
+    assert published.read_bytes() == before

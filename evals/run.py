@@ -21,7 +21,7 @@ from contextlib import contextmanager
 from datetime import datetime, timezone
 
 import ai.guide_generator as generator
-from ai.providers import DEFAULT_GEMINI_MODEL, GeminiProvider, LLMResponse
+from ai.providers import GeminiProvider, LLMResponse
 from core.queries import without_pii
 from evals.checks import evaluate, summarize
 from evals.profiles import load
@@ -29,6 +29,9 @@ from evals.profiles import load
 ROOT = pathlib.Path(__file__).parent
 RECORDINGS = ROOT / "recordings"
 RESULTS = ROOT / "results"
+# The model the published comparison ran on (all 30 profiles, v1 and v2): the default for
+# replays and new live runs. Pass --model to evaluate another model.
+EVAL_MODEL = "gemini-3.5-flash-lite"
 
 
 class ReplayProvider:
@@ -104,7 +107,7 @@ def _live(pipeline, profile, sleep):
 
 
 def run(pipeline, mode, profiles=None, recordings=RECORDINGS, results=RESULTS, pause_s=0.0,
-        only_missing=False, sleep=time.sleep, model=DEFAULT_GEMINI_MODEL):
+        only_missing=False, sleep=time.sleep, model=EVAL_MODEL):
     """`only_missing` (live): replay profiles that already have a recorded reply, call the API
     only for the rest, so finishing an interrupted run never pays for the same profile twice."""
     profiles = profiles if profiles is not None else load()
@@ -140,10 +143,26 @@ def run(pipeline, mode, profiles=None, recordings=RECORDINGS, results=RESULTS, p
     summary["model"] = model
     results = results / model
     results.mkdir(parents=True, exist_ok=True)
-    (results / f"{name}.json").write_text(json.dumps({"summary": summary, "rows": rows}, indent=1) + "\n",
-                                          encoding="utf-8")
+    json_path = results / f"{name}.json"
+    if mode == "replay" and _same_numbers(json_path, summary, rows):
+        return summary, rows  # a check, not a change: keep the published files (and their timestamp)
+    json_path.write_text(json.dumps({"summary": summary, "rows": rows}, indent=1) + "\n", encoding="utf-8")
     (results / f"{name}.md").write_text(report(summary, rows), encoding="utf-8")
     return summary, rows
+
+
+_VOLATILE = ("run_at", "mode")
+
+
+def _same_numbers(path, summary, rows):
+    if not path.exists():
+        return False
+    old = json.loads(path.read_text(encoding="utf-8"))
+
+    def stable(s):
+        return {k: v for k, v in s.items() if k not in _VOLATILE}
+
+    return stable(old["summary"]) == stable(summary) and old["rows"] == rows
 
 
 def _pct(value):
@@ -152,7 +171,10 @@ def _pct(value):
 
 def report(summary, rows):
     lines = [
-        f"# Eval: prompt {summary['pipeline']} ({summary['mode']}, {summary['run_at']})", "",
+        f"# Eval: prompt {summary['pipeline']} on {summary.get('model', '?')}", "",
+        f"Replies: live API calls, recorded in `evals/recordings/{summary.get('model', '?')}/{summary['pipeline']}/`. "
+        f"Scored {summary['run_at']} ({'during the live run' if summary['mode'] == 'live' else 'from the recordings'}).",
+        "",
         "| Metric | Value |", "|---|---|",
         f"| Profiles | {summary['profiles']} |",
         f"| Valid guide | {_pct(summary['valid_rate'])} |",
@@ -188,8 +210,8 @@ def main(argv=None):
     parser.add_argument("--only-missing", action="store_true",
                         help="live mode: replay profiles already recorded, call the API only for the rest")
     parser.add_argument("--profiles", help="comma-separated profile ids to run (default: all 30)")
-    parser.add_argument("--model", default=DEFAULT_GEMINI_MODEL,
-                        help=f"Gemini model for the whole run (default {DEFAULT_GEMINI_MODEL}; no fallback)")
+    parser.add_argument("--model", default=EVAL_MODEL,
+                        help=f"Gemini model for the whole run (default {EVAL_MODEL}; no fallback)")
     args = parser.parse_args(argv)
     profiles = load()
     if args.profiles:
@@ -200,7 +222,8 @@ def main(argv=None):
         profiles = [p for p in profiles if p["id"] in wanted]
     try:
         summary, _ = run(args.pipeline, args.mode, profiles=profiles, pause_s=args.pause,
-                         only_missing=args.only_missing, model=args.model)
+                         only_missing=args.only_missing, model=args.model, results=RESULTS,
+                         recordings=RECORDINGS)
     except ProviderCapacityExhausted as e:
         raise SystemExit(f"Stopped: {e}") from e
     print(report(summary, []).split("## Per profile")[0])  # noqa: T201
