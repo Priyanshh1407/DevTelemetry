@@ -207,7 +207,7 @@ cd DevTelemetry
 python -m venv venv
 source venv/bin/activate              # Windows: venv\Scripts\activate
 pip install -r requirements.txt
-cp .env.example .env                  # then set GEMINI_API_KEY and ADMIN_TOKEN (see below)
+cp .env.example .env                  # optional: set GEMINI_API_KEY; set ADMIN_TOKEN for admin actions
 python data/seed.py                   # 30 days x 10 simulated engineers (deterministic)
 uvicorn api.main:app --reload         # API on http://localhost:8000
 
