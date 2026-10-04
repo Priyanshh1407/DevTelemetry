@@ -1,0 +1,12 @@
+{
+ "calls": [
+  {
+   "text": "1. Improve cache retention. Your cache read volume of 639,948 tokens represents only 10.6% of your 6,038,217 total context volume, forcing you to pay full cost on over 5.12 million raw input tokens. Avoid editing system prompt instructions or project-level configurations mid-session so Claude Code can reuse cached repository context instead of re-indexing your project on every turn.\n\n2. Radically improve your token-to-commit yield. You burned 5,126,801 input tokens and 116,813 output tokens across only 3 git commits, which equates to an unsustainable average of over 1.7 million input tokens per commit. Narrow your task scopes by targeting specific files directly instead of permitting Claude to recursively scan the workspace for every query.\n\n3. Increase session compaction frequency. You ran 5 separate sessions but only triggered the compact command 3 times, allowing historical message context to bloat to an average of over 1 million input tokens per session. Execute the compact command every 3 to 5 turn cycles, or terminate and restart sessions as soon as an atomic sub-task is completed.\n\n4. Rebalance your model tier distribution. Opus accounts for 14% of your requests, Sonnet represents 79%, and Haiku makes up only 7%. Opus usage is disproportionately driving your 7.48 USD daily cost. Demote exploratory code queries and simple terminal tasks to Haiku, keep standard feature development on Sonnet, and restrict Opus strictly to complex architectural problems.\n\n5. Throttle high output generation. Generating 116,813 output tokens across 5 sessions indicates that the agent is regenerating full files and outputting excessive prose. Enforce terse output instructions in your project rules file to demand concise code diffs rather than full-file reprints, which will sharply reduce both turnaround latency and generation cost.",
+   "model": "gemini-3.8-flash",
+   "input_tokens": 317,
+   "output_tokens": 1880,
+   "latency_ms": 16006,
+   "cost_usd": 0.007288
+  }
+ ]
+}

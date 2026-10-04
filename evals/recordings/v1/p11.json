@@ -1,0 +1,12 @@
+{
+ "calls": [
+  {
+   "text": "1. Rebalance your model tier usage. Opus currently makes up 62% of your activity compared to 33% for Sonnet. Switching your default to Sonnet for standard coding tasks can provide faster feedback loops while lowering your $3.96 daily spend without compromising code quality.\n\n2. Optimize context efficiency earlier. Your cache read volume was strong at 3,560,197 tokens, but you still accumulated 484,958 uncached input tokens. You averaged exactly one compact per session (7 compact uses across 7 sessions), so try running the compact command earlier during extended debugging runs to keep prompt sizes trim.\n\n3. Tighten the scope between sessions and commits. You completed 4 git commits across 7 sessions and generated 27,247 output tokens. Breaking tasks into smaller, single-objective sessions tied directly to individual commits will prevent context bloat and help you ship faster.",
+   "model": "gemini-3.8-flash",
+   "input_tokens": 318,
+   "output_tokens": 1382,
+   "latency_ms": 8889,
+   "cost_usd": 0.005421
+  }
+ ]
+}

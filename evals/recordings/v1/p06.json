@@ -1,0 +1,12 @@
+{
+ "calls": [
+  {
+   "text": "1. Try using the /compact command during longer threads. You logged 0 compact uses across your 7 sessions, which contributed to 1,890,105 uncached input tokens. Periodically compacting conversation context will keep responses fast and lower your overall token footprint.\n\n2. Aim to turn your active sessions into tangible milestones. You generated 126,329 output tokens today but logged 0 git commits. Prompting Claude Code to help stage and commit smaller, incremental changes as you go will help lock in your progress more consistently.\n\n3. Fine-tune your model selection to stretch your budget. Your estimated spend reached $8.90 today, partly because Opus accounted for 10% of your usage alongside Sonnet at 73%. Shifting more routine checks and simple file lookups to Haiku (currently at 17%) is a great way to improve cost efficiency.",
+   "model": "gemini-3.8-flash",
+   "input_tokens": 319,
+   "output_tokens": 1525,
+   "latency_ms": 6857,
+   "cost_usd": 0.005958
+  }
+ ]
+}

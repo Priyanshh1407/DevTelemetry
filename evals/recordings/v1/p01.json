@@ -1,0 +1,12 @@
+{
+ "calls": [
+  {
+   "text": "1. Improve prompt caching: Your cache read tokens were 1,895,014 compared to 10,145,598 input tokens, meaning only about 18.7% of your prompt context was retrieved from cache. Keeping prompts structured and grouping related edits within the same active session will help reuse cached context and speed up replies.\n\n2. Compact context earlier: You used the compact command 4 times across your 7 sessions, but input tokens still exceeded 10 million. Consider running /compact sooner when tackling larger tasks or starting a fresh session when switching workstreams to prevent token bloat across your 8 commits.\n\n3. Shift routine work to lighter models: Your current model usage is 74% Sonnet, 17% Haiku, and 9% Opus, leading to a daily cost of $16.40. Offloading quick lookups, repetitive refactors, and simple bash commands to Haiku will help lower that spend while reserving Sonnet and Opus for heavier architectural work.",
+   "model": "gemini-3.8-flash",
+   "input_tokens": 322,
+   "output_tokens": 1525,
+   "latency_ms": 7827,
+   "cost_usd": 0.00596
+  }
+ ]
+}

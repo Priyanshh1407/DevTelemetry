@@ -1,0 +1,12 @@
+{
+ "calls": [
+  {
+   "text": "1. Try utilizing the /compact command to manage session length. You logged 6 sessions today with 0 compact uses, which means older conversation history might be lingering and unnecessarily inflating context. Running a compact periodically keeps responses sharp.\n\n2. Consider shifting lighter tasks toward Haiku. Your current model distribution is 61% Sonnet, 26% Haiku, and 13% Opus, yielding a daily cost of $8.03. Routing routine questions, syntax checks, or simple file edits to Haiku can trim costs without sacrificing quality on your 6 commits.\n\n3. Maintain your strong prompt caching habits. You achieved 6,823,342 cache read tokens compared to 608,166 raw input tokens, which is an efficient roughly 88% cache read rate. Keeping long sessions consolidated rather than restarting frequently will help push that efficiency even higher.",
+   "model": "gemini-3.8-flash",
+   "input_tokens": 320,
+   "output_tokens": 1052,
+   "latency_ms": 10124,
+   "cost_usd": 0.004185
+  }
+ ]
+}

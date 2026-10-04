@@ -128,10 +128,13 @@ def run(pipeline, mode, profiles=None, recordings=RECORDINGS, results=RESULTS, p
     summary = summarize(rows)
     summary.update({"pipeline": pipeline, "mode": mode,
                     "run_at": datetime.now(timezone.utc).isoformat(timespec="seconds")})
+    # A subset gets its own file (e.g. v1-n10) so it is never mistaken for the full eval.
+    name = pipeline if len(profiles) == len(load()) else f"{pipeline}-n{len(profiles)}"
+    summary["profile_ids"] = [p["id"] for p in profiles]
     results.mkdir(parents=True, exist_ok=True)
-    (results / f"{pipeline}.json").write_text(json.dumps({"summary": summary, "rows": rows}, indent=1) + "\n",
-                                              encoding="utf-8")
-    (results / f"{pipeline}.md").write_text(report(summary, rows), encoding="utf-8")
+    (results / f"{name}.json").write_text(json.dumps({"summary": summary, "rows": rows}, indent=1) + "\n",
+                                          encoding="utf-8")
+    (results / f"{name}.md").write_text(report(summary, rows), encoding="utf-8")
     return summary, rows
 
 
@@ -174,9 +177,18 @@ def main(argv=None):
                         help="seconds between profiles in live mode (free-tier rate limits)")
     parser.add_argument("--only-missing", action="store_true",
                         help="live mode: replay profiles already recorded, call the API only for the rest")
+    parser.add_argument("--profiles", help="comma-separated profile ids to run (default: all 30)")
     args = parser.parse_args(argv)
+    profiles = load()
+    if args.profiles:
+        wanted = args.profiles.split(",")
+        unknown = set(wanted) - {p["id"] for p in profiles}
+        if unknown:
+            parser.error(f"unknown profile ids: {', '.join(sorted(unknown))}")
+        profiles = [p for p in profiles if p["id"] in wanted]
     try:
-        summary, _ = run(args.pipeline, args.mode, pause_s=args.pause, only_missing=args.only_missing)
+        summary, _ = run(args.pipeline, args.mode, profiles=profiles, pause_s=args.pause,
+                         only_missing=args.only_missing)
     except ProviderCapacityExhausted as e:
         raise SystemExit(f"Stopped: {e}") from e
     print(report(summary, []).split("## Per profile")[0])  # noqa: T201
