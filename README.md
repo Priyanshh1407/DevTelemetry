@@ -29,8 +29,11 @@ A manager sees only the total bill, and an engineer gets no feedback on their ha
 1. **Takes in daily usage per engineer:** tokens split the way Anthropic's API reports them (uncached input, cache reads, cache writes, output), model mix, sessions and `/compact` uses. Data comes through a validated ingestion API; the simulator uses the same path.
 2. **Computes cost** from a dated list-price table, and an **efficiency score from 0 to 100** that rewards habits, not low spend.
 3. **Ranks the team** on a dashboard, with 30-day trends and a per-engineer score breakdown.
-4. **Writes coaching guides** with Gemini: structured JSON, validated, citing only the engineer's real numbers. If the model fails, a rule-based guide is built from the same numbers.
-5. **Sends alerts** by email and Slack: on demand from the dashboard, or on a saved schedule triggered by GitHub Actions.
+4. **Writes coaching guides** with Gemini: structured JSON, validated, citing only the engineer's real numbers and savings the code computed. If the model fails, a rule-based guide is built from the same numbers.
+5. **Sends alerts** by email and Slack: on demand from the dashboard, or on a saved schedule triggered by GitHub Actions. The manager's memo is built from computed team facts and can only mention real Claude Code commands.
+6. **Measures whether coaching works** with a difference-in-differences estimate, not a before/after that regression to the mean would fool ([docs/impact.md](docs/impact.md)).
+7. **Shows what a habit costs:** a what-if calculator re-prices the engineer's real tokens at a better cache hit ratio or less Opus.
+8. **Flags unusual spend** (a runaway agent loop, broken caching) against each engineer's own normal ([docs/anomalies.md](docs/anomalies.md)).
 
 ---
 
@@ -100,6 +103,7 @@ flowchart LR
 - **One write path.** Real and simulated data both go through `core/ingest.py`, so they get the same validation and the same cost and score.
 - **Sync handlers.** Blocking work (SQLite, LLM calls) runs in FastAPI's threadpool, so one slow guide doesn't stall the dashboard. Measured: leaderboard latency while a guide waits 1.5 s on the LLM went from 1.32 s to 0.016 s.
 - **Alert dispatch runs in the background.** `POST /api/trigger-alerts` answers 202 in 41 ms. A `dispatch_runs` ledger (single flight, enforced by the database) prevents double sends, and the dashboard polls its status.
+- **The statistics live in `core/`, as pure functions.** `impact.py` (coaching effect), `anomaly.py` (spend anomalies) and `whatif.py` (re-pricing) take data in and return numbers. `analysis/` checks each one on simulated teams where the right answer is known.
 
 ---
 
@@ -125,7 +129,7 @@ Full rationale, field definitions and limitations: [docs/scoring.md](docs/scorin
 
 **Pipeline** (`ai/`):
 1. Only computed metrics go to the model, never names or emails (a test checks every prompt).
-2. Prompt v2 gives the model a block of facts, asks for JSON matching a schema, and requires it to start with the weakest area.
+2. The prompt (v3) gives the model a block of facts and a block of savings computed by `core/whatif.py`. It asks for JSON matching a schema, and requires the guide to start with the weakest area and to quote no saving it computed itself.
 3. The reply is validated with Pydantic. If it's invalid, one repair call feeds the error back. If that also fails, the engineer gets a rule-based guide built from their own sub-scores, marked as a fallback and never stored as a success.
 4. Guides are stored in SQLite, keyed by data date, severity, prompt version and model, so repeat views cost nothing and a new prompt or model regenerates them.
 5. **Model fallback:** if Gemini 3.8 Flash is out of quota (429) or overloaded (5xx), the request is retried once on Gemini 3.5 Flash-Lite. Free-tier quotas are per model, so the fallback has its own allowance. The main model is then skipped for 5 minutes.
@@ -145,13 +149,75 @@ Old prompt (v1, free text) vs the structured prompt (v2), both live on Gemini 3.
 - **The main gain is targeting.** v1 talks about caching to people whose problem is model choice.
 - **v1 rarely invents numbers.** Reviewing each of its flagged numbers by hand found one wrong figure in 30 guides.
 - **Results depend on the model.** On 3.8 Flash, v1 already targeted 100% (10 profiles). That's why each eval run uses a single model.
-- **Free to reproduce.** Replies are recorded, so `python -m evals.run --pipeline v2` re-scores them without API calls. CI checks that the recordings still reproduce the published tables ([v1](evals/results/gemini-3.5-flash-lite/v1.md), [v2](evals/results/gemini-3.5-flash-lite/v2.md)).
+- **Prompt v3 adds computed savings without losing anything.** Same model, same 30 profiles:
+  - validity, targeting and grounding stay at 100% (all 552 numbers grounded);
+  - 29 of 30 guides quote a real saving, e.g. "Raise your cache hit ratio to the team top quartile of 83.0% to save $346.91 per 30 days";
+  - the cost is one first-try failure (fixed by the repair) and about 12% more tokens.
+- **Free to reproduce.** Replies are recorded, so `python -m evals.run --pipeline v3` re-scores them without API calls. CI checks that the recordings still reproduce the published tables ([v1](evals/results/gemini-3.5-flash-lite/v1.md), [v2](evals/results/gemini-3.5-flash-lite/v2.md), [v3](evals/results/gemini-3.5-flash-lite/v3.md)).
+
+**Team memo** (`ai/team_memo.py`): the manager's digest memo is built from computed team facts: points lost per area, weakest-area counts, critical tier and recent spend anomalies. The reply is validated against a schema and against [Claude Code's documented commands](https://code.claude.com/docs/en/commands). A memo that names a command or `.claude…` file that doesn't exist is repaired once, then replaced by a rule-based memo.
+
+Old free-text memo vs the grounded one, 15 simulated team-days, Gemini 3.5 Flash-Lite ([team-v1](evals/results/gemini-3.5-flash-lite/team-v1.md), [team-v2](evals/results/gemini-3.5-flash-lite/team-v2.md)):
+
+| | Old memo | Grounded memo |
+|---|---|---|
+| Valid | 100% | 100% |
+| **Main recommendation targets the team's biggest gap** | **0%** | **100%** |
+| Numbers cited (all grounded) | 33 | 195 |
+| Invented commands or files | 0 | 0 |
+
+The old memo gave generic advice because it never saw per-area data. Neither memo invented a command in this run; the guard is a safety net for the time one did (`.claudedir`, Phase 7).
 
 **Metering** (`GET /api/ai-stats`): every request records outcome, tokens (from the provider's usage data), latency, cost, model and prompt version. From two `main.py` runs on a fresh database:
 - $0.0010 per generated guide;
 - 50% cache hit rate (the second run served all five guides from the database);
 - 0% fallback rate;
 - p50 / p95 latency 2.1 / 5.3 s.
+
+---
+
+## Measured features
+
+Each of these comes with a script that checks it on simulated data where the right answer is known.
+
+### Did the coaching work? (`GET /api/coaching-impact`)
+
+Coaching goes to the bottom two by that day's score. Anyone picked on a bad day looks better the week after, coached or not (regression to the mean). So "after minus the coaching day" says coaching works even when it does nothing.
+
+DevTelemetry instead compares the coached area's points over:
+- **before:** days −13 to −7, which skips the days the selection depended on;
+- **after:** days +1 to +7.
+
+It then subtracts the same change for engineers who weren't coached (**difference-in-differences**), with a cluster-bootstrap 95% interval.
+
+`python -m analysis.coaching_impact`: 200 simulated teams, where every coached day is regenerated without the coaching to get the true effect:
+
+| True effect | Naive (after − coaching day) | Difference-in-differences | Its 95% CI covers the truth |
+|---|---|---|---|
+| none (0.00) | +0.82, "it worked" in 18% of teams | **+0.02** | 98% |
+| moderate (+4.13 points) | +5.74 | **+4.13** | 98% |
+
+On the demo data (simulated coaching with a real effect), the dashboard card shows **+3.0 points (95% CI +1.6 to +4.5)**. Details and limits, starting with the parallel-trends assumption: [docs/impact.md](docs/impact.md).
+
+### What would a better habit save? (`GET /api/engineer/{id}/what-if`)
+
+The engineer page has two sliders: target cache hit ratio and maximum Opus share. They start at the team's top-quartile habits. The API re-prices the engineer's actual last 30 days of tokens with the same price table as the bill, and returns the saving per 30 days for each lever and both together.
+- **Property tests:** a better habit never costs more, and no change reproduces the bill.
+- **Same numbers in the guides:** prompt v3 and the rule-based guide quote these savings.
+
+### Unusual spend (`GET /api/anomalies`)
+
+A day is flagged when it costs far more than that engineer's previous 28 days of the **same day type** (weekdays vs weekends): median/MAD robust z ≥ 3.5 and at least $5 above normal. The likely cause (more tokens, broken caching or more Opus) is found by re-pricing the day at the usual habit.
+
+`python -m analysis.anomaly_eval`: 6,170 injected incidents in 200 simulated teams:
+
+| Detector | F1 | Recall | False alarms per engineer-month | Weekend recall |
+|---|---|---|---|---|
+| **Own normal, median/MAD** | **0.69** | 72% | 0.37 | 57% |
+| Fixed $30/day | 0.36 | 36% | 0.63 | 7% |
+| Mean + 3σ (same windows) | 0.66 | 61% | 0.23 | 53% |
+
+It catches 91% of runaway loops but only 51% of broken caching: for an engineer whose hit ratio was already low, the change is only a few dollars. Anomalies appear on the dashboard, on the engineer chart and in the manager digest. More in [docs/anomalies.md](docs/anomalies.md).
 
 ---
 
@@ -188,7 +254,10 @@ Old prompt (v1, free text) vs the structured prompt (v2), both live on Gemini 3.
 | GET | `/health` | Database reachable, scoring version, latest data date, whether AI is configured |
 | GET | `/api/leaderboard` | Latest day, ranked, with 7-day trend |
 | GET | `/api/trends` | Team averages, last 30 days |
-| GET | `/api/engineer/{id}/details` | History, rank, severity, score breakdown |
+| GET | `/api/engineer/{id}/details` | History, rank, severity, score breakdown, coaching days, spend anomalies |
+| GET | `/api/engineer/{id}/what-if?cache_hit=&opus_pct=` | Monthly saving at a target habit (default: team top quartile) |
+| GET | `/api/coaching-impact?days=120` | Coaching events with naive, before/after and difference-in-differences estimates |
+| GET | `/api/anomalies?days=14` | Days far above that engineer's usual spend, with the likely driver |
 | GET | `/api/guide/{id}`, `/api/runbook-tasks/{severity}/{id}` | Coaching guide (stored or generated) |
 | GET | `/api/ai-stats` | Metering summary |
 | GET | `/api/settings`, `/api/dispatch-runs/{id}` | Alert schedule, dispatch status |
@@ -211,7 +280,7 @@ python -m venv venv
 source venv/bin/activate              # Windows: venv\Scripts\activate
 pip install -r requirements.txt
 cp .env.example .env                  # optional: set GEMINI_API_KEY; set ADMIN_TOKEN for admin actions
-python data/seed.py                   # 30 days x 10 simulated engineers (deterministic)
+python data/seed.py                   # 120 days x 10 simulated engineers (deterministic)
 uvicorn api.main:app --reload         # API on http://localhost:8000
 
 # Dashboard (terminal 2)
@@ -223,6 +292,9 @@ npm run dev                           # http://localhost:5173
 Optional:
 - **Console agent:** `python main.py`.
 - **Reset the data:** `python data/seed.py --reset`.
+- **Demo data options:**
+  - `--coaching-effect none|small|moderate|off`: the true effect of simulated coaching every 14 days (default `moderate`);
+  - `--incidents N`: incident days injected in the last 14 days (default 3).
 
 ### With Docker
 
@@ -249,11 +321,14 @@ The backend seeds an empty database on start and keeps it on a named volume.
 ```bash
 pip install -r requirements-dev.txt
 pytest                                # backend
-python -m evals.run --pipeline v2     # re-score the recorded eval (no API calls)
+python -m evals.run --pipeline v3     # re-score the recorded guide eval (no API calls)
+python -m evals.team_run --pipeline team-v2   # same for the team memo
+python -m analysis.coaching_impact    # validation tables (about 1 minute each)
+python -m analysis.anomaly_eval
 cd frontend && npm test && npm run lint
 ```
 
-- **Coverage:** 309 backend tests at 97% coverage, plus 33 frontend tests.
+- **Coverage:** 434 backend tests at 97.6% coverage, plus 45 frontend tests.
 - **Offline by design:** the test suite blocks network access and never touches `data/usage.db`.
 
 ---
@@ -294,7 +369,9 @@ Notes: the value must be exactly `false` (other spellings count as on). If CI is
 - **Daily aggregates.** Cost is split across models by usage share, not per request.
 - **The model mix ignores task difficulty.** Using Opus for a hard design problem scores the same as using it for a typo.
 - **Goodhart's law.** Once `/compact` is scored it can be gamed. Treat the score as a conversation starter.
-- **Eval coverage.** Rule-based checks don't measure tone or helpfulness. The team memo still uses a free-text prompt with no grounding check, and in testing it once recommended a Claude Code feature that doesn't exist.
+- **Eval coverage.** Rule-based checks measure structure, grounded numbers, targeting and real commands, not whether the advice is right. One grounded memo said `/compact` improves caching, which is wrong; catching that needs human review or an LLM judge.
+- **Coaching impact assumes parallel trends.** Difference-in-differences assumes coached and uncoached engineers would have moved alike without the coaching. A random holdout would be stronger. The method is validated on simulation, and the demo's coaching effect is simulated.
+- **Anomalies are single days.** A slow leak over a week, or broken caching for someone who barely used the cache, can stay under the threshold.
 - **Auth is a shared admin token.** There are no user accounts or roles.
 - **SQLite is a single writer.** That's fine at team scale; many teams writing at once would call for Postgres.
 - **Free-tier hosting.** On Render's free tier the database is reset on each deploy, and the first request after idling is slow.
@@ -304,13 +381,13 @@ Notes: the value must be exactly `false` (other spellings count as on). If CI is
 ## Project structure
 
 ```text
-ai/              coaching: provider + fallback model, prompts, schemas, rule-based fallback, storage, metering
-analysis/        weight-sensitivity analysis
+ai/              coaching and team memo: provider + fallback model, prompts, schemas, rule-based fallbacks, Claude Code command list, storage, metering
+analysis/        validations on simulated teams: weight sensitivity, coaching impact, anomaly detection
 api/             FastAPI app, routes, admin-token check
-core/            scoring, pricing, ingestion, severity tiers, dispatch ledger, schedule, DB
+core/            scoring, pricing, ingestion, severity tiers, coaching impact, anomalies, what-if, dispatch, DB
 data/            schema, simulator, alert worker
-docs/            scoring.md
-evals/           eval profiles, checks, runner, recorded replies and results
+docs/            scoring.md, impact.md, anomalies.md
+evals/           guide and team-memo eval sets, checks, runners, recorded replies and results
 frontend/        React 19 + Vite + Tailwind + Recharts dashboard (Vitest tests)
 notifications/   email (Jinja2 templates) and Slack
 tests/           pytest suite (network blocked, mocked Gemini, temporary databases)

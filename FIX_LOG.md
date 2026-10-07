@@ -649,7 +649,7 @@ Interview version: "When I retook the screenshots I noticed the runbook page sti
 
 ## Phase 8 — Measured features (2026-10-07, branch `phase-8-features`)
 
-### UPG-05 — Did the coaching work? Measuring impact without fooling yourself (commit UPG05_HASH)
+### UPG-05 — Did the coaching work? Measuring impact without fooling yourself (commit 2146f86)
 Situation: the app coaches the bottom two engineers by that day's score, but never checked whether anyone improved. Nothing recorded who was coached, and the simulated personas never changed habits, so there was nothing to measure and no ground truth to check a method against.
 
 Symptom: the obvious metric (the coached area's points in the week after, minus the coaching day) says coaching works even when it does nothing. Measured on 200 simulated teams with a true effect of exactly zero: **+0.82 points, and "it worked" (95% CI above zero) in 18% of teams**.
@@ -701,7 +701,7 @@ Trade-off / what I'd do at larger scale:
 
 Interview version (≤ 60 seconds): "We coach whoever has the two worst scores that day, and I wanted to know whether the coaching works. The obvious metric, score after minus score on the coaching day, said yes even in a simulation where I'd set the true effect to zero. In 18% of teams it reported a significant improvement from nothing. That's regression to the mean: we pick people on a bad day. I changed the method: a baseline week that ends before the days the selection depended on, and a difference-in-differences against engineers who weren't coached. I validated it with coupled counterfactuals, regenerating each coached day with the old habit and the same random draws. It recovers the true effect to within 0.2%, and its 95% interval covers the truth in 98% of teams."
 
-### UPG-07 — Cost anomaly detection, measured on injected incidents (commit UPG07_HASH)
+### UPG-07 — Cost anomaly detection, measured on injected incidents (commit 6d340ed)
 Situation: a runaway agent loop or broken prompt caching shows up only as a bigger bill. The roadmap's "budget alerts" were never built, and nothing in the app looked at an engineer's spend over time.
 
 Symptom: the obvious fix, one team-wide threshold, measured on 200 simulated teams with injected incidents:
@@ -749,7 +749,7 @@ Trade-off / what I'd do at larger scale:
 
 Interview version (≤ 60 seconds): "I added spend-anomaly detection and measured it on 6,000 injected incidents across 200 simulated teams. The obvious approach, a $30-a-day threshold, caught 7% of weekend incidents and paged heavy users every month. I compare each engineer with their own last four weeks of the same day type, using the median and MAD so an earlier spike doesn't hide the next one. That nearly doubled F1, to 0.69 against 0.36, at about one false alarm every three engineer-months. It catches 91% of runaway loops. It catches only half of broken-cache incidents, because for some people that's a small cost change, and I report that rather than hide it."
 
-### UPG-06 — What-if savings, computed not estimated (commits UPG06_HASH, EVALS_HASH)
+### UPG-06 — What-if savings, computed not estimated (commits 1896b5f, 02b8eca)
 Situation: engineers saw a score, not money. Phase 6 had removed the guide's `est_saving` field, because a saving the model estimates is invented by construction (it is not in the facts it was given).
 
 Symptom: a guide could say "improve caching" but not what that is worth, and the dashboard couldn't answer "what if I fixed this habit?".
@@ -790,7 +790,7 @@ Trade-off / what I'd do at larger scale:
 
 Interview version (≤ 60 seconds): "Managers wanted to see money, not just a score. But a saving the LLM estimates is a hallucination by construction, so I'd banned them in prompt v2. In v3 the code computes the saving: it re-prices the engineer's actual tokens at the team's top-quartile habits with the same pricing function as the bill, and the model may only quote that number. Property tests pin the maths: a better habit never costs more, and no change reproduces the bill exactly. On the same 30 eval profiles, v3 kept 100% validity, targeting and grounding, and 29 of 30 guides quoted a real saving."
 
-### UPG-08 — Grounded team memo (commits UPG08_HASH, EVALS_HASH)
+### UPG-08 — Grounded team memo (commits 0c47d70, 02b8eca)
 Situation: the manager's team memo was free text from three aggregates (average score, spend, critical count), with no grounding check. In Phase 7 testing it recommended a Claude Code feature that doesn't exist (`.claudedir`).
 
 Symptom: the old memo can't name the team's real problem, because it never sees per-area data, and nothing stops it from inventing commands.
