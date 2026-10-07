@@ -146,3 +146,13 @@ def test_env_example_ships_no_secret_values():
     example = dotenv_values(pathlib.Path(__file__).parent.parent / ".env.example")
     secrets = ("GEMINI_API_KEY", "ADMIN_TOKEN", "EMAIL_PASSWORD", "SLACK_WEBHOOK_URL")
     assert {k: example[k] for k in secrets} == dict.fromkeys(secrets, "")
+
+
+def test_gitignore_keeps_secrets_data_and_personal_notes_out_of_git():
+    """A public repo: .env, the database and personal notes must never be committed."""
+    import pathlib
+
+    rules = set(pathlib.Path(__file__).parent.parent.joinpath(".gitignore").read_text(encoding="utf-8").split())
+    for rule in (".env", ".env.*", "!.env.example", "*.db", "engineers_data.json",
+                 "DEVTELEMETRY_INTERVIEW_REPORT.md", "interview_study_guide.md", "demo_commands.txt"):
+        assert rule in rules, f".gitignore is missing {rule}"

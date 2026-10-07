@@ -1,6 +1,7 @@
 venv/
 env/
 .env
+.env.*
 __pycache__/
 *.pyc
 tests/
@@ -19,3 +20,11 @@ data/*.db
 .coverage
 .pytest_cache/
 .github/
+
+# Personal notes and local tool settings never go into an image
+DEVTELEMETRY_INTERVIEW_REPORT.md
+interview_study_guide.md
+demo_commands.txt
+.claude/
+.ruff_cache/
+*.log

@@ -840,3 +840,20 @@ Interview version (≤ 60 seconds): "The manager's memo once told a team to use 
 **Process notes:**
 - **The working copy of `UPGRADE_PLAN.md` didn't match the commit.** On 2026-10-05 an editor saved an old version of the file over it (no Phase 8 section, and a stray "claud" in a table). It was restored from the commit, and the stray copy is kept outside the repository.
 - **Commit messages carry no AI co-author line**, at the developer's request.
+
+### Docs sync and GitHub-readiness pass (2026-10-07)
+- **Docs brought up to date:**
+  - `UPGRADE_PLAN.md`: a status header; Phase 7 deploy items ticked where verified (PR #1 merged, CI green, `/health` and the leaderboard live), and marked partly done where not (Render env vars, the live Runbook); Phase 8 marked done; resume bullets filled from measured numbers.
+  - `PROJECT_AUDIT_REPORT.md`: a current-status note above the original baseline; resolved "could not be verified" items; "CI is green on GitHub" is now true.
+  - README: the architecture diagram shows the Phase 8 modules; test counts updated.
+  - `docs/scoring.md`: links to impact.md and anomalies.md.
+  - All relative doc links checked: none broken.
+- **Private files:**
+  - **`.gitignore` widened:** `.env.*` (keeping `.env.example`), any `*.db`/`*.sqlite3`, coverage and lint caches, logs, editor and OS files, `.claude/`, plus the personal notes. `tests/test_security.py` pins the rules that protect secrets, data and notes.
+  - **`.dockerignore` fix:** the backend image is built with `COPY . .` and could have included `.env.*` files and the personal notes; both are now excluded.
+  - **New `frontend/.dockerignore`:** keeps `node_modules`, `dist` and env files out of the frontend build context.
+- **Checks:**
+  - **Secret scan:** 0 matches for Google, OpenAI, Anthropic, GitHub and Slack key formats or private keys, in the tracked tree and in the unpushed commits.
+  - **Clean tree:** no tracked file matches an ignore rule, there are no untracked leftovers, and no absolute local paths.
+  - **Test fixture:** the last `company.com` address in a test is now `example.com`.
+  - **Suite:** 435 backend tests (97.6% coverage) and 45 frontend tests pass, with ruff, ESLint and the build; the eval replays reproduce the published results.

@@ -1,19 +1,40 @@
+# Secrets: real values live only in .env (see .env.example for the names)
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
 # Environments
 venv/
+.venv/
 env/
-.env
 
-# Python cache
+# Python cache and tool output
 __pycache__/
 *.pyc
+.pytest_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
 
-# Database and Data
-data/usage.db
+# Database and data (generated locally by data/seed.py; never committed)
+*.db
+*.db-journal
+*.sqlite3
 engineers_data.json
 
-# Test artifacts
-.coverage
-.pytest_cache/
+# Logs
+*.log
+
+# Editors, OS files, local assistant settings
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+.claude/
 
 # Personal interview notes (kept locally, not part of the project)
 DEVTELEMETRY_INTERVIEW_REPORT.md

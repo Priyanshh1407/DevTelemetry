@@ -4,6 +4,12 @@ Project: DevTelemetry | Type: Full-stack web app (FastAPI + SQLite + React/Vite)
 Prior context read: `README.md`, `DEVTELEMETRY_INTERVIEW_REPORT.md` (untracked), `interview_study_guide.md`, `demo_commands.txt`. No previous `PROJECT_AUDIT_REPORT.md` / `UPGRADE_PLAN.md` / `FIX_LOG.md` existed, so this is the first audit.
 Assumptions (not stated in repo): target roles = SDE **and** ML/AI Engineer; time budget = 3–4 weeks.
 
+> **Current status (2026-10-07).** Sections 1–4 describe the project as audited on 2026-10-02 and are kept as the baseline. Every finding in them is fixed. The "Status after Phase N" notes at the end of section 4 track each phase.
+> - **Phases 0–7:** merged (PR #1), CI green on GitHub, live on Render.
+> - **Phase 8:** done on `phase-8-features`, not merged or deployed.
+> - **Open P0/P1:** none.
+> - **Interview readiness:** yes, within the limits listed in section 7.
+
 ---
 
 ## 1. Executive Summary
@@ -377,18 +383,18 @@ Not run: the live Render deployment (I didn’t want to trigger side effects on 
 
 | Item | How to verify |
 |---|---|
-| Whether the live Render backend has SMTP/Slack/Gemini env vars set (affects how severe SEC-01 is in practice) | Check the Render dashboard env vars. Don’t test by POSTing to the live endpoint. |
-| Whether the live Runbook page is actually empty (BUG-01) | Open `https://devtelemetry-1.onrender.com/runbook/critical/<id>` with DevTools → Network and look for a request to `127.0.0.1:8000`. |
-| Anthropic usage-field semantics for the cache ratio (ML-03) | Read the Anthropic prompt-caching docs (`usage.input_tokens`, `cache_read_input_tokens`, `cache_creation_input_tokens`). |
-| Real SMTP timing for PERF-02 | Time `POST /trigger-alerts` locally with a test Gmail app password and PRODUCTION_MODE=false. |
-| Docker compose behavior (DX-01) | `docker compose up --build` on a clean checkout without `data/usage.db`. |
-| Python dependency CVEs | `pip install pip-audit && pip-audit -r requirements.txt` (I didn’t install it without asking). |
+| Whether the live Render backend has SMTP/Slack/Gemini env vars set (affects how severe SEC-01 is in practice) | Check the Render dashboard env vars. Don’t test by POSTing to the live endpoint. *Still unverified; admin actions now need `ADMIN_TOKEN` (SEC-01 fixed), so an unset token means they answer 503.* |
+| Whether the live Runbook page is actually empty (BUG-01) | Open `https://devtelemetry-1.onrender.com/runbook/critical/<id>` with DevTools → Network and look for a request to `127.0.0.1:8000`. *BUG-01 is fixed in code and in a local Docker build; the live page has not been checked.* |
+| Anthropic usage-field semantics for the cache ratio (ML-03) | *Resolved in ML-03: the fields follow Anthropic's usage object, with a data migration.* |
+| Real SMTP timing for PERF-02 | *Moot after PERF-02: dispatch runs in the background and the request answers 202 in 41 ms.* |
+| Docker compose behavior (DX-01) | *Verified on clean clones (Phase 0–7 verification and 2026-10-07).* |
+| Python dependency CVEs | *Resolved in SEC-03: pip-audit and npm audit clean.* |
 
 ---
 
 ## 7. Things I Must NOT Claim in an Interview (current state)
 
-- “CI is green on GitHub.” *(updated after Phase 3)* CI exists and every step passes on clean environments (192 backend tests on Python 3.10 and 3.14, 23 frontend tests, 96% coverage), but say “green on GitHub” only after you’ve seen the run in the Actions tab.
+- ~~“CI is green on GitHub.”~~ *(true since PR #1, 2026-10-04: the first GitHub run failed on a missing `pytest.ini`, fixed, then green. Phase 8's branch has not run on GitHub yet: 435 backend + 45 frontend tests, 97.6% coverage locally with CI's exact command.)*
 - “It shows how much each engineer spends.” *(updated after Phase 1)* Cost is now computed from token usage with dated list prices (ML-01 fixed), but the usage itself is synthetic, and the per-model split is an assumption (tokens allocated by model mix). Say “estimated from usage with list prices”.
 - “It tracks Claude Code usage.” *(updated after Phase 6)* There is an ingestion API with Anthropic’s usage field names (UPG-02), but no real producer is connected; the dashboard data is a persona-based simulation. Say “it has a validated ingestion contract; the demo runs on simulated data calibrated to published costs”.
 - “Scheduled alerts run in production.” *(updated after Phase 2)* The mechanism exists and is tested (GitHub Actions tick → idempotent endpoint), but it only runs once merged to the default branch with the two secrets set. Don’t claim it’s live until you’ve seen a scheduled run in the Actions tab.

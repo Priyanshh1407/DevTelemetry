@@ -1,0 +1,6 @@
+# Installed fresh in the image (npm ci); local builds and secrets stay out
+node_modules/
+dist/
+.env
+.env.*
+*.log

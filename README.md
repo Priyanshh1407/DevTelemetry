@@ -96,8 +96,10 @@ flowchart LR
     API --> COACH["ai/coaching_service.py<br/>stored guide or generate"]
     COACH --> LLM["GuideProvider<br/>Gemini 3.8 Flash → Flash-Lite fallback"]
     COACH --> DB
+    API --> STATS["core/impact · anomaly · whatif<br/>coaching effect, spend anomalies, savings"]
+    STATS --> DB
     CRON["GitHub Actions cron<br/>every 15 min"] -- "POST /api/scheduled-tick" --> API
-    API --> NOTIFY["Email (SMTP) · Slack"]
+    API --> NOTIFY["Email (SMTP) · Slack<br/>digest: grounded team memo + anomalies"]
     CLI["main.py<br/>console agent"] --> DB
     CLI --> COACH
 ```
@@ -330,7 +332,7 @@ python -m analysis.anomaly_eval
 cd frontend && npm test && npm run lint
 ```
 
-- **Coverage:** 434 backend tests at 97.6% coverage, plus 45 frontend tests.
+- **Coverage:** 435 backend tests at 97.6% coverage, plus 45 frontend tests.
 - **Offline by design:** the test suite blocks network access and never touches `data/usage.db`.
 
 ---

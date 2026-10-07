@@ -1,6 +1,12 @@
 # UPGRADE PLAN
 Target role(s): SDE + ML/AI Engineer (assumed) | Time budget: 3–4 weeks (assumed) | Based on audit #1 (2026-10-02)
 
+> **Status (2026-10-07):** Phases 0–8 are done.
+> - **Phases 0–7:** merged to `main` (PR #1), CI green on GitHub, and live on Render.
+> - **Phase 8:** on branch `phase-8-features`, verified locally; not merged or deployed yet.
+>
+> What happened in each phase, with measurements, is in [FIX_LOG.md](FIX_LOG.md).
+
 ## Strategy
 
 DevTelemetry has a strong pitch (measure and coach AI-coding-tool token efficiency) and a polished UI, but the numbers under it are random, the AI path is fragile, and the public deployment exposes endpoints that send email. Today a deep-dive interview would turn into a list of things you’d have to admit.
@@ -14,6 +20,7 @@ For this project, “interview-ready” means four things:
 **Flagship upgrades:**
 - **UPG-01 (main story, both roles):** Grounded, structured, persisted AI coaching with an eval harness. The talking point is a measured grounding/validity rate, not “I call Gemini”.
 - **UPG-02 (SDE story):** A validated, idempotent telemetry ingestion API with a real pricing-based cost model. The synthetic generator becomes just one producer feeding the same pipeline real Claude Code data could use.
+- **UPG-05 (added in Phase 8, ML/causal story):** Measuring whether coaching works without being fooled by regression to the mean (difference-in-differences, validated on simulated teams with a known true effect).
 
 ## Phase Overview
 
@@ -275,13 +282,13 @@ Items:
 **Deploy checklist:**
 - [x] Add `GET /health` (DB reachable, schema version; no secrets) + test; set `healthCheckPath: /health` in render.yaml.
 - [x] render.yaml: frontend service has no `VITE_API_URL` (it's baked in at build time, so a missing value means the dashboard calls 127.0.0.1); add it, plus `GEMINI_FALLBACK_MODEL` documentation on the backend.
-- [ ] Get the branch onto GitHub: 68 commits on `phase-6-upgrades` are not pushed; `main` is at dc60f00. Merge via PR so CI runs on GitHub first.
-- [ ] Render: confirm which branch it deploys (`main` or `deployment`), set `ADMIN_TOKEN`, `FRONTEND_URL`, `GEMINI_API_KEY`; repository secrets `DEVTELEMETRY_API_URL` / `DEVTELEMETRY_ADMIN_TOKEN` for the scheduled tick (or leave `SCHEDULED_ALERTS_ENABLED=false`).
-- [ ] Verify live: `/health`, leaderboard, engineer page breakdown, Runbook guide (BUG-01 check in DevTools: no request to 127.0.0.1).
+- [x] Get the branch onto GitHub: 68 commits on `phase-6-upgrades` are not pushed; `main` is at dc60f00. Merge via PR so CI runs on GitHub first. — *done 2026-10-04: PR #1 merged; CI green on GitHub after the `pytest.ini` fix (FIX_LOG "First CI run on GitHub").*
+- [ ] Render: confirm which branch it deploys (`main` or `deployment`), set `ADMIN_TOKEN`, `FRONTEND_URL`, `GEMINI_API_KEY`; repository secrets `DEVTELEMETRY_API_URL` / `DEVTELEMETRY_ADMIN_TOKEN` for the scheduled tick (or leave `SCHEDULED_ALERTS_ENABLED=false`). — *partly: Render deploys `deployment` (confirmed); the env vars and repository secrets are the developer's to set and are not verified.*
+- [ ] Verify live: `/health`, leaderboard, engineer page breakdown, Runbook guide (BUG-01 check in DevTools: no request to 127.0.0.1). — *partly, 2026-10-04: `/health` ok and the leaderboard shows 10 engineers; the engineer page and Runbook were not checked live.*
 - [x] Retake the 3 screenshots + one of the score breakdown.
 - [x] Fresh `git clone` into a temp dir and follow the README verbatim (< 10 min). — *~4 min*
 
-**Repo hygiene before the rewrite:** `DEVTELEMETRY_INTERVIEW_REPORT.md`, `interview_study_guide.md` and `demo_commands.txt` are **tracked**, so they are public on GitHub once pushed: personal interview prep, not project docs. Decide: delete from the repo (keep locally, gitignore) or move under `docs/`. (`engineers_data.json` is already gitignored.)
+**Repo hygiene before the rewrite:** `DEVTELEMETRY_INTERVIEW_REPORT.md`, `interview_study_guide.md` and `demo_commands.txt` are **tracked**, so they are public on GitHub once pushed: personal interview prep, not project docs. Decide: delete from the repo (keep locally, gitignore) or move under `docs/`. (`engineers_data.json` is already gitignored.) — *done: untracked and gitignored; `DEVTELEMETRY_INTERVIEW_REPORT.md` was removed from the unpushed history before the push. The other two remain in the July history on GitHub (developer's decision to leave them). `.gitignore` and `.dockerignore` were widened on 2026-10-07, with a test that pins the rules.*
 
 **Decisions (developer, 2026-10-04):**
 - **Licence: none.** Remove the MIT badge and the LICENSE link (default copyright applies).
@@ -302,7 +309,7 @@ Risk / rollback:
 
 ---
 
-## Phase 8 — Measured Features (planned 2026-10-04)
+## Phase 8 — Measured Features (planned 2026-10-04, done 2026-10-07)
 
 **Goal:** four features that widen the project's scope, each ending in a *measured* claim the way the Phase 6 evals do.
 
@@ -456,6 +463,17 @@ Risk / rollback:
 ## Resume Bullets (write only AFTER the phase is done — templates)
 
 Fill placeholders only with numbers printed by your own scripts or tests. Never guess.
+
+**Filled from measured results (2026-10-07; every number traces to FIX_LOG, the README or docs/):**
+- Built DevTelemetry, a FastAPI + React platform that scores AI-coding-tool token efficiency for a 10-engineer simulated team and writes LLM coaching grounded in each engineer's numbers. Live demo: devtelemetry-1.onrender.com.
+- Designed an idempotent, schema-validated ingestion API with server-side cost from a versioned price table: 10,000 records in 0.66 s on SQLite, and resent batches update rather than duplicate.
+- Made LLM coaching reliable with structured output, schema validation, one repair retry and a rule-based fallback. A 30-profile eval harness with recorded replies, re-checked in CI, raised "first action targets the weakest area" from 50% to 100% and fully grounded guides from 80% to 100%.
+- Showed that a naive before/after says coaching works even when the true effect is zero ("it worked" in 18% of 200 simulated teams, from regression to the mean). Replaced it with a difference-in-differences estimate that recovers the true effect within 0.02 points, with 98% CI coverage.
+- Built spend-anomaly detection against each engineer's own same-day-type baseline (median/MAD). On 6,170 injected incidents it reached F1 0.69, against 0.36 for a fixed threshold, at 0.37 false alarms per engineer-month.
+- Diagnosed an event-loop blocking bug where one LLM call stalled the dashboard (leaderboard 1.32 s → 0.016 s while a guide is generated) and added a concurrency regression test.
+- Set up CI (pytest, Vitest, ESLint, ruff) with 435 backend and 45 frontend tests at 97.6% coverage, with per-workflow off switches.
+
+**Templates:**
 
 - Built DevTelemetry, a FastAPI + React platform that scores AI-coding-tool token efficiency across <N> engineers from <ingested/simulated> usage and generates personalized coaching via an LLM. Live demo: <url>.
 - Designed an idempotent, schema-validated telemetry ingestion API with server-side cost computation from a versioned model price table; handled <N> records with <0> duplicates under retry (<test name>).
