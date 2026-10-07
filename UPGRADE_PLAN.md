@@ -329,7 +329,8 @@ Risk / rollback:
 
 Items:
 
-- [ ] **UPG-05 Did the coaching work? Measuring impact without fooling yourself** (flagship)
+- [x] **UPG-05 Did the coaching work? Measuring impact without fooling yourself** (flagship)
+  - *Done 2026-10-07:* DiD +0.02 under no effect (98% coverage) and +4.13 vs a true +4.13; naive +0.82 and "it worked" in 18% of no-effect teams. Baseline changed from the planned −14..−1 to −13..−7 (the selection day pools `/compact` over −6..0); see FIX_LOG and docs/impact.md.
   - **Problem it solves in THIS project:**
     - The app sends guides but never checks whether anyone improved.
     - The engineers who get the critical runbook are the **bottom 2 by that day's score** (`data/alert_worker.py`, `core/severity.py`). Selecting on a low score guarantees regression to the mean, so a naive before/after shows improvement even when coaching does nothing.

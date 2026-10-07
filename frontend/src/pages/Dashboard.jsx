@@ -10,6 +10,7 @@ import {
     CheckCircle, Loader2, Mail, AlertTriangle
 } from "lucide-react";
 import Navbar from "../components/Navbar";
+import CoachingImpactCard from "../components/CoachingImpactCard";
 import { adminPost, getJSON, waitForDispatch } from "../api";
 
 // ─── Custom Tooltip ────────────────────────────────────────────────────────────
@@ -366,6 +367,11 @@ export default function Dashboard() {
                             />
                         </AreaChart>
                     </ResponsiveContainer>
+                </section>
+
+                {/* ── Measured insights (Phase 8) ── */}
+                <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <CoachingImpactCard />
                 </section>
 
                 {/* ── Leaderboard ── */}

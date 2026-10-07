@@ -5,6 +5,7 @@ Usage:
     python data/seed.py --reset         # wipe engineers/usage/guides first (keeps alert settings)
     python data/seed.py --seed 7 --days 60 --engineers 12
     python data/seed.py --if-empty      # container start: seed only a fresh database
+    python data/seed.py --coaching-effect none   # simulated coaching that changes nothing (default: moderate)
 """
 import argparse
 import random
@@ -18,8 +19,12 @@ import sys
 # Ensure Python can find our core modules
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from ai.features import coaching_facts
+from core.coaching_log import record_coaching
 from core.db import db_session, init_db
 from core.ingest import UsageRecord, upsert_usage
+from core.scorer import POOL_DAYS, score_breakdown
+from core.severity import CRITICAL, severity_for_rank
 
 DEFAULT_SEED = 42
 
@@ -109,6 +114,62 @@ def daily_metrics(rng, persona, day):
     }
 
 
+# ── Simulated coaching (UPG-05) ─────────────────────────────────────────────
+# Personas never change on their own, so without this there is no ground truth to check a
+# "did the coaching work?" estimate against. Every COACHING_EVERY_DAYS days the critical
+# engineers (bottom two by that day's score) are coached on their weakest area; with
+# probability ADHERENCE they change that habit by the effect below, from the next day on.
+# These sizes are simulation assumptions, not measurements of real coaching.
+COACHING_EVERY_DAYS = 14
+ADHERENCE = 0.7
+COACHING_EFFECTS = {"none": 0.0, "small": 0.5, "moderate": 1.0}
+# Habit change for an engineer who follows the "moderate" coaching.
+FULL_EFFECT = {
+    "cache": 0.08,         # cache hit ratio +8 points
+    "model_mix": 0.15,     # 15% of usage moved from Opus to Sonnet
+    "discipline": 0.25,    # /compact used in 25% more sessions
+}
+# area -> (persona key, direction of improvement, bound)
+_HABIT = {"cache": ("cache_hit", 1, 0.95), "model_mix": ("opus_share", -1, 0.02),
+          "discipline": ("compact_rate", 1, 0.95)}
+
+
+def apply_coaching(persona, area, effect, rng):
+    """The persona after being coached on `area` (a new dict). One adherence draw per coaching,
+    whatever the effect, so changing the effect size never shifts the other random draws."""
+    adhered = rng.random() < ADHERENCE
+    coached = dict(persona)
+    size = COACHING_EFFECTS[effect] * FULL_EFFECT[area]
+    if adhered and size:
+        key, sign, bound = _HABIT[area]
+        value = persona[key] + sign * size
+        coached[key] = min(value, bound) if sign > 0 else max(value, bound)
+    return coached
+
+
+def is_coaching_day(day_offset):
+    """Every COACHING_EVERY_DAYS-th simulated day (day_offset counts from 0)."""
+    return (day_offset + 1) % COACHING_EVERY_DAYS == 0
+
+
+def flat_day(metrics):
+    """Simulator metrics with the model shares flattened, the way database rows hold them."""
+    flat = {k: v for k, v in metrics.items() if k != "model_mix"}
+    flat.update(metrics["model_mix"])
+    return flat
+
+
+def select_for_coaching(history):
+    """{engineer: [flat days, oldest first]} -> [(engineer, weakest area)] for the critical engineers
+    on the latest day, with the same score, tier rule and weakest area the product uses."""
+    def latest(days):
+        return score_breakdown(days[-1], days[-POOL_DAYS:-1])["total"]
+
+    ranked = sorted(history, key=lambda e: latest(history[e]), reverse=True)
+    return [(e, coaching_facts(history[e][-1], history[e][-POOL_DAYS:-1])["weakest_area"])
+            for rank, e in enumerate(ranked, start=1) if severity_for_rank(rank, len(ranked)) == CRITICAL]
+
+
 def has_usage_data():
     init_db()
     with db_session() as conn:
@@ -117,11 +178,13 @@ def has_usage_data():
 
 def reset_data(conn):
     """Removes generated data. Alert settings are configuration, not data, so they stay."""
-    for table in ("coaching_guides", "usage_metrics", "engineers"):
+    for table in ("coaching_events", "coaching_guides", "usage_metrics", "engineers"):
         conn.execute(f"DELETE FROM {table}")
 
 
-def generate_historical_data(days_back=30, num_engineers=10, seed=DEFAULT_SEED, reset=False, end_date=None):
+def generate_historical_data(days_back=30, num_engineers=10, seed=DEFAULT_SEED, reset=False, end_date=None,
+                             coaching_effect=None):
+    """coaching_effect: None (no coaching) or a COACHING_EFFECTS key; see apply_coaching."""
     print("Ensuring database tables exist...")
     init_db()
     print(f"Generating {days_back} days of historical data for {num_engineers} engineers (seed={seed})...")
@@ -136,22 +199,34 @@ def generate_historical_data(days_back=30, num_engineers=10, seed=DEFAULT_SEED, 
     # Build the batch, then write it through the same ingestion path as POST /api/ingest:
     # same validation, server-side cost and score, idempotent upsert (re-running refreshes
     # the generated days instead of duplicating them).
-    records = []
+    # Coaching has its own random stream, so the usage data only changes where a habit changed.
+    coaching_rng = random.Random(f"coaching-{seed}")
+    history = {eng["user_id"]: [] for eng in engineers}
+    records, events = [], []
     for day_offset in range(days_back):
         day = end_date - timedelta(days=days_back - day_offset - 1)
         for eng in engineers:
             metrics = daily_metrics(rng, personas[eng["user_id"]], day)
+            history[eng["user_id"]].append(flat_day(metrics))
             mix = metrics.pop("model_mix")
             records.append(UsageRecord(user_id=eng["user_id"], date=day, name=eng["name"], email=eng["email"],
                                        **metrics, **mix))
+        if coaching_effect is not None and is_coaching_day(day_offset):
+            for user_id, area in select_for_coaching(history):
+                personas[user_id] = apply_coaching(personas[user_id], area, coaching_effect, coaching_rng)
+                events.append((user_id, day, area))
 
     with db_session() as conn:
         if reset:
             reset_data(conn)
         inserted, updated, rejected = upsert_usage(conn, list(enumerate(records)))
+        for user_id, day, area in events:
+            record_coaching(conn, user_id, day.isoformat(), CRITICAL, area, source="simulated")
     if rejected:  # the generator produced data the API would refuse: a bug, not something to skip
         raise RuntimeError(f"simulated records failed validation: {rejected[:3]}")
     print(f"Ingested {inserted} new and {updated} refreshed engineer-days.")
+    if coaching_effect is not None:
+        print(f"Simulated {len(events)} coaching events (true effect: {coaching_effect}).")
     print("Historical data successfully injected into the database!")
 
 
@@ -159,15 +234,19 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description="Generate synthetic DevTelemetry usage data.")
     parser.add_argument("--reset", action="store_true", help="delete existing engineers/usage/guides first")
     parser.add_argument("--seed", type=int, default=DEFAULT_SEED, help="RNG seed (same seed = same data)")
-    parser.add_argument("--days", type=int, default=30)
+    # 120 days: enough coaching rounds (every 14 days) for the coaching-impact estimate.
+    parser.add_argument("--days", type=int, default=120)
     parser.add_argument("--engineers", type=int, default=10)
     parser.add_argument("--if-empty", action="store_true",
                         help="do nothing if the database already has usage data (for container start)")
+    parser.add_argument("--coaching-effect", choices=[*COACHING_EFFECTS, "off"], default="moderate",
+                        help="true effect of the simulated coaching (UPG-05); 'off' simulates no coaching")
     args = parser.parse_args(argv)
     if args.if_empty and has_usage_data():
         print("Database already has usage data; skipping seed.")
         return
-    generate_historical_data(days_back=args.days, num_engineers=args.engineers, seed=args.seed, reset=args.reset)
+    generate_historical_data(days_back=args.days, num_engineers=args.engineers, seed=args.seed, reset=args.reset,
+                             coaching_effect=None if args.coaching_effect == "off" else args.coaching_effect)
 
 
 if __name__ == "__main__":

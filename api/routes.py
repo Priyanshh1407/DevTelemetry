@@ -1,4 +1,4 @@
-from fastapi import APIRouter, BackgroundTasks, HTTPException, Depends, Response
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Depends, Query, Response
 from core.db import db_session
 from ai.coaching_service import get_coaching
 from ai.store import ai_stats
@@ -6,13 +6,15 @@ from typing import Literal
 from pydantic import BaseModel, Field, field_validator
 import logging
 import os
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from data.alert_worker import overall_status, run_weekly_telemetry_check
 from api.security import require_admin
 from core.severity import severity_for_rank
 from core.scorer import cache_hit_ratio, score_breakdown, total_prompt_tokens
 from core.queries import latest_day_rows
+from core.coaching_log import coaching_events
+from core.impact import POST, PRE, event_effects, summarize
 from core.ingest import MAX_BATCH, upsert_usage, validate_records
 from core.dispatch import (DispatchBusy, DispatchCoolingDown, SlotAlreadyDispatched, finish_run, get_run,
                            start_run)
@@ -411,9 +413,14 @@ def get_engineer_details(user_id: str):
                 "insight": f"Uses /compact {avg_comp:.1f}% of sessions — recommend using /compact more often to keep context clean"
             })
             
+        # Coaching days in the charted range (UPG-05), for markers on the trend chart.
+        coaching = [{"date": e["coached_on"].isoformat(), "target_area": e["target_area"]}
+                    for e in coaching_events(conn, since=date.fromisoformat(history[0]["date"]), user_id=user_id)]
+
         return {
             "name": engineer["name"],
             "email": engineer["email"],
+            "coaching": coaching,
             "current_rank": current_rank,
             "current_severity": current_severity,
             "latest": latest,
@@ -442,3 +449,26 @@ def get_ai_stats(purpose: Literal["guide", "team_report"] = "guide", days: int =
     """Metering summary of AI requests (UPG-04): outcomes, cache hit rate, tokens, cost, latency."""
     with db_session() as conn:
         return ai_stats(conn, purpose=purpose, days=max(1, min(days, 365)))
+
+@router.get("/coaching-impact")
+def get_coaching_impact(days: int = Query(120, ge=1, le=365)):
+    """Did the coaching work? (UPG-05) Coaching events of the last `days` days with each
+    estimate (core/impact.py; method and validation in docs/impact.md)."""
+    window = {"pre": [PRE.start, PRE.stop - 1], "post": [POST.start, POST.stop - 1]}
+    with db_session() as conn:
+        latest = conn.execute("SELECT MAX(date) FROM usage_metrics").fetchone()[0]
+        events = coaching_events(conn, since=date.fromisoformat(latest) - timedelta(days=days)) if latest else []
+        if not events:
+            return {**summarize([]), "window": window, "events": []}
+        first_needed = min(e["coached_on"] for e in events) + timedelta(days=PRE.start)
+        rows = conn.execute("SELECT * FROM usage_metrics WHERE date >= ?", (first_needed.isoformat(),)).fetchall()
+        names = {r["user_id"]: r["name"] for r in conn.execute("SELECT user_id, name FROM engineers")}
+
+    series = {}
+    for r in rows:
+        series.setdefault(r["user_id"], {})[date.fromisoformat(r["date"])] = dict(r)
+    effects = event_effects(series, events)
+    for e in effects:
+        e["name"] = names.get(e["user_id"])
+        e["coached_on"] = e["coached_on"].isoformat()
+    return {**summarize(effects), "window": window, "events": effects}

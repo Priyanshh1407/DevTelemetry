@@ -4,9 +4,11 @@ import sys
 
 # Ensure Python can find your AI and Notification modules
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from ai.features import coaching_facts
+from core.coaching_log import record_coaching
 from core.db import db_session
-from core.queries import latest_day_rows
-from core.severity import severity_for_rank
+from core.queries import latest_day_rows, recent_metrics_for_user
+from core.severity import CRITICAL, severity_for_rank
 from ai.guide_generator import generate_team_report
 from ai.providers import get_provider
 from ai.store import record_request
@@ -25,6 +27,15 @@ def overall_status(summary):
     if not summary["developer_emails"]["sent"] and "sent" not in statuses:
         return "skipped"
     return "success"
+
+
+def record_coached(devs):
+    """Records each coached engineer with the area their coaching targets (their weakest area)."""
+    with db_session() as conn:
+        for dev in devs:
+            window = recent_metrics_for_user(conn, dev["user_id"])
+            area = coaching_facts(window[-1], window[:-1])["weakest_area"]
+            record_coaching(conn, dev["user_id"], dev["date"], dev["severity"], area, source="dispatch")
 
 
 def run_weekly_telemetry_check():
@@ -101,12 +112,15 @@ def run_weekly_telemetry_check():
 
     # --- 6. SEND ALL EMAILS OVER ONE SMTP CONNECTION ---
     logger.info("Sending developer alerts and the manager digest")
+    coached = []
     with smtp_session() as smtp:
         for dev in all_devs:
             status = send_developer_alert(dev, session=smtp)
             summary["developer_emails"][status] += 1
             if status == "failed":
                 summary["failed_recipients"].append(dev["name"])
+            if status == "sent" and dev["severity"] == CRITICAL:
+                coached.append(dev)
         logger.info("Developer alerts: %s", summary["developer_emails"])
 
         summary["manager_digest"] = send_daily_report(
@@ -118,6 +132,9 @@ def run_weekly_telemetry_check():
             session=smtp,
         )
 
+    # Only a delivered critical alert counts as coaching (UPG-05: GET /api/coaching-impact).
+    record_coached(coached)
+
     # --- 7. SEND SLACK CHANNEL SUMMARY ---
     logger.info("Posting the Slack summary")
     summary["slack"] = send_slack_summary(all_devs, team_avg, total_cost)
@@ -126,4 +143,4 @@ def run_weekly_telemetry_check():
     return summary
 
 if __name__ == "__main__":
-    run_weekly_telemetry_check()
+    run_weekly_telemetry_check()

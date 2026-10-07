@@ -646,3 +646,57 @@ Interview version: "When I retook the screenshots I noticed the runbook page sti
 - **Root cause:** there was no pytest configuration. CI and the README run the plain `pytest` command, which does not put the repository root on the import path. Every local run (including the Phase 3 claim that all CI steps were reproduced, and the Phase 0–7 verification above) used `python -m pytest`, which does. **That claim was wrong in this one detail.**
 - **Fix:** `pytest.ini` (`pythonpath = .`, `testpaths = tests`). Bare `pytest` with CI's exact flags passes on a clean clone: 309 tests, 97% coverage.
 - **Lesson:** reproduce CI by running its exact command, not an equivalent one.
+
+## Phase 8 — Measured features (2026-10-07, branch `phase-8-features`)
+
+### UPG-05 — Did the coaching work? Measuring impact without fooling yourself (commit UPG05_HASH)
+Situation: the app coaches the bottom two engineers by that day's score, but never checked whether anyone improved. Nothing recorded who was coached, and the simulated personas never changed habits, so there was nothing to measure and no ground truth to check a method against.
+
+Symptom: the obvious metric (the coached area's points in the week after, minus the coaching day) says coaching works even when it does nothing. Measured on 200 simulated teams with a true effect of exactly zero: **+0.82 points, and "it worked" (95% CI above zero) in 18% of teams**.
+
+Investigation:
+- **Ground truth:** the simulator coaches every 14 days with a configurable true effect (`data/seed.py`: `apply_coaching`, `--coaching-effect`). The validation study (`analysis/coaching_impact.py`) gives every engineer-day its own seeded random stream, so each coached day can be regenerated with the pre-coaching habit. That gives the exact per-event effect (a coupled counterfactual).
+- **A flaw in the plan, found before coding:** the plan's baseline window (days −14..−1) would have repeated the same bias in a smaller form. The selection day's score pools `/compact` over days −6..0, so being picked as bottom-2 also selects unlucky days −6..−1. A hand-built test (`test_the_baseline_skips_the_days_pooled_into_the_selection_day`) pins this.
+
+Root cause: regression to the mean. Engineers are selected on a bad day, and a bad day is usually followed by a normal one.
+
+Fix (`core/impact.py`):
+- **Outcome:** the coached area's points on single days, not pooled.
+- **Windows:** before = days −13..−7 (clear of the selection's pooling window); after = days +1..+7. Both contain each weekday exactly once.
+- **Estimators:**
+  - naive (kept, labelled as biased);
+  - before/after;
+  - difference-in-differences against engineers not coached around that day.
+- **Exclusions:** overlapping coaching (another coaching of the same engineer within the windows) and thin data are excluded, with the reason shown.
+- **Interval:** a 95% cluster bootstrap, resampling whole coaching days because events on the same day share their comparison group.
+- **Product:**
+  - the `coaching_events` table, written by the alert worker only for **delivered** critical alerts (idempotent per day);
+  - `GET /api/coaching-impact`;
+  - a dashboard card that leads with the DiD estimate and shows naive only with "biased by regression to the mean";
+  - coaching-day markers on the engineer trend chart.
+
+Verification: `python -m analysis.coaching_impact` (200 teams × 2 scenarios, 168 days, team-wide caching drift):
+
+| True effect | Naive | Before/after | DiD | DiD 95% CI covers truth | DiD says "it worked" |
+|---|---|---|---|---|---|
+| none (0.00) | +0.82 | +0.04 | **+0.02** | 98% | 2% |
+| moderate (+4.13) | +5.74 | +4.19 | **+4.13** | 98% | 98% |
+
+- **Where the drift acts (cache-coached events):** before/after has bias +1.06 (it credits the team-wide drift to the coaching); DiD has +0.11.
+- **Acceptance:**
+  - naive clearly > 0 under no effect ✓;
+  - DiD ≈ 0 with coverage in 90–98% ✓ (98%);
+  - DiD within ±10% of the moderate effect ✓ (+0.01 = 0.2%).
+- **Demo data** (`python data/seed.py`, now 120 days with simulated coaching): DiD +3.0 points (95% CI +1.6 to +4.5) from 16 events; naive +2.6 with an interval that includes zero.
+- **Tests:**
+  - `tests/test_impact.py` (13): hand-built series where the answer is known;
+  - `test_simulated_coaching.py` (9): `--coaching-effect none` leaves the usage data byte-identical; the coached engineers are the day's bottom two;
+  - worker (3), API (7), analysis (4), Vitest card (4) and markers (2).
+  - Full suite: 345 backend, 39 frontend.
+
+Trade-off / what I'd do at larger scale:
+- **Parallel trends is an assumption.** The gold standard is a random holdout (coach a random half of the critical engineers), which is a product and ethics call, not a statistics one.
+- **The naive bias here is moderate (+0.8)** because simulated day-to-day noise is small next to habit differences. Noisier real data makes it larger.
+- **Weekly dispatch overlaps.** With weekly dispatch, someone who stays in the bottom two is coached every 7 days and those events overlap, so they are excluded. A real deployment needs a coaching cadence that leaves a clean week on each side.
+
+Interview version (≤ 60 seconds): "We coach whoever has the two worst scores that day, and I wanted to know whether the coaching works. The obvious metric, score after minus score on the coaching day, said yes even in a simulation where I'd set the true effect to zero. In 18% of teams it reported a significant improvement from nothing. That's regression to the mean: we pick people on a bad day. I changed the method: a baseline week that ends before the days the selection depended on, and a difference-in-differences against engineers who weren't coached. I validated it with coupled counterfactuals, regenerating each coached day with the old habit and the same random draws. It recovers the true effect to within 0.2%, and its 95% interval covers the truth in 98% of teams."

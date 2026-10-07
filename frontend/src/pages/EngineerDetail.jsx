@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import {
-    AreaChart, Area, BarChart, Bar, XAxis, YAxis,
+    AreaChart, Area, BarChart, Bar, XAxis, YAxis, ReferenceLine,
     CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer,
     PieChart, Pie, Cell
 } from "recharts";
@@ -10,6 +10,8 @@ import {
     Activity, Bot, BookOpen, Code, Cpu, RefreshCw
 } from "lucide-react";
 import Navbar from "../components/Navbar";
+
+const AREA_LABELS = { cache: "prompt caching", model_mix: "model choice", discipline: "/compact discipline" };
 import { getJSON } from "../api";
 
 // Helper for matching severity color classes
@@ -144,6 +146,7 @@ export default function EngineerDetail() {
     }
 
     const { name, email, current_rank, current_severity, latest, history, averages, patterns } = data;
+    const coaching = data.coaching || [];
 
     // Build chart-friendly history array (format date string)
     const formattedHistory = history.map(item => ({
@@ -373,9 +376,22 @@ export default function EngineerDetail() {
                                         dot={false}
                                         activeDot={{ r: 4, fill: "#c0c1ff", strokeWidth: 0 }}
                                     />
+                                    {/* Coaching days (UPG-05) */}
+                                    {coaching.map((c) => (
+                                        <ReferenceLine key={c.date} x={c.date.slice(5)} stroke="#4edea3" strokeDasharray="3 3" />
+                                    ))}
                                 </AreaChart>
                             </ResponsiveContainer>
                         </div>
+                        {coaching.length > 0 && (
+                            <div className="flex flex-wrap gap-x-4 gap-y-1 mt-3 font-mono text-[10px] text-on-surface-variant">
+                                {coaching.map((c) => (
+                                    <span key={c.date}>
+                                        <span className="text-[#4edea3]">┆</span> Coached {c.date.slice(5)} on {AREA_LABELS[c.target_area] || c.target_area}
+                                    </span>
+                                ))}
+                            </div>
+                        )}
                     </div>
 
                     {/* Model Mix (Pie Chart) */}

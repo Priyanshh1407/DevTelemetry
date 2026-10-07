@@ -60,6 +60,21 @@ CREATE TABLE IF NOT EXISTS ai_requests (
 );
 CREATE INDEX IF NOT EXISTS ai_requests_created_at ON ai_requests(created_at);
 
+-- Who was coached, when, and on what (UPG-05), so the effect of coaching can be measured.
+-- Written by the alert worker for each critical engineer whose alert was sent, and by the
+-- simulator (data/seed.py --coaching-effect) for the demo data.
+CREATE TABLE IF NOT EXISTS coaching_events (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id TEXT NOT NULL,
+    coached_on TEXT NOT NULL,        -- the usage day the engineer was selected on; coaching applies from the next day
+    severity TEXT NOT NULL,
+    target_area TEXT NOT NULL CHECK (target_area IN ('cache', 'model_mix', 'discipline')),
+    source TEXT NOT NULL CHECK (source IN ('dispatch', 'simulated')),
+    created_at TEXT NOT NULL,        -- UTC ISO-8601
+    FOREIGN KEY (user_id) REFERENCES engineers(user_id),
+    UNIQUE(user_id, coached_on)
+);
+
 -- Table to store the manager's alert scheduling preferences
 CREATE TABLE IF NOT EXISTS alert_settings (
     id INTEGER PRIMARY KEY CHECK (id = 1), -- Ensures only one settings row exists
