@@ -332,7 +332,7 @@ python -m analysis.anomaly_eval
 cd frontend && npm test && npm run lint
 ```
 
-- **Coverage:** 435 backend tests at 97.6% coverage, plus 45 frontend tests.
+- **Coverage:** 435 backend tests at 97.6% coverage, plus 46 frontend tests.
 - **Offline by design:** the test suite blocks network access and never touches `data/usage.db`.
 - **By hand:** [docs/manual-testing.md](docs/manual-testing.md) walks through every feature with the expected outcome of each step.
 

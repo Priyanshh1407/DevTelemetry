@@ -394,7 +394,7 @@ Not run: the live Render deployment (I didn’t want to trigger side effects on 
 
 ## 7. Things I Must NOT Claim in an Interview (current state)
 
-- ~~“CI is green on GitHub.”~~ *(true since PR #1, 2026-10-04: the first GitHub run failed on a missing `pytest.ini`, fixed, then green. Phase 8's branch has not run on GitHub yet: 435 backend + 45 frontend tests, 97.6% coverage locally with CI's exact command.)*
+- ~~“CI is green on GitHub.”~~ *(true since PR #1, 2026-10-04: the first GitHub run failed on a missing `pytest.ini`, fixed, then green. Phase 8's branch has not run on GitHub yet: 435 backend + 46 frontend tests, 97.6% coverage locally with CI's exact command.)*
 - “It shows how much each engineer spends.” *(updated after Phase 1)* Cost is now computed from token usage with dated list prices (ML-01 fixed), but the usage itself is synthetic, and the per-model split is an assumption (tokens allocated by model mix). Say “estimated from usage with list prices”.
 - “It tracks Claude Code usage.” *(updated after Phase 6)* There is an ingestion API with Anthropic’s usage field names (UPG-02), but no real producer is connected; the dashboard data is a persona-based simulation. Say “it has a validated ingestion contract; the demo runs on simulated data calibrated to published costs”.
 - “Scheduled alerts run in production.” *(updated after Phase 2)* The mechanism exists and is tested (GitHub Actions tick → idempotent endpoint), but it only runs once merged to the default branch with the two secrets set. Don’t claim it’s live until you’ve seen a scheduled run in the Actions tab.

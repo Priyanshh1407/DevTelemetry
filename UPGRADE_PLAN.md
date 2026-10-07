@@ -471,7 +471,7 @@ Fill placeholders only with numbers printed by your own scripts or tests. Never 
 - Showed that a naive before/after says coaching works even when the true effect is zero ("it worked" in 18% of 200 simulated teams, from regression to the mean). Replaced it with a difference-in-differences estimate that recovers the true effect within 0.02 points, with 98% CI coverage.
 - Built spend-anomaly detection against each engineer's own same-day-type baseline (median/MAD). On 6,170 injected incidents it reached F1 0.69, against 0.36 for a fixed threshold, at 0.37 false alarms per engineer-month.
 - Diagnosed an event-loop blocking bug where one LLM call stalled the dashboard (leaderboard 1.32 s → 0.016 s while a guide is generated) and added a concurrency regression test.
-- Set up CI (pytest, Vitest, ESLint, ruff) with 435 backend and 45 frontend tests at 97.6% coverage, with per-workflow off switches.
+- Set up CI (pytest, Vitest, ESLint, ruff) with 435 backend and 46 frontend tests at 97.6% coverage, with per-workflow off switches.
 
 **Templates:**
 
