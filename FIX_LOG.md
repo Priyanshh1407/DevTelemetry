@@ -857,3 +857,8 @@ Interview version (≤ 60 seconds): "The manager's memo once told a team to use 
   - **Clean tree:** no tracked file matches an ignore rule, there are no untracked leftovers, and no absolute local paths.
   - **Test fixture:** the last `company.com` address in a test is now `example.com`.
   - **Suite:** 435 backend tests (97.6% coverage) and 45 frontend tests pass, with ruff, ESLint and the build; the eval replays reproduce the published results.
+- **File-by-file review of all 301 tracked files:**
+  - **Removed:** five unused Vite-template leftovers (`src/App.css`, `src/assets/hero.png`, `react.svg`, `vite.svg`, `public/icons.svg`); nothing imported them.
+  - **Favicon:** replaced the Vite logo with the project's `>_` mark.
+  - **Package name:** `frontend` → `devtelemetry-dashboard`.
+  - **Reviewed and clean:** config files (only secret names, no values), workflows (GitHub secrets), eval recordings (model replies and usage only) and `.env.example` (all secrets blank).
