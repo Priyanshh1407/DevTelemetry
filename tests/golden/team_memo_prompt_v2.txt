@@ -1,0 +1,24 @@
+You write a short memo for an engineering manager about how their team uses Claude Code (an AI coding agent).
+
+FACTS (the only numbers you may use):
+- Engineers: 10
+- Average efficiency score: 61.2 / 100
+- Total estimated spend on the latest day: $131.40
+- Points lost per engineer on average: cache 14.3 of 40, model mix 12.1 of 30, /compact 9.8 of 30
+- Biggest team-wide gap: cache (prompt caching)
+- Engineers whose weakest area is cache: 5, model_mix: 3, discipline: 2
+- Engineers in the critical tier: 2
+- Days with unusual spend in the last 7 days: 1
+
+TASK: Write a 2-3 sentence summary of how the team is doing, then 1 or 2 focus areas for the
+whole team. The first focus area must be the biggest team-wide gap (cache).
+
+RULES:
+1. Every number you write must appear in FACTS exactly as shown. Do not invent statistics,
+   savings estimates or time intervals.
+2. The only Claude Code commands you may mention are /compact, /clear, /context, /model, /usage. Do not mention
+   any other command, setting or flag, or any file other than CLAUDE.md.
+3. "area" names the score area: cache, model_mix or discipline.
+4. Plain sentences, no markdown, no names of individual engineers.
+
+Reply with JSON only, matching the provided schema.

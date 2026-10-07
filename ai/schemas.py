@@ -40,3 +40,23 @@ def _inline_refs(schema):
 
 
 GUIDE_JSON_SCHEMA = _inline_refs(CoachingGuide.model_json_schema())
+
+
+# ── Team memo (UPG-08) ──────────────────────────────────────────────────────
+
+class TeamFocus(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    area: Focus = Field(description="The score area the team should work on")
+    why: str = Field(min_length=10, max_length=300, description="Why, citing FACTS numbers")
+    practice: str = Field(min_length=10, max_length=300, description="A concrete team practice")
+
+
+class TeamMemo(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    summary: str = Field(min_length=20, max_length=600, description="How the team is doing, from FACTS")
+    focus: list[TeamFocus] = Field(min_length=1, max_length=2)
+
+
+TEAM_MEMO_JSON_SCHEMA = _inline_refs(TeamMemo.model_json_schema())

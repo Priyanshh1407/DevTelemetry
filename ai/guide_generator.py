@@ -153,8 +153,10 @@ def generate_efficiency_guide_v1(engineer_data, severity="moderate"):
 @dataclass
 class TeamReport:
     text: str
-    outcome: str          # ai | rate_limited | unavailable
+    outcome: str          # ai | ai_repaired | invalid_output | rate_limited | unavailable
     calls: list = field(default_factory=list)
+    memo: dict | None = None             # team-v2: {summary, focus: [{area, why, practice}]}
+    prompt_version: str = "team-v1"
 
 
 def generate_team_report(team_summary):

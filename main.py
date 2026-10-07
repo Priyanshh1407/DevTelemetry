@@ -6,9 +6,7 @@ import logging
 import sys
 
 from ai.coaching_service import get_coaching
-from ai.guide_generator import generate_team_report
-from ai.providers import get_provider
-from ai.store import record_request
+from ai.team_memo import latest_team_memo
 from core.db import db_session, init_db
 from core.queries import latest_day_rows
 from core.severity import severity_for_rank
@@ -34,15 +32,6 @@ def main():
     team_size = len(engineers)
     day = engineers[0]["date"]
 
-    # Team summary for the general report
-    avg_score = sum(e["efficiency_score"] for e in engineers) / team_size
-    total_spend = sum(e["estimated_cost_usd"] for e in engineers)
-    team_summary = {
-        "team_size": team_size,
-        "average_efficiency_score": round(avg_score, 2),
-        "total_daily_spend_usd": round(total_spend, 2)
-    }
-
     # Print Leaderboard
     print("\n" + "=" * 65)
     print(f"🏆 DEVTELEMETRY: EFFICIENCY LEADERBOARD — {day}")
@@ -56,10 +45,8 @@ def main():
     print("\n" + "=" * 65)
     print("📢 TEAM-WIDE OPTIMIZATION REPORT")
     print("=" * 65)
-    report = generate_team_report(team_summary)
-    with db_session() as conn:
-        record_request(conn, "team_report", report.outcome, report.calls, model=get_provider().model)
-    print(report.text)
+    # Grounded team memo (UPG-08), metered like every AI request
+    print(latest_team_memo().text)
 
     # Individual guides for the lowest-ranked engineers
     print("\n" + "=" * 65)

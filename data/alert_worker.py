@@ -10,9 +10,7 @@ from core.db import db_session
 from core.anomaly import BASELINE_DAYS, recent_anomalies
 from core.queries import latest_day_rows, recent_days_by_engineer, recent_metrics_for_user
 from core.severity import CRITICAL, severity_for_rank
-from ai.guide_generator import generate_team_report
-from ai.providers import get_provider
-from ai.store import record_request
+from ai.team_memo import latest_team_memo
 from notifications.email_report import send_daily_report, send_developer_alert, smtp_session
 from notifications.slack_post import send_slack_summary
 
@@ -106,16 +104,9 @@ def run_weekly_telemetry_check():
     team_avg = total_score / total_devs
 
     # --- 5. GENERATE AI SUMMARY ---
-    logger.info("Requesting the AI team summary")
-    team_summary_data = {
-        "average_score": team_avg,
-        "total_spend": total_cost,
-        "critical_count": len(bottom_engineers)
-    }
-    report = generate_team_report(team_summary_data)
-    with db_session() as conn:
-        record_request(conn, "team_report", report.outcome, report.calls, model=get_provider().model)
-    ai_memo = report.text
+    # Grounded team memo (UPG-08): computed team facts, real Claude Code commands only; metered.
+    logger.info("Requesting the AI team memo")
+    ai_memo = latest_team_memo().text
 
     # --- 6. SEND ALL EMAILS OVER ONE SMTP CONNECTION ---
     logger.info("Sending developer alerts and the manager digest")

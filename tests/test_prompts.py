@@ -59,3 +59,14 @@ def test_guide_prompt_v3(mock_gemini, severity):
     generate_efficiency_guide(V2_DAY, severity, recent=[dict(V2_DAY, compact_uses=2)] * 6, savings=SAVINGS,
                               prompt_version="v3")
     check(f"guide_prompt_v3_{severity}.txt", sent_prompt(mock_gemini))
+
+
+def test_team_memo_prompt():
+    from ai.claude_code import COST_COMMANDS
+    from ai.prompts import build_team_memo_prompt
+
+    facts = {"team_size": 10, "average_score": 61.2, "total_cost_usd": 131.4,
+             "points_lost": {"cache": 14.3, "model_mix": 12.1, "discipline": 9.8}, "biggest_area": "cache",
+             "weakest_area_counts": {"cache": 5, "model_mix": 3, "discipline": 2}, "critical_count": 2,
+             "anomaly_count_7d": 1}
+    check("team_memo_prompt_v2.txt", build_team_memo_prompt(facts, COST_COMMANDS))

@@ -140,3 +140,39 @@ Reply with JSON only, matching the provided schema."""
 def build_repair_prompt(original_prompt, error):
     return (f"{original_prompt}\n\nYour previous reply was not valid: {error}\n"
             "Reply again with JSON only that matches the schema.")
+
+
+# ── Team memo v2 (UPG-08): structured, grounded, real commands only ─────────
+# build_team_report_prompt (above) is team-v1: three aggregates in, free text out. It stays
+# unchanged as the eval baseline. In Phase 7 it recommended a Claude Code feature that
+# doesn't exist; team-v2 names the only commands allowed, and the pipeline checks them.
+TEAM_PROMPT_VERSION = "team-v2"
+
+
+def build_team_memo_prompt(facts, allowed_commands):
+    lost, counts = facts["points_lost"], facts["weakest_area_counts"]
+    biggest = facts["biggest_area"]
+    return f"""You write a short memo for an engineering manager about how their team uses Claude Code (an AI coding agent).
+
+FACTS (the only numbers you may use):
+- Engineers: {facts["team_size"]}
+- Average efficiency score: {facts["average_score"]} / 100
+- Total estimated spend on the latest day: ${facts["total_cost_usd"]:.2f}
+- Points lost per engineer on average: cache {lost["cache"]} of 40, model mix {lost["model_mix"]} of 30, /compact {lost["discipline"]} of 30
+- Biggest team-wide gap: {biggest} ({_AREA_LABELS[biggest]})
+- Engineers whose weakest area is cache: {counts["cache"]}, model_mix: {counts["model_mix"]}, discipline: {counts["discipline"]}
+- Engineers in the critical tier: {facts["critical_count"]}
+- Days with unusual spend in the last 7 days: {facts["anomaly_count_7d"]}
+
+TASK: Write a 2-3 sentence summary of how the team is doing, then 1 or 2 focus areas for the
+whole team. The first focus area must be the biggest team-wide gap ({biggest}).
+
+RULES:
+1. Every number you write must appear in FACTS exactly as shown. Do not invent statistics,
+   savings estimates or time intervals.
+2. The only Claude Code commands you may mention are {", ".join(allowed_commands)}. Do not mention
+   any other command, setting or flag, or any file other than CLAUDE.md.
+3. "area" names the score area: cache, model_mix or discipline.
+4. Plain sentences, no markdown, no names of individual engineers.
+
+Reply with JSON only, matching the provided schema."""
