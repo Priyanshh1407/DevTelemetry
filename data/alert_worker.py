@@ -7,7 +7,8 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from ai.features import coaching_facts
 from core.coaching_log import record_coaching
 from core.db import db_session
-from core.queries import latest_day_rows, recent_metrics_for_user
+from core.anomaly import BASELINE_DAYS, recent_anomalies
+from core.queries import latest_day_rows, recent_days_by_engineer, recent_metrics_for_user
 from core.severity import CRITICAL, severity_for_rank
 from ai.guide_generator import generate_team_report
 from ai.providers import get_provider
@@ -16,6 +17,8 @@ from notifications.email_report import send_daily_report, send_developer_alert, 
 from notifications.slack_post import send_slack_summary
 
 logger = logging.getLogger(__name__)
+
+DIGEST_ANOMALY_DAYS = 7
 
 def overall_status(summary):
     """Collapses a dispatch summary into one status: no_data, failed, skipped or success."""
@@ -57,6 +60,10 @@ def run_weekly_telemetry_check():
     # --- 1. CONNECT TO THE LIVE DATABASE ---
     with db_session() as conn:
         all_devs = latest_day_rows(conn)
+        # Spend anomalies of the last week (UPG-07) for the manager digest.
+        names = {d["user_id"]: d["name"] for d in all_devs}
+        anomalies = recent_anomalies(recent_days_by_engineer(conn, DIGEST_ANOMALY_DAYS + BASELINE_DAYS),
+                                     DIGEST_ANOMALY_DAYS, names)
     
     total_devs = len(all_devs)
     if total_devs == 0:
@@ -129,6 +136,7 @@ def run_weekly_telemetry_check():
             average_score=team_avg,
             total_cost=total_cost,
             ai_summary=ai_memo,
+            anomalies=anomalies,
             session=smtp,
         )
 

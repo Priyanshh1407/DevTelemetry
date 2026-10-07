@@ -700,3 +700,51 @@ Trade-off / what I'd do at larger scale:
 - **Weekly dispatch overlaps.** With weekly dispatch, someone who stays in the bottom two is coached every 7 days and those events overlap, so they are excluded. A real deployment needs a coaching cadence that leaves a clean week on each side.
 
 Interview version (≤ 60 seconds): "We coach whoever has the two worst scores that day, and I wanted to know whether the coaching works. The obvious metric, score after minus score on the coaching day, said yes even in a simulation where I'd set the true effect to zero. In 18% of teams it reported a significant improvement from nothing. That's regression to the mean: we pick people on a bad day. I changed the method: a baseline week that ends before the days the selection depended on, and a difference-in-differences against engineers who weren't coached. I validated it with coupled counterfactuals, regenerating each coached day with the old habit and the same random draws. It recovers the true effect to within 0.2%, and its 95% interval covers the truth in 98% of teams."
+
+### UPG-07 — Cost anomaly detection, measured on injected incidents (commit UPG07_HASH)
+Situation: a runaway agent loop or broken prompt caching shows up only as a bigger bill. The roadmap's "budget alerts" were never built, and nothing in the app looked at an engineer's spend over time.
+
+Symptom: the obvious fix, one team-wide threshold, measured on 200 simulated teams with injected incidents:
+- **Weekends:** a fixed $30/day catches only **7%** of weekend incidents, because a light user's runaway Saturday stays under $30.
+- **False alarms:** it raises **0.63 false alarms per engineer-month**, because heavy users pass $30 on ordinary days.
+
+Investigation: the incident model is shared by the evaluation and the demo seed (`data/seed.py: inject_incident`, positions known to the evaluation only):
+- runaway loop: every token ×3–6;
+- broken caching: hit ratio 5–15% of the same prompt.
+
+Root cause: "unusual" is relative to the person and the day type. A single number can't be right for a $4 Saturday and a $40 Monday.
+
+Fix (`core/anomaly.py`):
+- **Baseline:** each day is compared with the same engineer's previous 28 days **of the same type** (weekday or weekend), using the median and MAD. Fewer than 8 such days means the day is not evaluated.
+- **Flag rule:** robust z ≥ 3.5 **and** at least $5 above the median. Both values were fixed before the evaluation.
+- **Driver:** re-price the day with the usual cache hit, the usual Opus share or the usual volume (`core.whatif.reprice_day`), and name the habit that explains most of the excess.
+- **Product:**
+  - `GET /api/anomalies?days=14`;
+  - `anomalies` in the engineer details, with markers on the trend chart;
+  - a dashboard "Spend anomalies" card;
+  - a "Spend anomalies (last 7 days)" list in the manager digest;
+  - `seed.py --incidents N` (default 3) for the demo.
+
+Verification: `python -m analysis.anomaly_eval` (200 teams × 10 engineers × 120 days; 184,000 engineer-days judged; 6,170 incidents):
+
+| Detector | Precision | Recall | F1 | False alarms / engineer-month | Weekend recall |
+|---|---|---|---|---|---|
+| Robust (this) | 66% | 72% | **0.69** | **0.37** | 57% |
+| Fixed $30/day | 36% | 36% | 0.36 | 0.63 | 7% |
+| Mean + 3σ (same windows and floor) | 72% | 61% | 0.66 | 0.23 | 53% |
+
+- **Acceptance:** the robust detector beats both baselines on F1 ✓ with ≤ 1 false alarm per engineer-month ✓ (0.37).
+- **Recall by kind:** 91% of runaway loops; **51% of broken caching**. For an engineer who already had a low hit ratio, losing the cache adds only a few dollars, so it hides in normal variation.
+- **Demo data:** all 3 injected incidents are caught, with the right drivers (2 × volume, 1 × cache). Two more flags are naturally heavy simulated days; a run with `--incidents 0` flags exactly those two.
+- **Tests:**
+  - `tests/test_anomaly.py` (12): weekend vs weekday, the $ floor, short history, a past incident not hiding the next one, each driver;
+  - `test_anomalies_api.py` (8);
+  - `test_anomaly_eval.py` (3);
+  - Vitest card (2) and engineer marker (1).
+
+Trade-off / what I'd do at larger scale:
+- **Precision vs recall:** mean + 3σ is more precise but misses more, because earlier incidents inflate its σ. Here a missed runaway loop costs more than a glance, so recall wins.
+- **Detect broken caching directly:** watch uncached-input tokens, not only cost.
+- **Slow leaks:** single-day detection can't see a slow leak over a week; a CUSUM-style rule would.
+
+Interview version (≤ 60 seconds): "I added spend-anomaly detection and measured it on 6,000 injected incidents across 200 simulated teams. The obvious approach, a $30-a-day threshold, caught 7% of weekend incidents and paged heavy users every month. I compare each engineer with their own last four weeks of the same day type, using the median and MAD so an earlier spike doesn't hide the next one. That nearly doubled F1, to 0.69 against 0.36, at about one false alarm every three engineer-months. It catches 91% of runaway loops. It catches only half of broken-cache incidents, because for some people that's a small cost change, and I report that rather than hide it."

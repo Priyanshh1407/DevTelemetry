@@ -170,6 +170,33 @@ def select_for_coaching(history):
             for rank, e in enumerate(ranked, start=1) if severity_for_rank(rank, len(ranked)) == CRITICAL]
 
 
+# ── Injected incidents (UPG-07) ─────────────────────────────────────────────
+# Known-bad days, to measure the anomaly detector against (analysis/anomaly_eval.py) and to
+# show a few on the demo dashboard (--incidents). Nothing is stored about which days were
+# injected: the detector only ever sees the usage numbers.
+INCIDENT_KINDS = ("runaway_loop", "cache_breakage")
+_TOKEN_KEYS = ("input_tokens", "cache_read_tokens", "cache_write_tokens", "output_tokens")
+
+
+def inject_incident(metrics, kind, rng):
+    """A copy of one day's metrics with an incident:
+    - runaway_loop: an agent re-sends its context in a loop, so every token count is x3-6;
+    - cache_breakage: the cache stops being hit (e.g. a changing prompt prefix), so the
+      same prompt tokens are 5-15% cache reads and the rest uncached input."""
+    day = dict(metrics)
+    if kind == "runaway_loop":
+        factor = rng.uniform(3, 6)
+        for key in _TOKEN_KEYS:
+            day[key] = int(day[key] * factor)
+    elif kind == "cache_breakage":
+        prompt = day["input_tokens"] + day["cache_read_tokens"] + day["cache_write_tokens"]
+        day["cache_read_tokens"] = int(prompt * rng.uniform(0.05, 0.15))
+        day["input_tokens"] = prompt - day["cache_read_tokens"] - day["cache_write_tokens"]
+    else:
+        raise ValueError(f"unknown incident kind: {kind}")
+    return day
+
+
 def has_usage_data():
     init_db()
     with db_session() as conn:
@@ -182,9 +209,13 @@ def reset_data(conn):
         conn.execute(f"DELETE FROM {table}")
 
 
+INCIDENT_WINDOW_DAYS = 14   # demo incidents land in the window the dashboard lists
+
+
 def generate_historical_data(days_back=30, num_engineers=10, seed=DEFAULT_SEED, reset=False, end_date=None,
-                             coaching_effect=None):
-    """coaching_effect: None (no coaching) or a COACHING_EFFECTS key; see apply_coaching."""
+                             coaching_effect=None, incidents=0):
+    """coaching_effect: None (no coaching) or a COACHING_EFFECTS key; see apply_coaching.
+    incidents: how many incident days to inject in the last INCIDENT_WINDOW_DAYS (inject_incident)."""
     print("Ensuring database tables exist...")
     init_db()
     print(f"Generating {days_back} days of historical data for {num_engineers} engineers (seed={seed})...")
@@ -201,12 +232,20 @@ def generate_historical_data(days_back=30, num_engineers=10, seed=DEFAULT_SEED, 
     # the generated days instead of duplicating them).
     # Coaching has its own random stream, so the usage data only changes where a habit changed.
     coaching_rng = random.Random(f"coaching-{seed}")
+    # Incidents too: (engineer index, day offset) -> kind, alternating kinds.
+    incident_rng = random.Random(f"incidents-{seed}")
+    window = range(max(0, days_back - INCIDENT_WINDOW_DAYS), days_back)
+    slots = incident_rng.sample([(e, d) for e in range(num_engineers) for d in window],
+                                min(incidents, num_engineers * len(window)))
+    planned = {slot: INCIDENT_KINDS[i % len(INCIDENT_KINDS)] for i, slot in enumerate(slots)}
     history = {eng["user_id"]: [] for eng in engineers}
     records, events = [], []
     for day_offset in range(days_back):
         day = end_date - timedelta(days=days_back - day_offset - 1)
-        for eng in engineers:
+        for e, eng in enumerate(engineers):
             metrics = daily_metrics(rng, personas[eng["user_id"]], day)
+            if (e, day_offset) in planned:
+                metrics = inject_incident(metrics, planned[(e, day_offset)], incident_rng)
             history[eng["user_id"]].append(flat_day(metrics))
             mix = metrics.pop("model_mix")
             records.append(UsageRecord(user_id=eng["user_id"], date=day, name=eng["name"], email=eng["email"],
@@ -227,6 +266,8 @@ def generate_historical_data(days_back=30, num_engineers=10, seed=DEFAULT_SEED, 
     print(f"Ingested {inserted} new and {updated} refreshed engineer-days.")
     if coaching_effect is not None:
         print(f"Simulated {len(events)} coaching events (true effect: {coaching_effect}).")
+    if planned:
+        print(f"Injected {len(planned)} incident days in the last {INCIDENT_WINDOW_DAYS} days.")
     print("Historical data successfully injected into the database!")
 
 
@@ -241,12 +282,15 @@ def main(argv=None):
                         help="do nothing if the database already has usage data (for container start)")
     parser.add_argument("--coaching-effect", choices=[*COACHING_EFFECTS, "off"], default="moderate",
                         help="true effect of the simulated coaching (UPG-05); 'off' simulates no coaching")
+    parser.add_argument("--incidents", type=int, default=3,
+                        help="incident days (runaway loop / broken cache) to inject in the last 14 days (UPG-07)")
     args = parser.parse_args(argv)
     if args.if_empty and has_usage_data():
         print("Database already has usage data; skipping seed.")
         return
     generate_historical_data(days_back=args.days, num_engineers=args.engineers, seed=args.seed, reset=args.reset,
-                             coaching_effect=None if args.coaching_effect == "off" else args.coaching_effect)
+                             coaching_effect=None if args.coaching_effect == "off" else args.coaching_effect,
+                             incidents=args.incidents)
 
 
 if __name__ == "__main__":

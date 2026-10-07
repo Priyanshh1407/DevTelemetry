@@ -148,6 +148,7 @@ export default function EngineerDetail() {
 
     const { name, email, current_rank, current_severity, latest, history, averages, patterns } = data;
     const coaching = data.coaching || [];
+    const anomalies = data.anomalies || [];
 
     // Build chart-friendly history array (format date string)
     const formattedHistory = history.map(item => ({
@@ -381,9 +382,22 @@ export default function EngineerDetail() {
                                     {coaching.map((c) => (
                                         <ReferenceLine key={c.date} x={c.date.slice(5)} stroke="#4edea3" strokeDasharray="3 3" />
                                     ))}
+                                    {/* Spend anomalies (UPG-07) */}
+                                    {anomalies.map((a) => (
+                                        <ReferenceLine key={`a-${a.date}`} x={a.date.slice(5)} stroke="#ffb4ab" strokeDasharray="2 4" />
+                                    ))}
                                 </AreaChart>
                             </ResponsiveContainer>
                         </div>
+                        {anomalies.length > 0 && (
+                            <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 font-mono text-[10px] text-on-surface-variant">
+                                {anomalies.map((a) => (
+                                    <span key={a.date}>
+                                        <span className="text-[#ffb4ab]">┆</span> Unusual spend {a.date.slice(5)}: ${a.cost_usd.toFixed(2)}, likely {a.driver_label}
+                                    </span>
+                                ))}
+                            </div>
+                        )}
                         {coaching.length > 0 && (
                             <div className="flex flex-wrap gap-x-4 gap-y-1 mt-3 font-mono text-[10px] text-on-surface-variant">
                                 {coaching.map((c) => (

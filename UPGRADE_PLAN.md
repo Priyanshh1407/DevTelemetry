@@ -379,7 +379,8 @@ Items:
   - **Talking point:** "The model isn't allowed to estimate savings, because it would make them up. The code re-prices the engineer's real tokens under a target habit, and the guide quotes that number."
   - **Effort:** S–M (~1–2 sessions) | **Interview impact:** 4 | **Buzzword risk:** Low
 
-- [ ] **UPG-07 Cost anomaly detection, measured on injected incidents**
+- [x] **UPG-07 Cost anomaly detection, measured on injected incidents**
+  - *Done 2026-10-07:* F1 0.69 vs 0.36 (fixed $30) and 0.66 (mean + 3σ); 0.37 false alarms per engineer-month; 91% of runaway loops, 51% of broken caching. Driver "output volume" generalized to "volume" (a runaway loop scales every token count). See docs/anomalies.md.
   - **Problem it solves in THIS project:** a runaway agent loop or broken caching shows up only as a bigger bill. The roadmap's "budget alerts" were never built.
   - **What gets built:**
     - **Detector** (`core/anomaly.py`):

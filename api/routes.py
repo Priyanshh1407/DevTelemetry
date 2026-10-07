@@ -14,6 +14,7 @@ from core.severity import severity_for_rank
 from core.scorer import cache_hit_ratio, score_breakdown, total_prompt_tokens
 from core.queries import latest_day_rows, recent_days_by_engineer
 from core.whatif import MAX_CACHE_HIT, habits, team_targets, what_if
+from core.anomaly import BASELINE_DAYS, DRIVERS, detect, recent_anomalies
 from core.coaching_log import coaching_events
 from core.impact import POST, PRE, event_effects, summarize
 from core.ingest import MAX_BATCH, upsert_usage, validate_records
@@ -414,6 +415,14 @@ def get_engineer_details(user_id: str):
                 "insight": f"Uses /compact {avg_comp:.1f}% of sessions — recommend using /compact more often to keep context clean"
             })
             
+        # Spend anomalies in the charted range (UPG-07); detection needs the 28 days before it.
+        earlier = [dict(r) for r in conn.execute(
+            "SELECT * FROM usage_metrics WHERE user_id = ? AND date < ? AND date >= date(?, ?) ORDER BY date",
+            (user_id, history[0]["date"], history[0]["date"], f"-{BASELINE_DAYS} days"))]
+        anomalies = [{"date": a["date"], "cost_usd": a["cost_usd"], "excess_usd": a["excess_usd"],
+                      "driver": a["driver"], "driver_label": DRIVERS[a["driver"]]}
+                     for a in detect(earlier + history) if a["flagged"] and a["date"] >= history[0]["date"]]
+
         # Coaching days in the charted range (UPG-05), for markers on the trend chart.
         coaching = [{"date": e["coached_on"].isoformat(), "target_area": e["target_area"]}
                     for e in coaching_events(conn, since=date.fromisoformat(history[0]["date"]), user_id=user_id)]
@@ -422,6 +431,7 @@ def get_engineer_details(user_id: str):
             "name": engineer["name"],
             "email": engineer["email"],
             "coaching": coaching,
+            "anomalies": anomalies,
             "current_rank": current_rank,
             "current_severity": current_severity,
             "latest": latest,
@@ -492,3 +502,13 @@ def get_what_if(user_id: str, cache_hit: float | None = Query(None, ge=0, le=MAX
                "opus_pct": defaults["opus_pct"] if opus_pct is None else opus_pct}
     current = {k: round(v, 4) for k, v in habits(days).items()}
     return {**what_if(days, **targets), "team_targets": defaults, "current": current}
+
+
+@router.get("/anomalies")
+def get_anomalies(days: int = Query(14, ge=1, le=90)):
+    """Spend anomalies (UPG-07): days in the last `days` that cost far more than that engineer's
+    own normal for the same day type (core/anomaly.py; evaluation in docs/anomalies.md)."""
+    with db_session() as conn:
+        team = recent_days_by_engineer(conn, days + BASELINE_DAYS)
+        names = {r["user_id"]: r["name"] for r in conn.execute("SELECT user_id, name FROM engineers")}
+    return {"days": days, "anomalies": recent_anomalies(team, days, names)}

@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import Navbar from "../components/Navbar";
 import CoachingImpactCard from "../components/CoachingImpactCard";
+import AnomaliesCard from "../components/AnomaliesCard";
 import { adminPost, getJSON, waitForDispatch } from "../api";
 
 // ─── Custom Tooltip ────────────────────────────────────────────────────────────
@@ -372,6 +373,7 @@ export default function Dashboard() {
                 {/* ── Measured insights (Phase 8) ── */}
                 <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     <CoachingImpactCard />
+                    <AnomaliesCard />
                 </section>
 
                 {/* ── Leaderboard ── */}

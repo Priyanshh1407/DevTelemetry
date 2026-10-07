@@ -142,3 +142,18 @@ describe('EngineerDetail coaching days (UPG-05)', { timeout: 30000 }, () => {
         expect(screen.queryByText(/Coached/)).not.toBeInTheDocument();
     });
 });
+
+describe('EngineerDetail spend anomalies (UPG-07)', { timeout: 30000 }, () => {
+    it('lists this engineer\'s anomaly days under the trend chart', async () => {
+        vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+            ok: true, status: 200,
+            json: () => Promise.resolve({ ...DETAILS, anomalies: [
+                { date: '2026-03-31', cost_usd: 61.5, excess_usd: 49.2, driver: 'volume',
+                  driver_label: 'more tokens (e.g. a runaway agent loop)' }] }),
+        }));
+
+        await renderDetail();
+
+        expect(await screen.findByText(/Unusual spend 03-31: \$61\.50, likely more tokens/)).toBeInTheDocument();
+    });
+});
