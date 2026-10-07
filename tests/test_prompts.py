@@ -41,7 +41,7 @@ V2_DAY = {"date": "2026-03-31", "input_tokens": 600_000, "cache_read_tokens": 30
 
 @pytest.mark.parametrize("severity", ["critical", "moderate", "low"])
 def test_guide_prompt_v2(mock_gemini, severity):
-    generate_efficiency_guide(V2_DAY, severity, recent=[dict(V2_DAY, compact_uses=2)] * 6)
+    generate_efficiency_guide(V2_DAY, severity, recent=[dict(V2_DAY, compact_uses=2)] * 6, prompt_version="v2")
     check(f"guide_prompt_v2_{severity}.txt", sent_prompt(mock_gemini))
 
 

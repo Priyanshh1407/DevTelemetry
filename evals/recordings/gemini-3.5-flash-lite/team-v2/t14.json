@@ -1,0 +1,12 @@
+{
+ "calls": [
+  {
+   "text": "{\n  \"summary\": \"With 10 engineers, the team achieved an average efficiency score of 51.7 out of 100 on the latest day. Total estimated spend was $130.44 across the team, while 2 engineers remain in the critical tier.\",\n  \"focus\": [\n    {\n      \"area\": \"model_mix\",\n      \"why\": \"This is the biggest team-wide gap, with 4 engineers whose weakest area is model_mix and an average loss of 17.6 out of 30 points in this category.\",\n      \"practice\": \"Review model selection using the /model command to ensure the right model is chosen for each task before starting.\"\n    },\n    {\n      \"area\": \"cache\",\n      \"why\": \"Cache efficiency is a significant drag, causing an average loss of 15.1 out of 40 points, with 2 engineers struggling most in this area.\",\n      \"practice\": \"Use /compact regularly and maintain clean instructions in CLAUDE.md to manage context efficiently.\"\n    }\n  ]\n}",
+   "model": "gemini-3.5-flash-lite",
+   "input_tokens": 356,
+   "output_tokens": 241,
+   "latency_ms": 2282,
+   "cost_usd": 0.000709
+  }
+ ]
+}

@@ -1,0 +1,12 @@
+{
+ "calls": [
+  {
+   "text": "{\n  \"headline\": \"Your efficiency score is 54.51 out of 100 with an estimated cost today of $4.42, and you have great strengths to maintain.\",\n  \"actions\": [\n    {\n      \"title\": \"Improve context discipline\",\n      \"problem\": \"Your weakest area is discipline (context management (/compact)), sitting 25.45 points below its maximum. You used /compact in only 15.2% of sessions over the last 7 days, which is 5 of 33 sessions yielding 4.55 of 30 points.\",\n      \"fix\": \"Run the /compact command more frequently across your sessions to better manage your context and improve your discipline score.\",\n      \"focus\": \"discipline\"\n    },\n    {\n      \"title\": \"Optimize your model mix\",\n      \"problem\": \"Your model mix currently stands at Opus 22.0%, Sonnet 68.0%, and Haiku 10.0%, earning 15.9 of 30 points.\",\n      \"fix\": \"Adjust your model usage so that your Opus share matches the team's top quartile of 15.0%, which would save $4.79 per 30 days.\",\n      \"focus\": \"model_mix\"\n    }\n  ]\n}",
+   "model": "gemini-3.5-flash-lite",
+   "input_tokens": 430,
+   "output_tokens": 294,
+   "latency_ms": 1748,
+   "cost_usd": 0.000864
+  }
+ ]
+}

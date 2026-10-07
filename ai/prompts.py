@@ -52,7 +52,7 @@ def build_team_report_prompt(team_summary):
 # v1 (above) sends the raw database row and asks for a numbered plain-text list. It stays
 # unchanged as the eval baseline. v2 gives the model named facts with exact values, asks for
 # JSON matching ai.schemas.CoachingGuide, and forbids numbers that aren't in FACTS.
-PROMPT_VERSION = "v2"
+PROMPT_VERSION = "v3"   # UPG-06: v2 plus computed savings; switched after the live eval (FIX_LOG)
 
 _TONES = {
     "critical": ("This engineer is in the team's bottom two this week. Be direct and specific.", 4),

@@ -1,0 +1,12 @@
+{
+ "calls": [
+  {
+   "text": "{\n  \"headline\": \"Great performance with an efficiency score of 51.07 out of 100, leaving clear room to optimize prompt caching and model mix.\",\n  \"actions\": [\n    {\n      \"title\": \"Improve prompt caching\",\n      \"problem\": \"Your cache score is 33.3 percent of prompt tokens served from cache, earning 13.32 of 40 points, which makes cache your weakest area at 26.68 points below its maximum.\",\n      \"fix\": \"Reaching the team top quartile cache hit ratio of 83.0 percent would save $349.46 per 30 days by reusing more cached tokens.\",\n      \"focus\": \"cache\"\n    },\n    {\n      \"title\": \"Refine model selection\",\n      \"problem\": \"Your model mix currently stands at Opus 20.0 percent, Sonnet 69.0 percent, and Haiku 11.0 percent, resulting in 16.32 of 30 points.\",\n      \"fix\": \"Adjusting your Opus share to the team top quartile level of 15.0 percent would save $17.70 per 30 days while maintaining output quality.\",\n      \"focus\": \"model_mix\"\n    }\n  ]\n}",
+   "model": "gemini-3.5-flash-lite",
+   "input_tokens": 433,
+   "output_tokens": 291,
+   "latency_ms": 1637,
+   "cost_usd": 0.000857
+  }
+ ]
+}

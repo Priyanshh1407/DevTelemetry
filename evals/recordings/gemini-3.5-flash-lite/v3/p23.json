@@ -1,0 +1,12 @@
+{
+ "calls": [
+  {
+   "text": "{\n  \"headline\": \"Improve your Claude Code cost efficiency by adjusting your model mix and keeping up your cache and compact habits.\",\n  \"actions\": [\n    {\n      \"title\": \"Reduce Opus share\",\n      \"problem\": \"Your model mix stands at Opus 72.0%, Sonnet 21.0%, and Haiku 7.0%, making model_mix your weakest area at 21.96 points below its maximum.\",\n      \"fix\": \"Lower your Opus usage closer to the team's top quartile of 15.0%, which would save $89.68 per 30 days.\",\n      \"focus\": \"model_mix\"\n    },\n    {\n      \"title\": \"Maintain high cache performance\",\n      \"problem\": \"You have 83.2% of prompt tokens served from cache, which earns 33.3 of 40 points.\",\n      \"fix\": \"Keep your cache hit ratio at or above the team's top quartile of 83.0% to continue saving $18.32 per 30 days.\",\n      \"focus\": \"cache\"\n    },\n    {\n      \"title\": \"Continue using compact sessions\",\n      \"problem\": \"You used /compact in 82.9% of sessions over the last 7 days, totaling 29 of 35 sessions.\",\n      \"fix\": \"Keep using /compact consistently in your daily workflow to maintain your strong discipline score of 24.86 of 30 points.\",\n      \"focus\": \"discipline\"\n    }\n  ]\n}",
+   "model": "gemini-3.5-flash-lite",
+   "input_tokens": 413,
+   "output_tokens": 353,
+   "latency_ms": 2123,
+   "cost_usd": 0.001006
+  }
+ ]
+}

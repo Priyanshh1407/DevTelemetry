@@ -68,3 +68,15 @@ def test_numbers_are_checked_against_the_team_facts():
     text = f"The team averaged {facts['average_score']} and spent $999.99.\n\nFocus on caching."
     row = runner.evaluate(profile, "team-v1", TeamReport(text=text, outcome="ai", calls=[response(text)]))
     assert row["ungrounded"] == [999.99]
+
+
+@pytest.mark.parametrize("pipeline", ["team-v1", "team-v2"])
+def test_committed_recordings_reproduce_the_committed_results(tmp_path, pipeline):
+    committed = json.loads((runner.RESULTS / runner.EVAL_MODEL / f"{pipeline}.json").read_text(encoding="utf-8"))
+
+    summary, rows = runner.run(pipeline, "replay", results=tmp_path)
+
+    volatile = {"run_at", "mode"}
+    assert len(rows) == 15
+    assert {k: v for k, v in summary.items() if k not in volatile} == \
+           {k: v for k, v in committed["summary"].items() if k not in volatile}

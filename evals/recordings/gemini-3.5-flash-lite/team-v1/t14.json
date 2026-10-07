@@ -1,0 +1,12 @@
+{
+ "calls": [
+  {
+   "text": "Team, here is our daily AI usage breakdown for Claude Code. We had a productive day with a total spend of $130.44, reflecting a healthy and active level of engagement across our projects. Our overall performance score landed at 51.7, showing solid baseline execution and consistent utilization of our AI tools to accelerate our engineering workflows. Great job keeping our operations moving forward efficiently!\n\nAs we look ahead to tomorrow, let's focus on two key best practices to optimize both our costs and output. First, aim to keep prompt contexts concise by scoping your requests and clearing sessions when switching tasks, which will help reduce token overhead. Second, review any critical outputs closely before execution to minimize rework and drive up our quality scores. Let's keep up the fantastic collaboration and aim for an even stronger performance tomorrow!",
+   "model": "gemini-3.5-flash-lite",
+   "input_tokens": 163,
+   "output_tokens": 168,
+   "latency_ms": 2081,
+   "cost_usd": 0.000469
+  }
+ ]
+}

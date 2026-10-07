@@ -1,0 +1,12 @@
+{
+ "calls": [
+  {
+   "text": "{\n  \"headline\": \"Efficiency score is 59.79 out of 100 with an estimated cost today of $17.85 and discipline as the weakest area at 25.16 points below its maximum.\",\n  \"actions\": [\n    {\n      \"title\": \"Increase /compact usage\",\n      \"problem\": \"Discipline is your weakest area, sitting at 25.16 points below its maximum because /compact was used in 16.1% of sessions over the last 7 days, specifically 5 of 31 sessions resulting in 4.84 of 30 points.\",\n      \"fix\": \"Run /compact regularly to manage your context effectively and raise your discipline score.\",\n      \"focus\": \"discipline\"\n    },\n    {\n      \"title\": \"Optimize cache hit ratio\",\n      \"problem\": \"Your cache score is 35.69 of 40 points, where 89.2% of prompt tokens were served from cache.\",\n      \"fix\": \"Maintain or improve your cache hit ratio. A cache hit ratio at the team's top quartile of 83.0% would save $10.26 per 30 days.\",\n      \"focus\": \"cache\"\n    },\n    {\n      \"title\": \"Adjust model mix percentages\",\n      \"problem\": \"Your model mix score is 19.26 of 30 points based on a distribution of Opus 6.0%, Sonnet 76.0%, and Haiku 18.0%.\",\n      \"fix\": \"Review your model selection to align with team best practices. Opus share at the team's top quartile of 15.0% would save $4.90 per 30 days.\",\n      \"focus\": \"model_mix\"\n    },\n    {\n      \"title\": \"Review session discipline\",\n      \"problem\": \"Your overall efficiency score is 59.79 out of 100, placing you in the team's bottom two this week.\",\n      \"fix\": \"Adopt strict context management practices across all 31 sessions to improve your standing.\",\n      \"focus\": \"discipline\"\n    }\n  ]\n}",
+   "model": "gemini-3.5-flash-lite",
+   "input_tokens": 421,
+   "output_tokens": 490,
+   "latency_ms": 2337,
+   "cost_usd": 0.001351
+  }
+ ]
+}

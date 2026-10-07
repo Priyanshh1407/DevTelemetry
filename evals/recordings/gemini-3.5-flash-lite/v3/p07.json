@@ -1,0 +1,12 @@
+{
+ "calls": [
+  {
+   "text": "{\n  \"headline\": \"Your efficiency score is 43.08 out of 100 with an estimated cost today of 7.48 dollars, placing you in the bottom two this week.\",\n  \"actions\": [\n    {\n      \"title\": \"Fix prompt caching immediately\",\n      \"problem\": \"Only 10.6% of prompt tokens were served from cache, earning 4.24 of 40 points, which makes cache your weakest area at 35.76 points below its maximum.\",\n      \"fix\": \"Improve your cache hit ratio to reach the team top quartile of 83.0% to realize savings of 326.08 dollars per 30 days.\",\n      \"focus\": \"cache\"\n    },\n    {\n      \"title\": \"Optimize model mix usage\",\n      \"problem\": \"Your current model mix is Opus 14.0%, Sonnet 79.0%, and Haiku 7.0%, which earned 16.74 of 30 points.\",\n      \"fix\": \"Adjust your Opus share to the team top quartile of 15.0% to save 11.21 dollars per 30 days.\",\n      \"focus\": \"model_mix\"\n    },\n    {\n      \"title\": \"Maintain compact usage discipline\",\n      \"problem\": \"You used compact in 73.7% of sessions over the last 7 days, which is 28 of 38 sessions and earned 22.11 of 30 points.\",\n      \"fix\": \"Continue using compact consistently across all sessions to maintain your discipline score.\",\n      \"focus\": \"discipline\"\n    },\n    {\n      \"title\": \"Review total daily spending\",\n      \"problem\": \"Your estimated cost today reached 7.48 dollars while your efficiency score remained at 43.08 out of 100.\",\n      \"fix\": \"Apply the cache and model mix adjustments to significantly lower your daily costs.\",\n      \"focus\": \"discipline\"\n    }\n  ]\n}",
+   "model": "gemini-3.5-flash-lite",
+   "input_tokens": 421,
+   "output_tokens": 460,
+   "latency_ms": 2228,
+   "cost_usd": 0.001276
+  }
+ ]
+}

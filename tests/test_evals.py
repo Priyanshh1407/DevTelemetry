@@ -180,7 +180,7 @@ def test_a_live_eval_uses_one_model_and_never_the_fallback(tmp_path, mock_gemini
     assert (tmp_path / "rec" / "gemini-3.5-flash-lite" / "v2" / "p01.json").exists()
 
 
-@pytest.mark.parametrize("pipeline", ["v1", "v2"])
+@pytest.mark.parametrize("pipeline", ["v1", "v2", "v3"])
 def test_committed_recordings_reproduce_the_committed_results(tmp_path, pipeline):
     """The published eval table must follow from the published recordings, offline (this is
     what CI checks). If the checker or scoring changes, re-score and commit the new results."""

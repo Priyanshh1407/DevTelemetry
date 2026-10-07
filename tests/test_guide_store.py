@@ -6,6 +6,7 @@ and cost, and /api/ai-stats summarizes them.
 """
 import pytest
 
+from ai.prompts import PROMPT_VERSION
 from ai.providers import DEFAULT_GEMINI_MODEL, price_per_million
 from tests.conftest import engineer_id
 
@@ -32,14 +33,14 @@ def test_guides_survive_a_restart_because_they_live_in_the_database(client, seed
     assert second["cached"] is True
     stored = rows(query, "SELECT user_id, metrics_date, severity, prompt_version, model, source FROM coaching_guides")
     assert stored == [{"user_id": engineer_id(0), "metrics_date": "2026-01-03", "severity": "critical",
-                       "prompt_version": "v2", "model": "gemini-3.8-flash", "source": "ai"}]
+                       "prompt_version": PROMPT_VERSION, "model": "gemini-3.8-flash", "source": "ai"}]
 
 
 def test_a_new_prompt_version_does_not_reuse_old_guides(client, seeded_db, mock_gemini, monkeypatch):
     import ai.coaching_service as service
 
     runbook(client)
-    monkeypatch.setattr(service, "PROMPT_VERSION", "v3")
+    monkeypatch.setattr(service, "PROMPT_VERSION", "v4")
     runbook(client)
 
     assert mock_gemini.models.generate_content.call_count == 2

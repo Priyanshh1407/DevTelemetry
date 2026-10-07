@@ -1,0 +1,12 @@
+{
+ "calls": [
+  {
+   "text": "{\n  \"summary\": \"With 10 engineers achieving an average efficiency score of 45.7 out of 100, the team is currently underperforming. Total estimated spend on the latest day reached 191.92 dollars, and 2 days with unusual spend were recorded in the last 7 days.\",\n  \"focus\": [\n    {\n      \"area\": \"discipline\",\n      \"why\": \"Discipline is the biggest team-wide gap, with points lost per engineer on average being 24.1 out of 30 for /compact.\",\n      \"practice\": \"Establish a mandatory routine to regularly run /compact to manage context effectively.\"\n    },\n    {\n      \"area\": \"cache\",\n      \"why\": \"Cache is the second major area of concern, where points lost per engineer on average total 16.4 out of 40.\",\n      \"practice\": \"Review guidelines in CLAUDE.md to improve caching efficiency across all development tasks.\"\n    }\n  ]\n}",
+   "model": "gemini-3.5-flash-lite",
+   "input_tokens": 354,
+   "output_tokens": 224,
+   "latency_ms": 1747,
+   "cost_usd": 0.000666
+  }
+ ]
+}

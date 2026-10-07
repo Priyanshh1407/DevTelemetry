@@ -1,0 +1,12 @@
+{
+ "calls": [
+  {
+   "text": "Team, here is our daily AI usage and performance breakdown for Claude Code. Overall, we are maintaining a strong operational cadence, keeping our total spend efficient at $191.92 while driving daily development tasks forward. Your collaborative efforts with the agent are clearly paying off, and we appreciate everyone's dedication to keeping our workflows moving smoothly.\n\nAs we look to optimize our performance further tomorrow, let\u2019s keep two key best practices in mind. First, try to structure your prompts with clear, scoped context before running large tasks to minimize unnecessary token burn and help keep costs lean. Second, let's keep a close eye on the critical alert count\u2014currently at 2\u2014by thoroughly reviewing Claude's outputs for edge cases before merging, ensuring we maintain high code quality and avoid costly rework. Keep up the fantastic work, everyone!",
+   "model": "gemini-3.5-flash-lite",
+   "input_tokens": 163,
+   "output_tokens": 171,
+   "latency_ms": 2165,
+   "cost_usd": 0.000476
+  }
+ ]
+}

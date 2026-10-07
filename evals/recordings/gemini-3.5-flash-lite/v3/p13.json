@@ -1,0 +1,12 @@
+{
+ "calls": [
+  {
+   "text": "{\n  \"headline\": \"Improve your Claude Code efficiency score from 46.75 to save money and get better results today.\",\n  \"actions\": [\n    {\n      \"title\": \"Boost prompt caching efficiency\",\n      \"problem\": \"Only 18.9% of prompt tokens were served from cache, leaving this as your weakest area at 32.45 points below its maximum and costing you points out of your 46.75 efficiency score.\",\n      \"fix\": \"Re-pricing shows that reaching the team top quartile cache hit ratio of 83.0% would save $351.03 per 30 days.\",\n      \"focus\": \"cache\"\n    },\n    {\n      \"title\": \"Optimize your model mix\",\n      \"problem\": \"Your current model mix is Opus 22.0%, Sonnet 65.0%, and Haiku 13.0%, earning 16.26 of 30 points.\",\n      \"fix\": \"Re-pricing shows that shifting your Opus share to the team top quartile of 15.0% would save $17.02 per 30 days.\",\n      \"focus\": \"model_mix\"\n    },\n    {\n      \"title\": \"Maintain your compact habits\",\n      \"problem\": \"You used /compact in 76.5% of sessions over the last 7 days, which is 26 of 34 sessions earning 22.94 of 30 points.\",\n      \"fix\": \"Keep using /compact consistently in sessions to support your estimated cost today of $16.70 and keep building on your progress.\",\n      \"focus\": \"discipline\"\n    }\n  ]\n}",
+   "model": "gemini-3.5-flash-lite",
+   "input_tokens": 412,
+   "output_tokens": 383,
+   "latency_ms": 1974,
+   "cost_usd": 0.001081
+  }
+ ]
+}

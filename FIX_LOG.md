@@ -748,3 +748,80 @@ Trade-off / what I'd do at larger scale:
 - **Slow leaks:** single-day detection can't see a slow leak over a week; a CUSUM-style rule would.
 
 Interview version (≤ 60 seconds): "I added spend-anomaly detection and measured it on 6,000 injected incidents across 200 simulated teams. The obvious approach, a $30-a-day threshold, caught 7% of weekend incidents and paged heavy users every month. I compare each engineer with their own last four weeks of the same day type, using the median and MAD so an earlier spike doesn't hide the next one. That nearly doubled F1, to 0.69 against 0.36, at about one false alarm every three engineer-months. It catches 91% of runaway loops. It catches only half of broken-cache incidents, because for some people that's a small cost change, and I report that rather than hide it."
+
+### UPG-06 — What-if savings, computed not estimated (commits UPG06_HASH, EVALS_HASH)
+Situation: engineers saw a score, not money. Phase 6 had removed the guide's `est_saving` field, because a saving the model estimates is invented by construction (it is not in the facts it was given).
+
+Symptom: a guide could say "improve caching" but not what that is worth, and the dashboard couldn't answer "what if I fixed this habit?".
+
+Fix (`core/whatif.py`): re-price the engineer's last 30 days of real tokens with `estimate_cost`, changing one habit:
+- **Cache lever:** the same prompt tokens re-split at the target hit ratio, with cache writes unchanged.
+- **Model lever:** Opus above the target share moves to Sonnet.
+- **Targets only improve a habit:** a day already better is left alone, so savings are never negative.
+- **Data-driven defaults:** the team's top quartile (75th-percentile cache hit, 25th-percentile Opus share).
+- **Product:**
+  - `GET /api/engineer/{id}/what-if` (422 on out-of-range targets);
+  - a debounced sliders panel on the engineer page;
+  - **prompt v3** = v2 plus a SAVINGS block computed by this code, with rules to quote it and never estimate any other saving;
+  - the rule-based fallback quotes the same numbers.
+- **Eval harness:** gains a `v3` pipeline and pins every pipeline to its own prompt, so the published v2 table stays v2 after the switch.
+
+Verification:
+- **Property tests** (`tests/test_whatif.py`, 22): no change reproduces `estimate_cost`; a higher cache target never costs more; less Opus never costs more; cache writes and total prompt are unchanged.
+- **Live eval, v2 vs v3** (same model `gemini-3.5-flash-lite`, same 30 profiles; approved 2026-10-07):
+
+| Metric | v2 | v3 |
+|---|---|---|
+| Valid guide | 100% | 100% |
+| Valid on first try | 100% | **96.7%** (p10: headline over 160 characters, fixed by the repair) |
+| First action targets the weakest area | 100% | 100% |
+| Cited numbers grounded | 100% of 442 | 100% of 552 |
+| Guides quoting a computed saving (when one exists) | — | 96.7% (29 of 30) |
+| Mean tokens in / out | 305 / 340 | 438 / 371 |
+| Latency p50 / p95 | 2.1 / 2.8 s | 2.1 / 3.0 s |
+| Cost (30 guides) | $0.0283 | $0.0318 |
+
+- **Decision:** no regression in validity, targeting or grounding (the plan's bar), so **production switched to v3**. Costs: one first-try failure in 30, and about 12% more cost from the longer prompt. Stored v2 guides are not reused (the store key includes the prompt version), so each engineer's guide regenerates once.
+- **Example (p01):** "Raise your cache hit ratio to the team top quartile of 83.0% to save $346.91 per 30 days."
+
+Trade-off / what I'd do at larger scale:
+- **The saving assumes the same work at the new habit.** A cache hit ratio isn't freely choosable; the slider shows what the habit is worth, not a promise.
+- **Scaling up from a short window:** the eval profiles have 7 days, scaled to 30.
+
+Interview version (≤ 60 seconds): "Managers wanted to see money, not just a score. But a saving the LLM estimates is a hallucination by construction, so I'd banned them in prompt v2. In v3 the code computes the saving: it re-prices the engineer's actual tokens at the team's top-quartile habits with the same pricing function as the bill, and the model may only quote that number. Property tests pin the maths: a better habit never costs more, and no change reproduces the bill exactly. On the same 30 eval profiles, v3 kept 100% validity, targeting and grounding, and 29 of 30 guides quoted a real saving."
+
+### UPG-08 — Grounded team memo (commits UPG08_HASH, EVALS_HASH)
+Situation: the manager's team memo was free text from three aggregates (average score, spend, critical count), with no grounding check. In Phase 7 testing it recommended a Claude Code feature that doesn't exist (`.claudedir`).
+
+Symptom: the old memo can't name the team's real problem, because it never sees per-area data, and nothing stops it from inventing commands.
+
+Fix:
+- **Team facts** (`ai/team_memo.py`): team size, average score, spend, points lost per area, how many engineers are weakest in each area, critical tier, and spend anomalies in the last 7 days (UPG-07).
+- **Structured prompt:** team-v2 (`TeamMemo` schema: a summary plus 1–2 focus areas), naming the only commands allowed.
+- **Validation:**
+  - schema;
+  - no slash command outside the **documented Claude Code commands** (`ai/claude_code.py`, taken from code.claude.com/docs/en/commands on 2026-10-07; `/claudedir` is not there);
+  - no made-up `.claude…` file.
+- **Recovery:** one repair, naming the invented command; then a rule-based memo. The digest and the CLI use it and meter it.
+- **Baseline:** the old prompt stays as team-v1 for the eval.
+
+Verification: live eval on 15 simulated team-days (each area is the biggest gap in 5; spend anomalies 0–3), `gemini-3.5-flash-lite`, approved 2026-10-07:
+
+| Metric | team-v1 (old) | team-v2 (new) |
+|---|---|---|
+| Valid memo | 100% | 100% |
+| Main recommendation targets the team's biggest gap | **0%** | **100%** |
+| Numbers cited | 33 | 195 |
+| Cited numbers grounded | 100% | 100% |
+| First replies inventing a command or file | 0% | 0% |
+| Invented commands/files the manager would read | 0 | 0 |
+| Latency p50 / p95 | 2.1 / 3.1 s | 1.8 / 6.2 s |
+| Cost (15 memos) | $0.0082 | $0.0108 |
+
+- **Acceptance:** the new memo is 100% valid ✓, with 0 ungrounded numbers ✓ and 0 unknown commands ✓.
+- **What the old memo really did:** generic advice. "structure your prompts with precise context upfront", with no area in 11 of 15 memos, and `/compact` in the other 4. It also framed the numbers as "yesterday's metrics".
+- **The guard didn't fire on this set.** `.claudedir` didn't recur in these 30 replies (Phase 7 saw it on a different model). The command guard is a safety net: unit tests prove a reply with `/optimize-tokens` or `.claudedir` is repaired, then replaced.
+- **Checker correction found during this eval:** targeting was first scored by keyword-classifying the whole focus section. That misread 3 of 15 new memos whose *second* focus mentioned `/compact` (the model's stated first focus was right in 15 of 15). team-v2 is now scored on its stated first focus area (what the manager sees as "Focus on …"). team-v1 has no structure, so it stays keyword-classified.
+- **Not caught by any check:** t10 says `/compact` improves cache efficiency, which is wrong advice with correct numbers; one memo says "1 engineers". Grounding checks numbers and commands, not whether the advice is right; that needs human review or an LLM judge.
+
+Interview version (≤ 60 seconds): "The manager's memo once told a team to use a Claude Code feature that doesn't exist. I rebuilt it like the coaching guides: computed team facts in, a schema-validated memo out. I also added a guard that checks every slash command against Claude Code's documented command list and repairs or replaces the memo if it invents one. On 15 simulated team-days, the old memo never pointed at the team's actual biggest problem; the new one did every time, with every number grounded. In this run the model didn't invent a command at all, so I say the guard is a safety net, not something that fixed a measured failure rate."

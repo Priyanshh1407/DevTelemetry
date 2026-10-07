@@ -1,0 +1,12 @@
+{
+ "calls": [
+  {
+   "text": "Good morning, team! Looking at yesterday's metrics, we had a solid day of collaboration with Claude Code. We successfully maintained a strong overall health score of 44.6 while keeping our total spend at a very reasonable $74.58. It\u2019s fantastic to see everyone leveraging the AI agent effectively to accelerate our workflows, and your mindful approach to resource management is clearly paying off. \n\nAs we look toward tomorrow, let's keep this positive momentum going by focusing on a couple of key best practices to further optimize both our costs and efficiency. First, let's continue to be precise with our initial prompt engineering to minimize iterative looping and reduce token spend\u2014especially keeping an eye on avoiding those critical errors (we logged 2 yesterday). Second, remember to scope your tasks into smaller, modular chunks before handing them off to Claude Code; this not only yields more accurate code generation on the first pass but also keeps our resource usage lean. \n\nKeep up the stellar work, and let's have another great day of building!",
+   "model": "gemini-3.5-flash-lite",
+   "input_tokens": 162,
+   "output_tokens": 214,
+   "latency_ms": 2914,
+   "cost_usd": 0.000584
+  }
+ ]
+}

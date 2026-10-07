@@ -1,0 +1,12 @@
+{
+ "calls": [
+  {
+   "text": "{\n  \"headline\": \"Great work with an efficiency score of 69.65 out of 100 today, with strong results in cache and compact usage.\",\n  \"actions\": [\n    {\n      \"title\": \"Shift model mix to save costs\",\n      \"problem\": \"Your current model mix is Opus 69.0%, Sonnet 25.0%, and Haiku 6.0%, making model_mix your weakest area at 21.63 points below its maximum.\",\n      \"fix\": \"Lower your Opus share toward the team top quartile of 15.0%, which would save $81.38 per 30 days.\",\n      \"focus\": \"model_mix\"\n    },\n    {\n      \"title\": \"Maintain strong cache performance\",\n      \"problem\": \"You already served 87.6% of prompt tokens from cache, earning 35.03 of 40 points.\",\n      \"fix\": \"Keep your cache hit ratio above the team top quartile of 83.0%, a habit that would save $39.09 per 30 days.\",\n      \"focus\": \"cache\"\n    }\n  ]\n}",
+   "model": "gemini-3.5-flash-lite",
+   "input_tokens": 435,
+   "output_tokens": 266,
+   "latency_ms": 1687,
+   "cost_usd": 0.000795
+  }
+ ]
+}

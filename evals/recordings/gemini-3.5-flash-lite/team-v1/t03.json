@@ -1,0 +1,12 @@
+{
+ "calls": [
+  {
+   "text": "Good morning, team! Looking at yesterday's telemetry for Claude Code, we had a solid day of collaborative engineering with a total spend of $117.45 and an average task score of 47.3. It\u2019s great to see everyone actively leveraging the AI agent to accelerate our workflows and tackle complex coding challenges; your continued engagement is really driving our momentum forward. \n\nAs we look toward tomorrow, let's keep two quick best practices in mind to help optimize both our costs and our efficiency. First, try breaking down larger, multi-file requests into smaller, focused prompts to help Claude generate more precise solutions on the first try and reduce token burn. Second, make it a habit to proactively review and clear out old context or session history when switching tasks, ensuring the agent stays laser-focused on the problem at hand. Keep up the fantastic work, and let's have another great day of building!",
+   "model": "gemini-3.5-flash-lite",
+   "input_tokens": 163,
+   "output_tokens": 190,
+   "latency_ms": 1872,
+   "cost_usd": 0.000524
+  }
+ ]
+}

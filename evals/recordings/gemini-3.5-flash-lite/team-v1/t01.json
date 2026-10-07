@@ -1,0 +1,12 @@
+{
+ "calls": [
+  {
+   "text": "Good morning, team! Looking at yesterday's metrics, our overall health with Claude Code is trending in a really positive direction. We successfully managed our operations with a total spend of $136.93 while maintaining an average performance score of 51.9, reflecting strong engagement and productive collaboration with the AI agent across our active tasks. \n\nAs we look to optimize our workflow for tomorrow, let's keep two best practices in mind to help us drive even better efficiency and cost-effectiveness. First, try to structure your prompts with precise context upfront to minimize the need for iterative follow-up queries, which will help optimize our token usage and reduce overall spend. Second, keep an eye on the critical alert threshold\u2014reviewing complex tasks before execution will help us drive that critical count down while continuing to push our performance scores even higher. Keep up the fantastic work!",
+   "model": "gemini-3.5-flash-lite",
+   "input_tokens": 163,
+   "output_tokens": 179,
+   "latency_ms": 2922,
+   "cost_usd": 0.000496
+  }
+ ]
+}

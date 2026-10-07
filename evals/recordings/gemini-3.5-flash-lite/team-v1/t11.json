@@ -1,0 +1,12 @@
+{
+ "calls": [
+  {
+   "text": "Team, here is our daily AI usage and performance breakdown for Claude Code. Overall, our operations are running smoothly with strong engagement across the board. We kept our total spend to a very manageable $93.74 while maintaining solid momentum on our current development sprints. This balance of productivity and cost-consciousness shows great discipline from everyone, keeping our resource utilization right where we want it as we push our projects forward.\n\nAs we look toward tomorrow, let's focus on two key best practices to further optimize our efficiency and keep costs lean. First, try to scope your prompts and context windows tightly; feeding Claude only the relevant files and code snippets prevents token bloat and ensures faster, more accurate responses. Second, let's keep a close eye on our `critical_count` (which sits at 2 today) by reviewing complex multi-file refactors before executing them, helping us minimize iterative error corrections and drive first-try successes. Keep up the fantastic collaborative work!",
+   "model": "gemini-3.5-flash-lite",
+   "input_tokens": 162,
+   "output_tokens": 199,
+   "latency_ms": 2122,
+   "cost_usd": 0.000546
+  }
+ ]
+}

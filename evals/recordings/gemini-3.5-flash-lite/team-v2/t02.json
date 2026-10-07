@@ -1,0 +1,12 @@
+{
+ "calls": [
+  {
+   "text": "{\n  \"summary\": \"The team of 10 engineers is performing at an average efficiency score of 52.1 out of 100 with 2 engineers in the critical tier. On the latest day, total estimated spend reached $186.12 across 1 days with unusual spend in the last 7 days.\",\n  \"focus\": [\n    {\n      \"area\": \"model_mix\",\n      \"why\": \"The biggest team-wide gap is model_mix, with 6 engineers having this as their weakest area and losing 18.0 of 30 points on average.\",\n      \"practice\": \"Review model choices carefully before starting tasks and use the /model command to select optimal configurations.\"\n    },\n    {\n      \"area\": \"discipline\",\n      \"why\": \"Discipline is the weakest area for 4 engineers, who lose 15.8 of 30 points on average regarding /compact usage.\",\n      \"practice\": \"Establish regular habits for using the /compact command to maintain clean context windows throughout development sessions.\"\n    }\n  ]\n}",
+   "model": "gemini-3.5-flash-lite",
+   "input_tokens": 356,
+   "output_tokens": 239,
+   "latency_ms": 1716,
+   "cost_usd": 0.000704
+  }
+ ]
+}

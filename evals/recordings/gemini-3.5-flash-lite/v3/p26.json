@@ -1,0 +1,12 @@
+{
+ "calls": [
+  {
+   "text": "{\n  \"headline\": \"Improve your efficiency score of 57.85 out of 100 to avoid being in the bottom two\",\n  \"actions\": [\n    {\n      \"title\": \"Shift away from Opus\",\n      \"problem\": \"Model mix score is 5.4 of 30 points, which is the weakest area and 24.6 points below its maximum. Current usage is Opus 88.0%, Sonnet 7.0%, Haiku 5.0%.\",\n      \"fix\": \"Reduce Opus reliance immediately since Opus share at the team's top quartile of 15.0% would save $82.73 per 30 days.\",\n      \"focus\": \"model_mix\"\n    },\n    {\n      \"title\": \"Increase cache utilization\",\n      \"problem\": \"Cache score is 30.39 of 40 points, with 76.0% of prompt tokens served from cache.\",\n      \"fix\": \"Optimize context and prompt patterns to hit the team's top quartile cache hit ratio of 83.0%, which would save $15.55 per 30 days.\",\n      \"focus\": \"cache\"\n    },\n    {\n      \"title\": \"Maintain high compact frequency\",\n      \"problem\": \"Current /compact usage is 73.5% of sessions over the last 7 days, which is 25 of 34 sessions yielding 22.06 of 30 points.\",\n      \"fix\": \"Continue using /compact in every eligible session to maintain or improve your discipline score.\",\n      \"focus\": \"discipline\"\n    },\n    {\n      \"title\": \"Monitor daily spending\",\n      \"problem\": \"Your estimated cost today reached $5.09 while running at an efficiency score of 57.85 / 100.\",\n      \"fix\": \"Review session token usage daily to align with team cost benchmarks and avoid high-cost model queries.\",\n      \"focus\": \"discipline\"\n    }\n  ]\n}",
+   "model": "gemini-3.5-flash-lite",
+   "input_tokens": 421,
+   "output_tokens": 455,
+   "latency_ms": 2308,
+   "cost_usd": 0.001264
+  }
+ ]
+}

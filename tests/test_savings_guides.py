@@ -22,9 +22,8 @@ def test_the_fallback_guide_without_savings_is_unchanged():
     assert all("per 30 days" not in a["problem"] for a in rule_based_guide(facts)["actions"])
 
 
-def test_v3_service_sends_savings_computed_from_the_database(seeded_db, mock_gemini, monkeypatch):
-    monkeypatch.setattr(service, "PROMPT_VERSION", "v3")
-
+def test_the_service_sends_savings_computed_from_the_database(seeded_db, mock_gemini):
+    # Production is on prompt v3 since the UPG-06 live eval.
     coaching = service.get_coaching(engineer_id(0), "critical")
 
     prompt = mock_gemini.models.generate_content.call_args.kwargs["contents"]
@@ -32,6 +31,7 @@ def test_v3_service_sends_savings_computed_from_the_database(seeded_db, mock_gem
     assert coaching.result.prompt_version == "v3"
 
 
-def test_v2_service_sends_no_savings(seeded_db, mock_gemini):
+def test_on_v2_the_service_sends_no_savings(seeded_db, mock_gemini, monkeypatch):
+    monkeypatch.setattr(service, "PROMPT_VERSION", "v2")
     service.get_coaching(engineer_id(0), "critical")
     assert "SAVINGS" not in mock_gemini.models.generate_content.call_args.kwargs["contents"]

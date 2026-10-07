@@ -1,0 +1,12 @@
+{
+ "calls": [
+  {
+   "text": "**AI Usage Daily Memo**\n\nTeam, here is a quick look at our Claude Code performance and usage metrics from today. Overall, we are maintaining a strong and steady momentum, successfully integrating the AI agent into our daily workflows. It\u2019s great to see our total spend remaining well-managed at $119.02 while keeping productivity high. While our average score of 54.6 reflects solid baseline performance, we also want to acknowledge the 2 critical instances flagged today\u2014these are great learning opportunities for us to refine how we prompt and guide the agent as a collective unit. \n\nLooking ahead to tomorrow, let's focus on two key best practices to further optimize our costs and efficiency: First, try to break down complex architectural queries into smaller, highly specific sub-tasks before feeding them to Claude Code; this reduces token waste and yields more targeted code generation. Second, let's make a habit of thoroughly reviewing and clearing out inactive context sessions at the end of each task to prevent redundant background spending. Let\u2019s keep up the fantastic collaborative energy and push for even sharper results tomorrow!",
+   "model": "gemini-3.5-flash-lite",
+   "input_tokens": 163,
+   "output_tokens": 226,
+   "latency_ms": 1991,
+   "cost_usd": 0.000614
+  }
+ ]
+}

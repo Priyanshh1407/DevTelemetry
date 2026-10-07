@@ -362,7 +362,8 @@ Items:
     - What would change with real data.
   - **Effort:** M–L (~2–3 sessions) | **Interview impact:** 5 | **Buzzword risk:** Low (it produces numbers)
 
-- [ ] **UPG-06 What-if savings calculator** (grounded savings in the guides)
+- [x] **UPG-06 What-if savings calculator** (grounded savings in the guides)
+  - *Done 2026-10-07:* live v2 vs v3 (Flash-Lite, 30 profiles): validity, targeting, grounding all 100% on both; v3 first-try validity 96.7% (one repair); 29 of 30 guides quote a computed saving. Production switched to v3.
   - **Problem it solves in THIS project:** engineers see a score, not money. The Phase 6 guide schema dropped `est_saving` because a model-estimated saving is an ungrounded number by construction.
   - **What gets built:**
     - **Re-pricing** (`core/whatif.py`): re-prices an engineer's last 30 days of actual tokens with `estimate_cost` under target levers:
@@ -402,7 +403,8 @@ Items:
     - The cold start.
   - **Effort:** S–M (~1–2 sessions) | **Interview impact:** 4 | **Buzzword risk:** Low
 
-- [ ] **UPG-08 Grounded team memo**
+- [x] **UPG-08 Grounded team memo**
+  - *Done 2026-10-07:* live team-v1 vs team-v2 (Flash-Lite, 15 team-days): targets the biggest gap 0% → 100%; 195 numbers, all grounded; no invented commands in either (the guard did not fire). Allowlist from code.claude.com/docs/en/commands.
   - **Problem it solves in THIS project:** the manager's team memo still uses a free-text prompt with no grounding check. In Phase 7 testing it recommended a Claude Code feature that doesn't exist (`.claudedir`); this is a documented README limitation.
   - **What gets built:**
     - **Pipeline:** a `TeamMemo` schema (`ai/schemas.py`: summary plus 1–2 focus areas with `Literal` areas) and team facts: team size, average score, total cost, team-wide points lost per area, critical count, anomaly count (UPG-07). The structured `team-v2` prompt replaces `build_team_report_prompt`, with the same pipeline as the guides: JSON schema, validation, one repair, a rule-based memo fallback. Metering is already in place.

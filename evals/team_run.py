@@ -9,8 +9,11 @@ model, capacity backoff, --only-missing to finish an interrupted live run.
 Both pipelines are judged by the same rules on their final text:
 - valid: team-v1 = the model answered; team-v2 = a schema-valid memo with real commands only;
 - grounded: every number matches a team fact (or a constant the prompts state);
-- targeted: the recommendations are mostly about the team's biggest gap
-  (team-v1: its last paragraph; team-v2: its focus areas);
+- targeted: the memo's main recommendation is about the team's biggest gap. team-v2 states it
+  (the first focus area, shown to the manager as "Focus on ..."); team-v1 is free text, so its
+  last paragraph (the recommendations) is classified by keywords (evals/checks.classify_area).
+  The keyword classifier misread 3 of 15 team-v2 memos whose second focus mentioned /compact,
+  so it is not used where the memo states its area;
 - invented commands/files: in the model's FIRST reply (what the model does on its own) and in
   the final text (what a manager would read).
 """
@@ -62,11 +65,12 @@ def allowed_numbers(facts):
     return allowed
 
 
-def recommendations(pipeline, report):
+def recommendation_area(pipeline, report):
     if pipeline == "team-v2":
-        return " ".join(f"{f['why']} {f['practice']}" for f in (report.memo or {}).get("focus", []))
+        focus = (report.memo or {}).get("focus") or [{}]
+        return focus[0].get("area")
     paragraphs = [p for p in report.text.split("\n\n") if p.strip()]
-    return paragraphs[-1] if paragraphs else ""
+    return classify_area(paragraphs[-1]) if paragraphs else None
 
 
 def evaluate(profile, pipeline, report):
@@ -77,7 +81,7 @@ def evaluate(profile, pipeline, report):
     allowed = allowed_numbers(facts)
     ungrounded = [n for n in numbers if not is_grounded(n, allowed)]
     first_reply = report.calls[0].text if report.calls else ""
-    area = classify_area(recommendations(pipeline, report)) if valid else None
+    area = recommendation_area(pipeline, report) if valid else None
     calls = report.calls
     return {
         "id": profile["id"], "biggest_area": facts["biggest_area"], "outcome": report.outcome,

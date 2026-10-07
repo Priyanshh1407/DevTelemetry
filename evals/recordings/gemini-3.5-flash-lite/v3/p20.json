@@ -1,0 +1,12 @@
+{
+ "calls": [
+  {
+   "text": "{\n  \"headline\": \"Efficiency score is 66.66 out of 100 with estimated cost today at $4.87 and weakest area at model_mix\",\n  \"actions\": [\n    {\n      \"title\": \"Reduce Opus model usage share\",\n      \"problem\": \"Model mix currently stands at Opus 72.0%, Sonnet 21.0%, Haiku 7.0%, which is the weakest area at 21.96 points below its maximum.\",\n      \"fix\": \"Shift more tasks away from Opus to lower-cost models to match the team top quartile share of 15.0%, which would save $69.44 per 30 days.\",\n      \"focus\": \"model_mix\"\n    },\n    {\n      \"title\": \"Maintain strong prompt cache ratios\",\n      \"problem\": \"Cache currently serves 80.9% of prompt tokens from cache, earning 32.37 of 40 points.\",\n      \"fix\": \"Keep current workflows that support caching while aiming for the team top quartile of 83.0%, which would save $14.41 per 30 days.\",\n      \"focus\": \"cache\"\n    }\n  ]\n}",
+   "model": "gemini-3.5-flash-lite",
+   "input_tokens": 434,
+   "output_tokens": 276,
+   "latency_ms": 1720,
+   "cost_usd": 0.00082
+  }
+ ]
+}
