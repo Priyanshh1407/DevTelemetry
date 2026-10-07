@@ -334,6 +334,7 @@ cd frontend && npm test && npm run lint
 
 - **Coverage:** 435 backend tests at 97.6% coverage, plus 45 frontend tests.
 - **Offline by design:** the test suite blocks network access and never touches `data/usage.db`.
+- **By hand:** [docs/manual-testing.md](docs/manual-testing.md) walks through every feature with the expected outcome of each step.
 
 ---
 
@@ -390,7 +391,7 @@ analysis/        validations on simulated teams: weight sensitivity, coaching im
 api/             FastAPI app, routes, admin-token check
 core/            scoring, pricing, ingestion, severity tiers, coaching impact, anomalies, what-if, dispatch, DB
 data/            schema, simulator, alert worker
-docs/            scoring.md, impact.md, anomalies.md
+docs/            scoring.md, impact.md, anomalies.md, manual-testing.md
 evals/           guide and team-memo eval sets, checks, runners, recorded replies and results
 frontend/        React 19 + Vite + Tailwind + Recharts dashboard (Vitest tests)
 notifications/   email (Jinja2 templates) and Slack
