@@ -10,6 +10,7 @@ import {
     Activity, Bot, BookOpen, Code, Cpu, RefreshCw
 } from "lucide-react";
 import Navbar from "../components/Navbar";
+import WhatIfPanel from "../components/WhatIfPanel";
 
 const AREA_LABELS = { cache: "prompt caching", model_mix: "model choice", discipline: "/compact discipline" };
 import { getJSON } from "../api";
@@ -434,6 +435,9 @@ export default function EngineerDetail() {
                         </div>
                     </div>
                 </section>
+
+                {/* ── What-if savings (UPG-06) ── */}
+                <WhatIfPanel userId={userId} />
 
                 {/* ── Daily Spend Graph & Patterns (Insights) Row ── */}
                 <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">

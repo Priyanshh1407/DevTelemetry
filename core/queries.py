@@ -41,3 +41,16 @@ PII_FIELDS = ("name", "email")
 def without_pii(row):
     """The row minus fields that must never be sent to an external LLM."""
     return {k: v for k, v in row.items() if k not in PII_FIELDS}
+
+
+def recent_days_by_engineer(conn, days=30):
+    """{user_id: [rows, oldest first]} for the `days` most recent dates in the database."""
+    rows = conn.execute("""
+        SELECT * FROM usage_metrics
+        WHERE date > date((SELECT MAX(date) FROM usage_metrics), ?)
+        ORDER BY date
+    """, (f"-{days} days",)).fetchall()
+    team = {}
+    for r in rows:
+        team.setdefault(r["user_id"], []).append(dict(r))
+    return team

@@ -89,6 +89,54 @@ RULES:
 Reply with JSON only, matching the provided schema."""
 
 
+# ── Prompt v3 (UPG-06): v2 plus savings the code computed ───────────────────
+# v2 forbids savings estimates because a model-estimated saving is invented by construction.
+# v3 gives the model savings that core/whatif.py computed by re-pricing the engineer's real
+# tokens, so a guide can say what a habit costs in money and still be fully grounded.
+PROMPT_VERSION_V3 = "v3"
+
+
+def _saving_line(label, target_pct, saving):
+    if saving <= 0:
+        return f"- {label}: already at or better than the team's top quartile ({target_pct}%); no saving to quote"
+    return f"- {label} at the team's top quartile ({target_pct}%) would save ${saving:.2f} per 30 days"
+
+
+def build_guide_prompt_v3(facts, severity):
+    tone, n_actions = _TONES.get(severity, _TONES["moderate"])
+    weakest = facts["weakest_area"]
+    points, lost = facts["points"], facts["points_lost"]
+    savings = facts.get("savings")
+    savings_block = ""
+    if savings:
+        savings_block = (
+            f"\nSAVINGS (computed by re-pricing this engineer's real tokens from the last "
+            f"{savings['window_days']} days):\n"
+            + _saving_line("Cache hit ratio", savings["cache_target_pct"], savings["saving_month_usd_cache"]) + "\n"
+            + _saving_line("Opus share", savings["opus_target_pct"], savings["saving_month_usd_model"]) + "\n")
+    return f"""You coach one software engineer on using Claude Code (an AI coding agent) cost-efficiently.
+
+FACTS (the only numbers you may use):
+- Efficiency score: {facts["efficiency_score"]} / 100
+- Cache: {facts["cache_hit_pct"]}% of prompt tokens were served from cache ({points["cache"]} of 40 points)
+- Model mix: Opus {facts["opus_pct"]}%, Sonnet {facts["sonnet_pct"]}%, Haiku {facts["haiku_pct"]}% ({points["model_mix"]} of 30 points)
+- /compact: used in {facts["compact_rate_7d_pct"]}% of sessions over the last 7 days ({facts["compacts_7d"]} of {facts["sessions_7d"]} sessions; {points["discipline"]} of 30 points)
+- Estimated cost today: ${facts["cost_usd"]:.2f}
+- Weakest area: {weakest} ({_AREA_LABELS[weakest]}), {lost[weakest]} points below its maximum
+{savings_block}
+TASK: {tone} Write {n_actions} actions.
+
+RULES:
+1. The first action must address the weakest area ({weakest}).
+2. Every number you write must appear in FACTS or SAVINGS exactly as shown. Do not invent statistics,
+   percentages or time intervals, and do not estimate any saving yourself.
+3. When an action is about cache or model_mix and SAVINGS gives a saving for it, quote that saving.
+4. "focus" names the area an action improves: cache, model_mix or discipline.
+5. Plain sentences, no markdown.
+
+Reply with JSON only, matching the provided schema."""
+
+
 def build_repair_prompt(original_prompt, error):
     return (f"{original_prompt}\n\nYour previous reply was not valid: {error}\n"
             "Reply again with JSON only that matches the schema.")

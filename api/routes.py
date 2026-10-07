@@ -12,7 +12,8 @@ from data.alert_worker import overall_status, run_weekly_telemetry_check
 from api.security import require_admin
 from core.severity import severity_for_rank
 from core.scorer import cache_hit_ratio, score_breakdown, total_prompt_tokens
-from core.queries import latest_day_rows
+from core.queries import latest_day_rows, recent_days_by_engineer
+from core.whatif import MAX_CACHE_HIT, habits, team_targets, what_if
 from core.coaching_log import coaching_events
 from core.impact import POST, PRE, event_effects, summarize
 from core.ingest import MAX_BATCH, upsert_usage, validate_records
@@ -472,3 +473,22 @@ def get_coaching_impact(days: int = Query(120, ge=1, le=365)):
         e["name"] = names.get(e["user_id"])
         e["coached_on"] = e["coached_on"].isoformat()
     return {**summarize(effects), "window": window, "events": effects}
+
+
+@router.get("/engineer/{user_id}/what-if")
+def get_what_if(user_id: str, cache_hit: float | None = Query(None, ge=0, le=MAX_CACHE_HIT),
+                opus_pct: float | None = Query(None, ge=0, le=1)):
+    """What-if savings (UPG-06): the engineer's last 30 days of tokens re-priced with a better
+    cache hit ratio and/or less Opus. Targets left out default to the team's top quartile."""
+    with db_session() as conn:
+        if conn.execute("SELECT 1 FROM engineers WHERE user_id = ?", (user_id,)).fetchone() is None:
+            raise HTTPException(status_code=404, detail="Engineer not found")
+        team = recent_days_by_engineer(conn)
+    days = team.get(user_id)
+    if not days:
+        raise HTTPException(status_code=404, detail="No recent usage for this engineer")
+    defaults = team_targets(team) if len(team) >= 2 else habits(days)
+    targets = {"cache_hit": defaults["cache_hit"] if cache_hit is None else cache_hit,
+               "opus_pct": defaults["opus_pct"] if opus_pct is None else opus_pct}
+    current = {k: round(v, 4) for k, v in habits(days).items()}
+    return {**what_if(days, **targets), "team_targets": defaults, "current": current}

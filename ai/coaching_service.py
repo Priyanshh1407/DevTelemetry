@@ -4,13 +4,23 @@ import logging
 from dataclasses import dataclass
 
 from ai.guide_generator import GuideResult, generate_efficiency_guide, tasks_from_guide
-from ai.prompts import PROMPT_VERSION
+from ai.prompts import PROMPT_VERSION, PROMPT_VERSION_V3
 from ai.providers import get_provider
 from ai.store import load_guide, record_request, save_guide
 from core.db import db_session
-from core.queries import latest_metrics_for_user, recent_metrics_for_user, without_pii
+from core.queries import latest_metrics_for_user, recent_days_by_engineer, recent_metrics_for_user, without_pii
+from core.whatif import savings_facts, team_targets
 
 logger = logging.getLogger(__name__)
+
+
+def _savings(conn, user_id):
+    """Computed savings for prompt v3 (UPG-06): the engineer's last 30 days re-priced at the
+    team's top-quartile habits. None without a team to compare with."""
+    team = recent_days_by_engineer(conn)
+    if len(team) < 2 or not team.get(user_id):
+        return None
+    return savings_facts(team[user_id], team_targets(team))
 
 
 @dataclass
@@ -31,6 +41,7 @@ def get_coaching(user_id, severity):
         if latest is None:
             return None
         window = recent_metrics_for_user(conn, user_id)
+        savings = _savings(conn, user_id) if PROMPT_VERSION == PROMPT_VERSION_V3 else None
         stored, model = None, provider.model
         for candidate in models:
             stored = load_guide(conn, user_id, latest["date"], severity, PROMPT_VERSION, candidate)
@@ -48,7 +59,8 @@ def get_coaching(user_id, severity):
     # Only metrics go to the model, never the engineer's name or email.
     logger.info("No stored coaching guide for %s; generating", user_id)
     result = generate_efficiency_guide(without_pii(latest), severity,
-                                       recent=[without_pii(d) for d in window[:-1]])
+                                       recent=[without_pii(d) for d in window[:-1]],
+                                       savings=savings, prompt_version=PROMPT_VERSION)
 
     model = result.calls[-1].model if result.calls else provider.model   # the model that answered
     with db_session() as conn:

@@ -15,8 +15,9 @@ def _pct(value):
     return round(value * 100, 1)
 
 
-def coaching_facts(day, recent=()):
-    """Facts for one engineer-day; `recent` = earlier days (oldest first) for the 7-day terms."""
+def coaching_facts(day, recent=(), savings=None):
+    """Facts for one engineer-day; `recent` = earlier days (oldest first) for the 7-day terms.
+    `savings` (core.whatif.savings_facts), when given, is added for prompt v3."""
     points = score_breakdown(day, recent)
     window = list(recent)[-(POOL_DAYS - 1):] + [day]
     sessions = sum(d.get("session_count") or 0 for d in window)
@@ -42,4 +43,5 @@ def coaching_facts(day, recent=()):
         "cost_usd": round(day.get("estimated_cost_usd") or 0, 2),
         "prompt_tokens": total_prompt_tokens(day),
         "output_tokens": day.get("output_tokens") or 0,
+        **({"savings": savings} if savings else {}),
     }

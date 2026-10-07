@@ -48,3 +48,14 @@ def test_guide_prompt_v2(mock_gemini, severity):
 def test_team_report_prompt(mock_gemini):
     generate_team_report(TEAM)
     check("team_report_prompt.txt", sent_prompt(mock_gemini))
+
+
+SAVINGS = {"window_days": 30, "cache_target_pct": 82.4, "saving_month_usd_cache": 61.27,
+           "opus_target_pct": 14.0, "saving_month_usd_model": 0.0}
+
+
+@pytest.mark.parametrize("severity", ["critical", "moderate", "low"])
+def test_guide_prompt_v3(mock_gemini, severity):
+    generate_efficiency_guide(V2_DAY, severity, recent=[dict(V2_DAY, compact_uses=2)] * 6, savings=SAVINGS,
+                              prompt_version="v3")
+    check(f"guide_prompt_v3_{severity}.txt", sent_prompt(mock_gemini))

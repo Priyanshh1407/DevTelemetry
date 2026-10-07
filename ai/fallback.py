@@ -4,10 +4,20 @@ by points lost, so it still targets the weakest area first."""
 from ai.features import AREA_LABELS
 
 
+def _saving(f, key, target_key, habit):
+    """A computed saving (UPG-06) as a sentence, or "" when there is none to quote."""
+    savings = f.get("savings") or {}
+    if savings.get(key, 0) <= 0:
+        return ""
+    return (f" Reaching the team's top-quartile {habit} ({savings[target_key]}%) would save "
+            f"${savings[key]:.2f} per 30 days.")
+
+
 def _cache_action(f):
     return {
         "title": "Reuse cached context",
-        "problem": f"Only {f['cache_hit_pct']}% of your prompt tokens were served from cache.",
+        "problem": f"Only {f['cache_hit_pct']}% of your prompt tokens were served from cache."
+                   + _saving(f, "saving_month_usd_cache", "cache_target_pct", "cache hit ratio"),
         "fix": "Stay in one session per task and keep CLAUDE.md and project context stable, so "
                "repeated context is read from cache instead of being re-sent.",
         "focus": "cache",
@@ -18,7 +28,8 @@ def _model_action(f):
     return {
         "title": "Match the model to the task",
         "problem": f"Opus handled {f['opus_pct']}% of your usage (Sonnet {f['sonnet_pct']}%, "
-                   f"Haiku {f['haiku_pct']}%).",
+                   f"Haiku {f['haiku_pct']}%)."
+                   + _saving(f, "saving_month_usd_model", "opus_target_pct", "Opus share"),
         "fix": "Default to Sonnet, use Haiku for tests, docs and small edits, and switch to Opus only "
                "for hard design problems (/model).",
         "focus": "model_mix",
