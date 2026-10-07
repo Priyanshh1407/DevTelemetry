@@ -862,3 +862,10 @@ Interview version (≤ 60 seconds): "The manager's memo once told a team to use 
   - **Favicon:** replaced the Vite logo with the project's `>_` mark.
   - **Package name:** `frontend` → `devtelemetry-dashboard`.
   - **Reviewed and clean:** config files (only secret names, no values), workflows (GitHub secrets), eval recordings (model replies and usage only) and `.env.example` (all secrets blank).
+
+### UI-02 (new finding): runbook page for an engineer with no data (2026-10-07)
+- **Found by:** the browser failure checks written for the test guide.
+- **Symptom:** `/runbook/critical/<unknown id>` rendered a full coaching page ("Bottom two on the team today. Rule-based guide built from your sub-scores…") for nobody.
+- **Cause:** for an engineer with no usage, the API answers 200 with `source: "none"` (a contract other callers rely on), and the page treated that as a guide.
+- **Fix:** the page treats `source: "none"` as "No usage data for this engineer." and shows the same error screen as a failed load.
+- **Verification:** a new Vitest test (red, then green); 46 frontend tests pass.
