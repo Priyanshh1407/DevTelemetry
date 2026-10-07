@@ -341,6 +341,23 @@ Not run: the live Render deployment (I didn’t want to trigger side effects on 
   - placeholder secrets in `.env.example` (an example admin token would be a public password);
   - under-metered latency when falling back between models.
 - **Open:** the live deploy (PR merge plus the `deployment` branch), then the live check of `/health` and the Runbook.
+
+### Status after Phase 8 (2026-10-07, branch `phase-8-features`, not merged or deployed)
+- **Done**, each with a measured claim (FIX_LOG has the numbers):
+  - UPG-05: coaching impact. DiD +0.02 under no effect (98% CI coverage) and +4.13 vs a true +4.13; naive +0.82 and "it worked" in 18% of no-effect teams.
+  - UPG-06: what-if savings and prompt v3. v3 = v2 on validity, targeting and grounding (30 profiles, live); 29 of 30 guides quote a computed saving; production on v3.
+  - UPG-07: spend anomalies. F1 0.69 vs 0.36 (fixed $30) and 0.66 (mean + 3σ); 0.37 false alarms per engineer-month.
+  - UPG-08: grounded team memo. It targets the team's biggest gap 0% → 100% (15 team-days, live); all numbers grounded; commands checked against Claude Code's documented list.
+- **New, fixed:**
+  - the planned DiD baseline (days −14..−1) overlapped the 7 days pooled into the selection score, so it would have kept part of the bias; it uses −13..−7;
+  - the memo eval's keyword classifier misread 3 of 15 memos and was replaced by the memo's stated focus area.
+- **New, open (documented, not fixed):**
+  - the grounded memo can still give wrong advice with right numbers ("/compact improves caching");
+  - the anomaly detector catches only 51% of broken-cache incidents.
+- **Verification:**
+  - 434 backend tests (97.6% coverage, CI's command), 45 frontend tests, ruff, ESLint and the build all pass;
+  - a fresh clone in Docker serves all new endpoints and panels;
+  - an Edge browser check found no console errors or failed requests.
 ---
 
 ## 5. Hygiene Bundle (P3)
@@ -381,6 +398,8 @@ Not run: the live Render deployment (I didn’t want to trigger side effects on 
 - *(added after Phase 6)* “The new prompt eliminated hallucinations.” The old one had 1 wrong number in 30 guides; the big measured gain is targeting (50% → 100%). Quote eval numbers with their n (30) and model (gemini-3.5-flash-lite), and note that on 3.8 Flash the old prompt already targeted 100% (n=10).
 - “Uses Gemini 1.5 Flash / Chart.js / React 18.” It doesn’t (DOC-01). *(Phase 6: the README now says Gemini 3.8 Flash; the Chart.js and React 18 mentions are fixed in the Phase 7 README rewrite.)*
 - ~~“The trend arrows / sparklines show performance trends.”~~ *(fixed in BUG-07: they now come from a real 7-day score change and daily token volume)*
-- Any percentage like “reduces cost by X%”. Nothing has been measured.
+- Any percentage like “reduces cost by X%”. Nothing has been measured. *(after Phase 8: the what-if panel shows what a habit is worth on the engineer's own tokens, which is a re-pricing, not a measured reduction.)*
+- *(added after Phase 8)* “Coaching improves scores by 3 points.” The +3.0 on the demo is the effect the simulator was told to produce. What is proven is the method: on simulated teams with a known answer, DiD recovers it (within 0.02 points) where the naive number doesn't. Say “the estimator is validated on simulation; with real data it would report whatever effect is there”, and name the parallel-trends assumption.
+- *(added after Phase 8)* “The guard stopped the memo from inventing commands.” In the 30 live memo replies, neither prompt invented one, so the guard never fired. It is tested with injected bad replies. Say it's a safety net.
 
 - *(added after Phase 4)* “The score is objective” or “the weights are optimal.” The weights are judgment calls (see docs/scoring.md); UPG-03 measures how sensitive the ranking is to them. You *can* say: “token fields match Anthropic’s usage API, and the ranking is stable: the bottom two match the habitually worst engineers 82% of the time in simulation.”

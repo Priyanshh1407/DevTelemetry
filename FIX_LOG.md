@@ -825,3 +825,18 @@ Verification: live eval on 15 simulated team-days (each area is the biggest gap 
 - **Not caught by any check:** t10 says `/compact` improves cache efficiency, which is wrong advice with correct numbers; one memo says "1 engineers". Grounding checks numbers and commands, not whether the advice is right; that needs human review or an LLM judge.
 
 Interview version (≤ 60 seconds): "The manager's memo once told a team to use a Claude Code feature that doesn't exist. I rebuilt it like the coaching guides: computed team facts in, a schema-validated memo out. I also added a guard that checks every slash command against Claude Code's documented command list and repairs or replaces the memo if it invents one. On 15 simulated team-days, the old memo never pointed at the team's actual biggest problem; the new one did every time, with every number grounded. In this run the model didn't invent a command at all, so I say the guard is a safety net, not something that fixed a measured failure rate."
+
+### Verification of Phase 8 (2026-10-07)
+| Check | Result |
+|---|---|
+| `pytest` with CI's exact coverage command | 434 passed; 97.6% coverage (gate 85%); new `core/` and `ai/` modules 98–100% |
+| `ruff check .`, `npm test`, `npm run lint`, `npm run build` | clean; 45 frontend tests |
+| Committed recordings reproduce the published eval tables (CI) | v1, v2, v3, team-v1, team-v2 |
+| `python -m analysis.coaching_impact`, `python -m analysis.anomaly_eval` | tables in docs/impact.md and docs/anomalies.md (copied unchanged) |
+| Fresh clone → `python data/seed.py` → `python main.py` (no key) | 1,200 engineer-days, 16 coaching events, 3 incidents; rule-based memo and guides print |
+| Fresh clone → `docker compose up --build` | `/health` ok; `/api/coaching-impact` +3.0 (CI +1.6 to +4.5); `/api/anomalies` 5 days; what-if works, 422 on `cache_hit=0.99` |
+| Browser (Edge via Playwright) on the Docker build | both dashboard cards, what-if panel (slider re-prices: caching saving $81.24 → $144.19 at +10 points), chart markers; no console errors or failed requests; 6 screenshots retaken |
+
+**Process notes:**
+- **The working copy of `UPGRADE_PLAN.md` didn't match the commit.** On 2026-10-05 an editor saved an old version of the file over it (no Phase 8 section, and a stray "claud" in a table). It was restored from the commit, and the stray copy is kept outside the repository.
+- **Commit messages carry no AI co-author line**, at the developer's request.
