@@ -70,7 +70,7 @@ SEVERITY_THEMES = {
 }
 
 
-def render_email_html(top_engineers, bottom_engineers, average_score, total_cost, ai_summary):
+def render_email_html(top_engineers, bottom_engineers, average_score, total_cost, ai_summary, anomalies=None):
     """Loads the HTML template from the frontend folder and injects live data."""
     # Ensure 'email_template.html' is saved directly inside your 'frontend' folder
     env = _template_env()
@@ -82,6 +82,7 @@ def render_email_html(top_engineers, bottom_engineers, average_score, total_cost
         average_score=round(average_score, 1),
         total_team_cost=round(total_cost, 2),
         ai_team_summary=ai_summary,
+        anomalies=anomalies or [],
         dashboard_url=_dashboard_url()
     )
 
@@ -202,14 +203,16 @@ def _deliver(session, to_address, msg, label):
             session.close()
 
 
-def send_daily_report(top_engineers, bottom_engineers, average_score, total_cost, ai_summary, session=None):
+def send_daily_report(top_engineers, bottom_engineers, average_score, total_cost, ai_summary, session=None,
+                      anomalies=None):
     """Emails the manager digest. Returns "sent", "failed" or "skipped"."""
     sender, password, recipient = _smtp_credentials()
     if not all([sender, password, recipient]):
         logger.warning("SMTP credentials missing; skipping the manager digest")
         return "skipped"
 
-    html_content = render_email_html(top_engineers, bottom_engineers, average_score, total_cost, ai_summary)
+    html_content = render_email_html(top_engineers, bottom_engineers, average_score, total_cost, ai_summary,
+                                     anomalies)
 
     msg = MIMEMultipart("alternative")
     msg["Subject"] = "DevTelemetry: Weekly Team Efficiency Digest"

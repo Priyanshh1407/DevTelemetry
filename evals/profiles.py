@@ -12,6 +12,7 @@ import pathlib
 import random
 
 from ai.features import coaching_facts
+from core.whatif import savings_facts, team_targets
 
 PROFILES_PATH = pathlib.Path(__file__).with_name("profiles.json")
 AREAS = ("cache", "model_mix", "discipline")
@@ -66,6 +67,14 @@ def generate(seed=2026, n_per_area=10):
 
 def load():
     return json.loads(PROFILES_PATH.read_text(encoding="utf-8"))
+
+
+def savings_for(profile, profiles=None):
+    """Prompt v3's computed savings for a profile (UPG-06): its 7 days re-priced at the top-quartile
+    habits of the 30 profiles taken as one team. Deterministic, so recordings replay exactly."""
+    profiles = profiles if profiles is not None else load()
+    targets = team_targets({p["id"]: p["recent"] + [p["day"]] for p in profiles})
+    return savings_facts(profile["recent"] + [profile["day"]], targets)
 
 
 if __name__ == "__main__":

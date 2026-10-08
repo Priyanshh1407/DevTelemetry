@@ -1,0 +1,12 @@
+{
+ "calls": [
+  {
+   "text": "{\n  \"headline\": \"Great work with your Claude Code efficiency score of 69.25 out of 100, maintaining strong habits in cache and compact usage.\",\n  \"actions\": [\n    {\n      \"title\": \"Reduce Opus share\",\n      \"problem\": \"Your model mix is your weakest area at 20.7 points below its maximum, driven by Opus 62.0%, Sonnet 33.0%, and Haiku 5.0%.\",\n      \"fix\": \"Shift more of your routine tasks from Opus to Sonnet or Haiku to improve your model mix score.\",\n      \"focus\": \"model_mix\"\n    },\n    {\n      \"title\": \"Maintain cache performance\",\n      \"problem\": \"You achieved a cache rate of 86.2% of prompt tokens served from cache, earning 34.5 of 40 points.\",\n      \"fix\": \"Continue using your current workflow strategies to keep prompt caching high and preserve these strong results.\",\n      \"focus\": \"cache\"\n    }\n  ]\n}",
+   "model": "gemini-3.5-flash-lite",
+   "input_tokens": 431,
+   "output_tokens": 236,
+   "latency_ms": 1443,
+   "cost_usd": 0.000719
+  }
+ ]
+}

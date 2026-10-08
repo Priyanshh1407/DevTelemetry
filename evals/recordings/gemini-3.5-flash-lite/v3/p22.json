@@ -1,0 +1,12 @@
+{
+ "calls": [
+  {
+   "text": "{\n  \"headline\": \"Efficiency score is 49.52 out of 100 with an estimated cost today of 8.47 dollars\",\n  \"actions\": [\n    {\n      \"title\": \"Improve prompt caching\",\n      \"problem\": \"Cache is at 15.1 percent of prompt tokens served from cache, scoring 6.05 of 40 points, which is the weakest area at 33.95 points below its maximum.\",\n      \"fix\": \"Increase prompt caching to reach the team top quartile cache hit ratio of 83.0 percent, which would save 314.08 dollars per 30 days.\",\n      \"focus\": \"cache\"\n    },\n    {\n      \"title\": \"Optimize your model mix\",\n      \"problem\": \"Model mix currently has Opus at 11.0 percent, Sonnet at 73.0 percent, and Haiku at 16.0 percent, earning 18.27 of 30 points.\",\n      \"fix\": \"Adjust model mix to align with the team top quartile Opus share of 15.0 percent, which would save 10.42 dollars per 30 days.\",\n      \"focus\": \"model_mix\"\n    },\n    {\n      \"title\": \"Maintain chat discipline\",\n      \"problem\": \"Discipline uses slash compact in 84.0 percent of sessions over the last 7 days, totaling 21 of 25 sessions and earning 25.2 of 30 points.\",\n      \"fix\": \"Keep using slash compact consistently across all your sessions to maintain high discipline scores.\",\n      \"focus\": \"discipline\"\n    }\n  ]\n}",
+   "model": "gemini-3.5-flash-lite",
+   "input_tokens": 410,
+   "output_tokens": 380,
+   "latency_ms": 2000,
+   "cost_usd": 0.001073
+  }
+ ]
+}

@@ -1,0 +1,20 @@
+{
+ "calls": [
+  {
+   "text": "{\n  \"headline\": \"Great work with your overall efficiency score of 53.19 out of 100 today at an estimated cost today of $8.31, keeping your compact usage strong at 78.6% of sessions over the last 7 days across 22 of 28 sessions.\",\n  \"actions\": [\n    {\n      \"title\": \"Improve Prompt Caching\",\n      \"problem\": \"Your weakest area is cache with prompt caching at 22.6% of prompt tokens served from cache, earning 9.04 of 40 points, which is 30.96 points below its maximum.\",\n      \"fix\": \"Raise your cache hit ratio to the team top quartile of 83.0% to save $317.14 per 30 days.\",\n      \"focus\": \"cache\"\n    },\n    {\n      \"title\": \"Adjust Model Mix Balance\",\n      \"problem\": \"Your model mix currently stands at Opus 6.0%, Sonnet 65.0%, and Haiku 29.0%, earning 20.58 of 30 points.\",\n      \"fix\": \"Optimize your model usage to align with the team top quartile Opus share of 15.0% to save $11.55 per 30 days.\",\n      \"focus\": \"model_mix\"\n    }\n  ]\n}",
+   "model": "gemini-3.5-flash-lite",
+   "input_tokens": 431,
+   "output_tokens": 312,
+   "latency_ms": 1713,
+   "cost_usd": 0.000909
+  },
+  {
+   "text": "{\n  \"headline\": \"Great work today at $8.31 with an efficiency score of 53.19 / 100, though prompt caching needs attention.\",\n  \"actions\": [\n    {\n      \"title\": \"Improve prompt caching\",\n      \"problem\": \"Only 22.6% of prompt tokens were served from cache, resulting in 9.04 of 40 points.\",\n      \"fix\": \"Re-pricing shows that reaching the team's top quartile of 83.0% cache hit ratio would save $317.14 per 30 days.\",\n      \"focus\": \"cache\"\n    },\n    {\n      \"title\": \"Maintain model mix discipline\",\n      \"problem\": \"Current model mix is Opus 6.0%, Sonnet 65.0%, Haiku 29.0%, earning 20.58 of 30 points.\",\n      \"fix\": \"Keep using /compact which was used in 78.6% of sessions over the last 7 days (22 of 28 sessions; 23.57 of 30 points).\",\n      \"focus\": \"discipline\"\n    }\n  ]\n}",
+   "model": "gemini-3.5-flash-lite",
+   "input_tokens": 462,
+   "output_tokens": 271,
+   "latency_ms": 1702,
+   "cost_usd": 0.000816
+  }
+ ]
+}

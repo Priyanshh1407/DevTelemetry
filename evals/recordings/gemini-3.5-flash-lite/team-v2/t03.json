@@ -1,0 +1,12 @@
+{
+ "calls": [
+  {
+   "text": "{\n  \"summary\": \"With 10 engineers, the team's average efficiency score stands at 47.3 out of 100, and 2 engineers are currently in the critical tier. Total estimated spend on the latest day reached $117.45 across 2 days with unusual spend in the last 7 days.\",\n  \"focus\": [\n    {\n      \"area\": \"discipline\",\n      \"why\": \"Discipline is the biggest team-wide gap, with 9 out of 10 engineers having it as their weakest area and an average loss of 25.1 out of 30 points.\",\n      \"practice\": \"Establish a regular team practice of using /compact and /clear to manage context and improve efficiency.\"\n    },\n    {\n      \"area\": \"cache\",\n      \"why\": \"Cache is another notable weakness, contributing to an average loss of 13.0 out of 40 points for the team.\",\n      \"practice\": \"Review cache utilization habits during weekly syncs to reduce waste and improve scores.\"\n    }\n  ]\n}",
+   "model": "gemini-3.5-flash-lite",
+   "input_tokens": 354,
+   "output_tokens": 240,
+   "latency_ms": 6182,
+   "cost_usd": 0.000706
+  }
+ ]
+}

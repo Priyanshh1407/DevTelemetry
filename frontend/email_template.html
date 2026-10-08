@@ -14,6 +14,15 @@
         <i>{{ ai_team_summary }}</i>
     </div>
 
+    {% if anomalies %}
+    <h3 style="color: #c0392b;">Spend anomalies (last 7 days)</h3>
+    <ul style="font-size: 14px; color: #334155;">
+        {% for a in anomalies %}
+        <li>{{ a.name }}, {{ a.date }}: ${{ "%.2f"|format(a.cost_usd) }} (usually ${{ "%.2f"|format(a.baseline_median_usd) }}); likely {{ a.driver_label }}</li>
+        {% endfor %}
+    </ul>
+    {% endif %}
+
     <p>Here is the daily breakdown of your team's Claude Code usage, ranked by efficiency score.</p>
 
     <h3 style="color: #27ae60;">🏆 Top Performers</h3>

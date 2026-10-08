@@ -1,0 +1,12 @@
+{
+ "calls": [
+  {
+   "text": "{\n  \"summary\": \"Our team of 10 engineers achieved an average efficiency score of 55.4 out of 100 with a total estimated spend on the latest day of $121.33 and 0 days with unusual spend in the last 7 days. On average, points lost per engineer were 12.2 of 40 in cache, 18.8 of 30 in model mix, and 13.7 of 30 for /compact, while 2 engineers currently remain in the critical tier.\",\n  \"focus\": [\n    {\n      \"area\": \"model_mix\",\n      \"why\": \"This represents our biggest team-wide gap, with 5 engineers whose weakest area is model_mix and an average loss of 18.8 out of 30 points.\",\n      \"practice\": \"Use the /model command routinely to evaluate and select the optimal model mix for every task.\"\n    },\n    {\n      \"area\": \"cache\",\n      \"why\": \"Cache efficiency is our second largest point loss area, accounting for 12.2 of 40 points lost per engineer on average.\",\n      \"practice\": \"Review context handling and maintain CLAUDE.md to preserve cache efficiency across sessions.\"\n    }\n  ]\n}",
+   "model": "gemini-3.5-flash-lite",
+   "input_tokens": 356,
+   "output_tokens": 285,
+   "latency_ms": 2504,
+   "cost_usd": 0.000819
+  }
+ ]
+}

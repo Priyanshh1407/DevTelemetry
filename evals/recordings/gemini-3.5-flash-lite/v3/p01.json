@@ -1,0 +1,12 @@
+{
+ "calls": [
+  {
+   "text": "{\n  \"headline\": \"Maintain your strong workflow habits while fixing prompt caching to raise your 47.19 efficiency score.\",\n  \"actions\": [\n    {\n      \"title\": \"Improve prompt caching\",\n      \"problem\": \"Only 15.0% of prompt tokens were served from cache, leaving this as your weakest area at 34.0 points below its maximum.\",\n      \"fix\": \"Raise your cache hit ratio to the team top quartile of 83.0% to save $346.91 per 30 days.\",\n      \"focus\": \"cache\"\n    },\n    {\n      \"title\": \"Refine model selection and context\",\n      \"problem\": \"You used Opus 9.0%, Sonnet 74.0%, and Haiku 17.0%, while /compact was used in 75.0% of sessions over the last 7 days.\",\n      \"fix\": \"Keep leveraging /compact across your 32 sessions while managing Opus usage.\",\n      \"focus\": \"discipline\"\n    }\n  ]\n}",
+   "model": "gemini-3.5-flash-lite",
+   "input_tokens": 429,
+   "output_tokens": 239,
+   "latency_ms": 2998,
+   "cost_usd": 0.000726
+  }
+ ]
+}

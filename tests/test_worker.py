@@ -98,3 +98,35 @@ def test_only_the_latest_day_is_alerted(empty_db, captured):
     worker.run_weekly_telemetry_check()
 
     assert [a["user_id"] for a in captured["alerts"]] == ["u1"]
+
+
+# ── UPG-05: the worker records who was coached ──────────────────────────────
+
+def test_sent_critical_alerts_are_recorded_as_coaching(empty_db, captured, query):
+    make_team([90 - i for i in range(10)])
+
+    worker.run_weekly_telemetry_check()
+
+    events = query("SELECT user_id, coached_on, severity, target_area, source FROM coaching_events ORDER BY user_id")
+    assert [e["user_id"] for e in events] == ["u8", "u9"]          # the two critical engineers
+    assert {(e["coached_on"], e["severity"], e["source"]) for e in events} == {("2026-01-01", "critical", "dispatch")}
+    assert {e["target_area"] for e in events} <= {"cache", "model_mix", "discipline"}
+
+
+def test_a_critical_alert_that_was_not_sent_is_not_coaching(empty_db, captured, query, monkeypatch):
+    make_team([90 - i for i in range(10)])
+    monkeypatch.setattr(worker, "send_developer_alert",
+                        lambda dev, session=None: "failed" if dev["user_id"] == "u9" else "sent")
+
+    worker.run_weekly_telemetry_check()
+
+    assert [e["user_id"] for e in query("SELECT user_id FROM coaching_events")] == ["u8"]
+
+
+def test_dispatching_twice_for_the_same_day_records_one_coaching(empty_db, captured, query):
+    make_team([90 - i for i in range(10)])
+
+    worker.run_weekly_telemetry_check()
+    worker.run_weekly_telemetry_check()
+
+    assert query("SELECT COUNT(*) AS n FROM coaching_events")[0]["n"] == 2

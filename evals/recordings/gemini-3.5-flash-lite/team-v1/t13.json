@@ -1,0 +1,12 @@
+{
+ "calls": [
+  {
+   "text": "Good morning, team! Looking at yesterday\u2019s metrics for Claude Code, we had a solid day of collaborative problem-solving across the board. Our total spend remained exceptionally efficient at just $151.94, showing great restraint and thoughtful resource management as we tackle our current milestones. While our average score landed at a respectable 53.0, it\u2019s clear that everyone is actively engaging with the tool and finding creative ways to integrate AI assistance into their daily development workflows.\n\nAs we look ahead to tomorrow, let's keep our momentum going by focusing on a couple of key best practices to optimize both our costs and output. First, let's aim to write slightly more scoped, granular prompts for complex tasks, which will help Claude nail the solution on the first try and naturally lift our average performance scores. Second, let's keep a close eye on our context windows by clearing session history when switching tasks; this minor habit prevents unnecessary token bloat and keeps our operational spend lean. Thank you all for your hard work and dedication to building smarter!",
+   "model": "gemini-3.5-flash-lite",
+   "input_tokens": 163,
+   "output_tokens": 217,
+   "latency_ms": 2316,
+   "cost_usd": 0.000591
+  }
+ ]
+}

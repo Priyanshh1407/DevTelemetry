@@ -1,0 +1,12 @@
+{
+ "calls": [
+  {
+   "text": "{\n  \"headline\": \"Improve your 50.87 efficiency score by managing context discipline and prompt models.\",\n  \"actions\": [\n    {\n      \"title\": \"Use compact more often\",\n      \"problem\": \"Your weakest area is discipline (context management (/compact)), sitting 29.19 points below its maximum, with /compact used in only 2.7% of sessions over the last 7 days (1 of 37 sessions; 0.81 of 30 points).\",\n      \"fix\": \"Run the /compact command regularly at the end of logical task chunks to keep context sizes lean and improve your discipline score.\",\n      \"focus\": \"discipline\"\n    },\n    {\n      \"title\": \"Maintain high cache utilization\",\n      \"problem\": \"Your cache score is currently 33.56 of 40 points, as 83.9% of prompt tokens were served from cache.\",\n      \"fix\": \"Keep using consistent prompt structures to maintain high cache hit ratios, noting that a cache hit ratio at the team's top quartile (83.0%) would save $6.11 per 30 days.\",\n      \"focus\": \"cache\"\n    },\n    {\n      \"title\": \"Optimize your model mix ratios\",\n      \"problem\": \"Your model mix score is 16.5 of 30 points, driven by a model mix of Opus 14.0%, Sonnet 81.0%, and Haiku 5.0%.\",\n      \"fix\": \"Route simpler tasks to lower-tier models where appropriate, keeping in mind that an Opus share at the team's top quartile (15.0%) would save $2.44 per 30 days.\",\n      \"focus\": \"model_mix\"\n    },\n    {\n      \"title\": \"Monitor daily spending levels\",\n      \"problem\": \"Your estimated cost today stands at $5.88, contributing to your low efficiency score of 50.87 / 100 which places you in the team's bottom two this week.\",\n      \"fix\": \"Review session transcripts at the end of each day to identify and eliminate wasteful model calls and uncompacted sessions.\",\n      \"focus\": \"discipline\"\n    }\n  ]\n}",
+   "model": "gemini-3.5-flash-lite",
+   "input_tokens": 417,
+   "output_tokens": 505,
+   "latency_ms": 2569,
+   "cost_usd": 0.001388
+  }
+ ]
+}

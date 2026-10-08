@@ -1,0 +1,12 @@
+{
+ "calls": [
+  {
+   "text": "{\n  \"summary\": \"Across 10 engineers, the team achieved an average efficiency score of 51.9 out of 100 with a total estimated spend on the latest day of $136.93. With 0 days with unusual spend in the last 7 days, 2 engineers remain in the critical tier.\",\n  \"focus\": [\n    {\n      \"area\": \"cache\",\n      \"why\": \"Prompt caching is the biggest team-wide gap, with 5 engineers whose weakest area is cache and an average of 19.7 points lost per engineer out of 40.\",\n      \"practice\": \"Ensure all engineers maximize prompt caching by keeping context clean and utilizing /compact regularly.\"\n    },\n    {\n      \"area\": \"model_mix\",\n      \"why\": \"Model mix is another notable shortfall, where engineers lose 13.9 points out of 30, and 1 engineer has this as their weakest area.\",\n      \"practice\": \"Review model selection habits during team syncs to optimize usage and scores.\"\n    }\n  ]\n}",
+   "model": "gemini-3.5-flash-lite",
+   "input_tokens": 352,
+   "output_tokens": 239,
+   "latency_ms": 3029,
+   "cost_usd": 0.000703
+  }
+ ]
+}

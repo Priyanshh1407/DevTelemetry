@@ -646,3 +646,226 @@ Interview version: "When I retook the screenshots I noticed the runbook page sti
 - **Root cause:** there was no pytest configuration. CI and the README run the plain `pytest` command, which does not put the repository root on the import path. Every local run (including the Phase 3 claim that all CI steps were reproduced, and the Phase 0–7 verification above) used `python -m pytest`, which does. **That claim was wrong in this one detail.**
 - **Fix:** `pytest.ini` (`pythonpath = .`, `testpaths = tests`). Bare `pytest` with CI's exact flags passes on a clean clone: 309 tests, 97% coverage.
 - **Lesson:** reproduce CI by running its exact command, not an equivalent one.
+
+## Phase 8 — Measured features (2026-10-07, branch `phase-8-features`)
+
+### UPG-05 — Did the coaching work? Measuring impact without fooling yourself (commit 2146f86)
+Situation: the app coaches the bottom two engineers by that day's score, but never checked whether anyone improved. Nothing recorded who was coached, and the simulated personas never changed habits, so there was nothing to measure and no ground truth to check a method against.
+
+Symptom: the obvious metric (the coached area's points in the week after, minus the coaching day) says coaching works even when it does nothing. Measured on 200 simulated teams with a true effect of exactly zero: **+0.82 points, and "it worked" (95% CI above zero) in 18% of teams**.
+
+Investigation:
+- **Ground truth:** the simulator coaches every 14 days with a configurable true effect (`data/seed.py`: `apply_coaching`, `--coaching-effect`). The validation study (`analysis/coaching_impact.py`) gives every engineer-day its own seeded random stream, so each coached day can be regenerated with the pre-coaching habit. That gives the exact per-event effect (a coupled counterfactual).
+- **A flaw in the plan, found before coding:** the plan's baseline window (days −14..−1) would have repeated the same bias in a smaller form. The selection day's score pools `/compact` over days −6..0, so being picked as bottom-2 also selects unlucky days −6..−1. A hand-built test (`test_the_baseline_skips_the_days_pooled_into_the_selection_day`) pins this.
+
+Root cause: regression to the mean. Engineers are selected on a bad day, and a bad day is usually followed by a normal one.
+
+Fix (`core/impact.py`):
+- **Outcome:** the coached area's points on single days, not pooled.
+- **Windows:** before = days −13..−7 (clear of the selection's pooling window); after = days +1..+7. Both contain each weekday exactly once.
+- **Estimators:**
+  - naive (kept, labelled as biased);
+  - before/after;
+  - difference-in-differences against engineers not coached around that day.
+- **Exclusions:** overlapping coaching (another coaching of the same engineer within the windows) and thin data are excluded, with the reason shown.
+- **Interval:** a 95% cluster bootstrap, resampling whole coaching days because events on the same day share their comparison group.
+- **Product:**
+  - the `coaching_events` table, written by the alert worker only for **delivered** critical alerts (idempotent per day);
+  - `GET /api/coaching-impact`;
+  - a dashboard card that leads with the DiD estimate and shows naive only with "biased by regression to the mean";
+  - coaching-day markers on the engineer trend chart.
+
+Verification: `python -m analysis.coaching_impact` (200 teams × 2 scenarios, 168 days, team-wide caching drift):
+
+| True effect | Naive | Before/after | DiD | DiD 95% CI covers truth | DiD says "it worked" |
+|---|---|---|---|---|---|
+| none (0.00) | +0.82 | +0.04 | **+0.02** | 98% | 2% |
+| moderate (+4.13) | +5.74 | +4.19 | **+4.13** | 98% | 98% |
+
+- **Where the drift acts (cache-coached events):** before/after has bias +1.06 (it credits the team-wide drift to the coaching); DiD has +0.11.
+- **Acceptance:**
+  - naive clearly > 0 under no effect ✓;
+  - DiD ≈ 0 with coverage in 90–98% ✓ (98%);
+  - DiD within ±10% of the moderate effect ✓ (+0.01 = 0.2%).
+- **Demo data** (`python data/seed.py`, now 120 days with simulated coaching): DiD +3.0 points (95% CI +1.6 to +4.5) from 16 events; naive +2.6 with an interval that includes zero.
+- **Tests:**
+  - `tests/test_impact.py` (13): hand-built series where the answer is known;
+  - `test_simulated_coaching.py` (9): `--coaching-effect none` leaves the usage data byte-identical; the coached engineers are the day's bottom two;
+  - worker (3), API (7), analysis (4), Vitest card (4) and markers (2).
+  - Full suite: 345 backend, 39 frontend.
+
+Trade-off / what I'd do at larger scale:
+- **Parallel trends is an assumption.** The gold standard is a random holdout (coach a random half of the critical engineers), which is a product and ethics call, not a statistics one.
+- **The naive bias here is moderate (+0.8)** because simulated day-to-day noise is small next to habit differences. Noisier real data makes it larger.
+- **Weekly dispatch overlaps.** With weekly dispatch, someone who stays in the bottom two is coached every 7 days and those events overlap, so they are excluded. A real deployment needs a coaching cadence that leaves a clean week on each side.
+
+Interview version (≤ 60 seconds): "We coach whoever has the two worst scores that day, and I wanted to know whether the coaching works. The obvious metric, score after minus score on the coaching day, said yes even in a simulation where I'd set the true effect to zero. In 18% of teams it reported a significant improvement from nothing. That's regression to the mean: we pick people on a bad day. I changed the method: a baseline week that ends before the days the selection depended on, and a difference-in-differences against engineers who weren't coached. I validated it with coupled counterfactuals, regenerating each coached day with the old habit and the same random draws. It recovers the true effect to within 0.2%, and its 95% interval covers the truth in 98% of teams."
+
+### UPG-07 — Cost anomaly detection, measured on injected incidents (commit 6d340ed)
+Situation: a runaway agent loop or broken prompt caching shows up only as a bigger bill. The roadmap's "budget alerts" were never built, and nothing in the app looked at an engineer's spend over time.
+
+Symptom: the obvious fix, one team-wide threshold, measured on 200 simulated teams with injected incidents:
+- **Weekends:** a fixed $30/day catches only **7%** of weekend incidents, because a light user's runaway Saturday stays under $30.
+- **False alarms:** it raises **0.63 false alarms per engineer-month**, because heavy users pass $30 on ordinary days.
+
+Investigation: the incident model is shared by the evaluation and the demo seed (`data/seed.py: inject_incident`, positions known to the evaluation only):
+- runaway loop: every token ×3–6;
+- broken caching: hit ratio 5–15% of the same prompt.
+
+Root cause: "unusual" is relative to the person and the day type. A single number can't be right for a $4 Saturday and a $40 Monday.
+
+Fix (`core/anomaly.py`):
+- **Baseline:** each day is compared with the same engineer's previous 28 days **of the same type** (weekday or weekend), using the median and MAD. Fewer than 8 such days means the day is not evaluated.
+- **Flag rule:** robust z ≥ 3.5 **and** at least $5 above the median. Both values were fixed before the evaluation.
+- **Driver:** re-price the day with the usual cache hit, the usual Opus share or the usual volume (`core.whatif.reprice_day`), and name the habit that explains most of the excess.
+- **Product:**
+  - `GET /api/anomalies?days=14`;
+  - `anomalies` in the engineer details, with markers on the trend chart;
+  - a dashboard "Spend anomalies" card;
+  - a "Spend anomalies (last 7 days)" list in the manager digest;
+  - `seed.py --incidents N` (default 3) for the demo.
+
+Verification: `python -m analysis.anomaly_eval` (200 teams × 10 engineers × 120 days; 184,000 engineer-days judged; 6,170 incidents):
+
+| Detector | Precision | Recall | F1 | False alarms / engineer-month | Weekend recall |
+|---|---|---|---|---|---|
+| Robust (this) | 66% | 72% | **0.69** | **0.37** | 57% |
+| Fixed $30/day | 36% | 36% | 0.36 | 0.63 | 7% |
+| Mean + 3σ (same windows and floor) | 72% | 61% | 0.66 | 0.23 | 53% |
+
+- **Acceptance:** the robust detector beats both baselines on F1 ✓ with ≤ 1 false alarm per engineer-month ✓ (0.37).
+- **Recall by kind:** 91% of runaway loops; **51% of broken caching**. For an engineer who already had a low hit ratio, losing the cache adds only a few dollars, so it hides in normal variation.
+- **Demo data:** all 3 injected incidents are caught, with the right drivers (2 × volume, 1 × cache). Two more flags are naturally heavy simulated days; a run with `--incidents 0` flags exactly those two.
+- **Tests:**
+  - `tests/test_anomaly.py` (12): weekend vs weekday, the $ floor, short history, a past incident not hiding the next one, each driver;
+  - `test_anomalies_api.py` (8);
+  - `test_anomaly_eval.py` (3);
+  - Vitest card (2) and engineer marker (1).
+
+Trade-off / what I'd do at larger scale:
+- **Precision vs recall:** mean + 3σ is more precise but misses more, because earlier incidents inflate its σ. Here a missed runaway loop costs more than a glance, so recall wins.
+- **Detect broken caching directly:** watch uncached-input tokens, not only cost.
+- **Slow leaks:** single-day detection can't see a slow leak over a week; a CUSUM-style rule would.
+
+Interview version (≤ 60 seconds): "I added spend-anomaly detection and measured it on 6,000 injected incidents across 200 simulated teams. The obvious approach, a $30-a-day threshold, caught 7% of weekend incidents and paged heavy users every month. I compare each engineer with their own last four weeks of the same day type, using the median and MAD so an earlier spike doesn't hide the next one. That nearly doubled F1, to 0.69 against 0.36, at about one false alarm every three engineer-months. It catches 91% of runaway loops. It catches only half of broken-cache incidents, because for some people that's a small cost change, and I report that rather than hide it."
+
+### UPG-06 — What-if savings, computed not estimated (commits 1896b5f, 02b8eca)
+Situation: engineers saw a score, not money. Phase 6 had removed the guide's `est_saving` field, because a saving the model estimates is invented by construction (it is not in the facts it was given).
+
+Symptom: a guide could say "improve caching" but not what that is worth, and the dashboard couldn't answer "what if I fixed this habit?".
+
+Fix (`core/whatif.py`): re-price the engineer's last 30 days of real tokens with `estimate_cost`, changing one habit:
+- **Cache lever:** the same prompt tokens re-split at the target hit ratio, with cache writes unchanged.
+- **Model lever:** Opus above the target share moves to Sonnet.
+- **Targets only improve a habit:** a day already better is left alone, so savings are never negative.
+- **Data-driven defaults:** the team's top quartile (75th-percentile cache hit, 25th-percentile Opus share).
+- **Product:**
+  - `GET /api/engineer/{id}/what-if` (422 on out-of-range targets);
+  - a debounced sliders panel on the engineer page;
+  - **prompt v3** = v2 plus a SAVINGS block computed by this code, with rules to quote it and never estimate any other saving;
+  - the rule-based fallback quotes the same numbers.
+- **Eval harness:** gains a `v3` pipeline and pins every pipeline to its own prompt, so the published v2 table stays v2 after the switch.
+
+Verification:
+- **Property tests** (`tests/test_whatif.py`, 22): no change reproduces `estimate_cost`; a higher cache target never costs more; less Opus never costs more; cache writes and total prompt are unchanged.
+- **Live eval, v2 vs v3** (same model `gemini-3.5-flash-lite`, same 30 profiles; approved 2026-10-07):
+
+| Metric | v2 | v3 |
+|---|---|---|
+| Valid guide | 100% | 100% |
+| Valid on first try | 100% | **96.7%** (p10: headline over 160 characters, fixed by the repair) |
+| First action targets the weakest area | 100% | 100% |
+| Cited numbers grounded | 100% of 442 | 100% of 552 |
+| Guides quoting a computed saving (when one exists) | — | 96.7% (29 of 30) |
+| Mean tokens in / out | 305 / 340 | 438 / 371 |
+| Latency p50 / p95 | 2.1 / 2.8 s | 2.1 / 3.0 s |
+| Cost (30 guides) | $0.0283 | $0.0318 |
+
+- **Decision:** no regression in validity, targeting or grounding (the plan's bar), so **production switched to v3**. Costs: one first-try failure in 30, and about 12% more cost from the longer prompt. Stored v2 guides are not reused (the store key includes the prompt version), so each engineer's guide regenerates once.
+- **Example (p01):** "Raise your cache hit ratio to the team top quartile of 83.0% to save $346.91 per 30 days."
+
+Trade-off / what I'd do at larger scale:
+- **The saving assumes the same work at the new habit.** A cache hit ratio isn't freely choosable; the slider shows what the habit is worth, not a promise.
+- **Scaling up from a short window:** the eval profiles have 7 days, scaled to 30.
+
+Interview version (≤ 60 seconds): "Managers wanted to see money, not just a score. But a saving the LLM estimates is a hallucination by construction, so I'd banned them in prompt v2. In v3 the code computes the saving: it re-prices the engineer's actual tokens at the team's top-quartile habits with the same pricing function as the bill, and the model may only quote that number. Property tests pin the maths: a better habit never costs more, and no change reproduces the bill exactly. On the same 30 eval profiles, v3 kept 100% validity, targeting and grounding, and 29 of 30 guides quoted a real saving."
+
+### UPG-08 — Grounded team memo (commits 0c47d70, 02b8eca)
+Situation: the manager's team memo was free text from three aggregates (average score, spend, critical count), with no grounding check. In Phase 7 testing it recommended a Claude Code feature that doesn't exist (`.claudedir`).
+
+Symptom: the old memo can't name the team's real problem, because it never sees per-area data, and nothing stops it from inventing commands.
+
+Fix:
+- **Team facts** (`ai/team_memo.py`): team size, average score, spend, points lost per area, how many engineers are weakest in each area, critical tier, and spend anomalies in the last 7 days (UPG-07).
+- **Structured prompt:** team-v2 (`TeamMemo` schema: a summary plus 1–2 focus areas), naming the only commands allowed.
+- **Validation:**
+  - schema;
+  - no slash command outside the **documented Claude Code commands** (`ai/claude_code.py`, taken from code.claude.com/docs/en/commands on 2026-10-07; `/claudedir` is not there);
+  - no made-up `.claude…` file.
+- **Recovery:** one repair, naming the invented command; then a rule-based memo. The digest and the CLI use it and meter it.
+- **Baseline:** the old prompt stays as team-v1 for the eval.
+
+Verification: live eval on 15 simulated team-days (each area is the biggest gap in 5; spend anomalies 0–3), `gemini-3.5-flash-lite`, approved 2026-10-07:
+
+| Metric | team-v1 (old) | team-v2 (new) |
+|---|---|---|
+| Valid memo | 100% | 100% |
+| Main recommendation targets the team's biggest gap | **0%** | **100%** |
+| Numbers cited | 33 | 195 |
+| Cited numbers grounded | 100% | 100% |
+| First replies inventing a command or file | 0% | 0% |
+| Invented commands/files the manager would read | 0 | 0 |
+| Latency p50 / p95 | 2.1 / 3.1 s | 1.8 / 6.2 s |
+| Cost (15 memos) | $0.0082 | $0.0108 |
+
+- **Acceptance:** the new memo is 100% valid ✓, with 0 ungrounded numbers ✓ and 0 unknown commands ✓.
+- **What the old memo really did:** generic advice. "structure your prompts with precise context upfront", with no area in 11 of 15 memos, and `/compact` in the other 4. It also framed the numbers as "yesterday's metrics".
+- **The guard didn't fire on this set.** `.claudedir` didn't recur in these 30 replies (Phase 7 saw it on a different model). The command guard is a safety net: unit tests prove a reply with `/optimize-tokens` or `.claudedir` is repaired, then replaced.
+- **Checker correction found during this eval:** targeting was first scored by keyword-classifying the whole focus section. That misread 3 of 15 new memos whose *second* focus mentioned `/compact` (the model's stated first focus was right in 15 of 15). team-v2 is now scored on its stated first focus area (what the manager sees as "Focus on …"). team-v1 has no structure, so it stays keyword-classified.
+- **Not caught by any check:** t10 says `/compact` improves cache efficiency, which is wrong advice with correct numbers; one memo says "1 engineers". Grounding checks numbers and commands, not whether the advice is right; that needs human review or an LLM judge.
+
+Interview version (≤ 60 seconds): "The manager's memo once told a team to use a Claude Code feature that doesn't exist. I rebuilt it like the coaching guides: computed team facts in, a schema-validated memo out. I also added a guard that checks every slash command against Claude Code's documented command list and repairs or replaces the memo if it invents one. On 15 simulated team-days, the old memo never pointed at the team's actual biggest problem; the new one did every time, with every number grounded. In this run the model didn't invent a command at all, so I say the guard is a safety net, not something that fixed a measured failure rate."
+
+### Verification of Phase 8 (2026-10-07)
+| Check | Result |
+|---|---|
+| `pytest` with CI's exact coverage command | 434 passed; 97.6% coverage (gate 85%); new `core/` and `ai/` modules 98–100% |
+| `ruff check .`, `npm test`, `npm run lint`, `npm run build` | clean; 45 frontend tests |
+| Committed recordings reproduce the published eval tables (CI) | v1, v2, v3, team-v1, team-v2 |
+| `python -m analysis.coaching_impact`, `python -m analysis.anomaly_eval` | tables in docs/impact.md and docs/anomalies.md (copied unchanged) |
+| Fresh clone → `python data/seed.py` → `python main.py` (no key) | 1,200 engineer-days, 16 coaching events, 3 incidents; rule-based memo and guides print |
+| Fresh clone → `docker compose up --build` | `/health` ok; `/api/coaching-impact` +3.0 (CI +1.6 to +4.5); `/api/anomalies` 5 days; what-if works, 422 on `cache_hit=0.99` |
+| Browser (Edge via Playwright) on the Docker build | both dashboard cards, what-if panel (slider re-prices: caching saving $81.24 → $144.19 at +10 points), chart markers; no console errors or failed requests; 6 screenshots retaken |
+
+**Process notes:**
+- **The working copy of `UPGRADE_PLAN.md` didn't match the commit.** On 2026-10-05 an editor saved an old version of the file over it (no Phase 8 section, and a stray "claud" in a table). It was restored from the commit, and the stray copy is kept outside the repository.
+- **Commit messages carry no AI co-author line**, at the developer's request.
+
+### Docs sync and GitHub-readiness pass (2026-10-07)
+- **Docs brought up to date:**
+  - `UPGRADE_PLAN.md`: a status header; Phase 7 deploy items ticked where verified (PR #1 merged, CI green, `/health` and the leaderboard live), and marked partly done where not (Render env vars, the live Runbook); Phase 8 marked done; resume bullets filled from measured numbers.
+  - `PROJECT_AUDIT_REPORT.md`: a current-status note above the original baseline; resolved "could not be verified" items; "CI is green on GitHub" is now true.
+  - README: the architecture diagram shows the Phase 8 modules; test counts updated.
+  - `docs/scoring.md`: links to impact.md and anomalies.md.
+  - All relative doc links checked: none broken.
+- **Private files:**
+  - **`.gitignore` widened:** `.env.*` (keeping `.env.example`), any `*.db`/`*.sqlite3`, coverage and lint caches, logs, editor and OS files, `.claude/`, plus the personal notes. `tests/test_security.py` pins the rules that protect secrets, data and notes.
+  - **`.dockerignore` fix:** the backend image is built with `COPY . .` and could have included `.env.*` files and the personal notes; both are now excluded.
+  - **New `frontend/.dockerignore`:** keeps `node_modules`, `dist` and env files out of the frontend build context.
+- **Checks:**
+  - **Secret scan:** 0 matches for Google, OpenAI, Anthropic, GitHub and Slack key formats or private keys, in the tracked tree and in the unpushed commits.
+  - **Clean tree:** no tracked file matches an ignore rule, there are no untracked leftovers, and no absolute local paths.
+  - **Test fixture:** the last `company.com` address in a test is now `example.com`.
+  - **Suite:** 435 backend tests (97.6% coverage) and 45 frontend tests pass, with ruff, ESLint and the build; the eval replays reproduce the published results.
+- **File-by-file review of all 301 tracked files:**
+  - **Removed:** five unused Vite-template leftovers (`src/App.css`, `src/assets/hero.png`, `react.svg`, `vite.svg`, `public/icons.svg`); nothing imported them.
+  - **Favicon:** replaced the Vite logo with the project's `>_` mark.
+  - **Package name:** `frontend` → `devtelemetry-dashboard`.
+  - **Reviewed and clean:** config files (only secret names, no values), workflows (GitHub secrets), eval recordings (model replies and usage only) and `.env.example` (all secrets blank).
+
+### UI-02 (new finding): runbook page for an engineer with no data (2026-10-07)
+- **Found by:** the browser failure checks written for the test guide.
+- **Symptom:** `/runbook/critical/<unknown id>` rendered a full coaching page ("Bottom two on the team today. Rule-based guide built from your sub-scores…") for nobody.
+- **Cause:** for an engineer with no usage, the API answers 200 with `source: "none"` (a contract other callers rely on), and the page treated that as a guide.
+- **Fix:** the page treats `source: "none"` as "No usage data for this engineer." and shows the same error screen as a failed load.
+- **Verification:** a new Vitest test (red, then green); 46 frontend tests pass.

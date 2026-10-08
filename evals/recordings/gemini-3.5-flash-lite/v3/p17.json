@@ -1,0 +1,12 @@
+{
+ "calls": [
+  {
+   "text": "{\n  \"headline\": \"Improve your Claude Code efficiency score from 59.42 by fixing model choice and cache usage.\",\n  \"actions\": [\n    {\n      \"title\": \"Reduce Opus model usage immediately\",\n      \"problem\": \"Your current model mix is Opus 73.0%, Sonnet 22.0%, Haiku 5.0%, making model_mix your weakest area at 22.35 points below its maximum.\",\n      \"fix\": \"Switch default tasks to Sonnet or Haiku instead of relying heavily on Opus.\",\n      \"focus\": \"model_mix\"\n    },\n    {\n      \"title\": \"Lower Opus share to team levels\",\n      \"problem\": \"Your high dependence on Opus is driving up your estimated cost today to $11.16.\",\n      \"fix\": \"Reserving Opus only for the most complex architectural tasks will optimize your model distribution.\",\n      \"focus\": \"model_mix\"\n    },\n    {\n      \"title\": \"Increase your cache hit ratio\",\n      \"problem\": \"Currently, only 72.5% of prompt tokens were served from cache, earning 29.01 of 40 points.\",\n      \"fix\": \"Keep context windows consistent across sessions to maximize prompt caching efficiency.\",\n      \"focus\": \"cache\"\n    },\n    {\n      \"title\": \"Target top quartile cache performance\",\n      \"problem\": \"Your current cache utilization leaves potential cost reductions untapped.\",\n      \"fix\": \"Reaching a cache hit ratio at the team's top quartile (83.0%) would save $39.05 per 30 days.\",\n      \"focus\": \"cache\"\n    }\n  ]\n}",
+   "model": "gemini-3.5-flash-lite",
+   "input_tokens": 425,
+   "output_tokens": 379,
+   "latency_ms": 2092,
+   "cost_usd": 0.001075
+  }
+ ]
+}

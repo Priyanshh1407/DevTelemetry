@@ -114,3 +114,17 @@ describe('Runbook shows real data only (Phase 7)', { timeout: 30000 }, () => {
         expect(await screen.findByText('Run /compact more')).toBeInTheDocument();
     });
 });
+
+describe('Runbook for an engineer with no data', { timeout: 30000 }, () => {
+    it('says so instead of showing an empty coaching guide', async () => {
+        vi.stubGlobal('fetch', vi.fn((url) => Promise.resolve(url.includes('/details')
+            ? { ok: false, status: 404, json: () => Promise.resolve({ detail: 'Engineer not found' }) }
+            : { ok: true, status: 200, json: () => Promise.resolve({
+                tasks: [{ title: 'Data Missing', desc: 'No telemetry found for this user.' }], source: 'none' }) })));
+
+        await renderRunbook();
+
+        expect(await screen.findByText(/No usage data for this engineer/)).toBeInTheDocument();
+        expect(screen.queryByText(/Rule-based guide/)).not.toBeInTheDocument();
+    });
+});

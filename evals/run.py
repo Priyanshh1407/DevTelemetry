@@ -24,7 +24,7 @@ import ai.guide_generator as generator
 from ai.providers import GeminiProvider, LLMResponse
 from core.queries import without_pii
 from evals.checks import evaluate, summarize
-from evals.profiles import load
+from evals.profiles import load, savings_for
 
 ROOT = pathlib.Path(__file__).parent
 RECORDINGS = ROOT / "recordings"
@@ -62,11 +62,14 @@ def provider_override(provider):
 
 
 def generate(pipeline, profile):
+    """Each pipeline is pinned to its own prompt version, whatever the app's current default."""
     day = without_pii(profile["day"])
     if pipeline == "v1":
         return generator.generate_efficiency_guide_v1(day, profile["severity"])
+    savings = savings_for(profile) if pipeline == "v3" else None
     return generator.generate_efficiency_guide(day, profile["severity"],
-                                               recent=[without_pii(d) for d in profile["recent"]])
+                                               recent=[without_pii(d) for d in profile["recent"]],
+                                               savings=savings, prompt_version=pipeline)
 
 
 def _recording_path(recordings, model, pipeline, profile_id):
@@ -132,7 +135,8 @@ def run(pipeline, mode, profiles=None, recordings=RECORDINGS, results=RESULTS, p
                     f"{failures_in_a_row} profiles in a row were rate-limited or unavailable after retries "
                     f"(stopped at {profile['id']}); the quota is probably used up. Replies so far are "
                     "recorded: re-run later with --only-missing to finish.")
-        rows.append(evaluate(profile, pipeline, result))
+        rows.append(evaluate(profile, pipeline, result,
+                             savings=savings_for(profile) if pipeline == "v3" else None))
 
     summary = summarize(rows)
     summary.update({"pipeline": pipeline, "mode": mode,
@@ -190,6 +194,8 @@ def report(summary, rows):
         f"| Mean tokens in / out per guide | {summary['mean_input_tokens']} / {summary['mean_output_tokens']} |",
         f"| Latency p50 / p95 (ms) | {summary['latency_ms_p50']} / {summary['latency_ms_p95']} |",
         f"| Cost (USD) | {summary['cost_usd']:.4f} |",
+        *([f"| Guides quoting a computed saving (when one exists) | {_pct(summary['saving_cited_rate'])} |"]
+          if "saving_cited_rate" in summary else []),
         "", "## Per profile", "",
         "| Profile | Tier | Weakest | Source | Valid | Targeted (first action) | Ungrounded numbers |",
         "|---|---|---|---|---|---|---|",
@@ -203,7 +209,7 @@ def report(summary, rows):
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description="Evaluate the coaching-guide pipelines.")
-    parser.add_argument("--pipeline", choices=["v1", "v2"], required=True)
+    parser.add_argument("--pipeline", choices=["v1", "v2", "v3"], required=True)
     parser.add_argument("--mode", choices=["replay", "live"], default="replay")
     parser.add_argument("--pause", type=float, default=0.0,
                         help="seconds between profiles in live mode (free-tier rate limits)")

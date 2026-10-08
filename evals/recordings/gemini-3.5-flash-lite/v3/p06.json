@@ -1,0 +1,12 @@
+{
+ "calls": [
+  {
+   "text": "{\n  \"headline\": \"Your efficiency score is 50.02 out of 100 with an estimated cost today of $8.90. Let us improve your workflow.\",\n  \"actions\": [\n    {\n      \"title\": \"Use /compact more often\",\n      \"problem\": \"Your weakest area is discipline with context management (/compact) being 28.64 points below its maximum. /compact was used in only 4.5% of sessions over the last 7 days, specifically 2 of 44 sessions, resulting in 1.36 of 30 points.\",\n      \"fix\": \"Run the /compact command regularly during your coding sessions to keep your context lean and improve your discipline score.\",\n      \"focus\": \"discipline\"\n    },\n    {\n      \"title\": \"Increase cache hit ratio\",\n      \"problem\": \"Currently, 75.3% of prompt tokens were served from cache, giving you 30.12 of 40 points in the cache category.\",\n      \"fix\": \"A cache hit ratio at the team's top quartile of 83.0% would save $14.57 per 30 days.\",\n      \"focus\": \"cache\"\n    },\n    {\n      \"title\": \"Optimize your model mix\",\n      \"problem\": \"Your current model mix is Opus 10.0%, Sonnet 73.0%, and Haiku 17.0%, earning 18.54 of 30 points.\",\n      \"fix\": \"An Opus share at the team's top quartile of 15.0% would save $1.56 per 30 days.\",\n      \"focus\": \"model_mix\"\n    }\n  ]\n}",
+   "model": "gemini-3.5-flash-lite",
+   "input_tokens": 409,
+   "output_tokens": 391,
+   "latency_ms": 2169,
+   "cost_usd": 0.0011
+  }
+ ]
+}

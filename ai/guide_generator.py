@@ -6,8 +6,8 @@ from pydantic import ValidationError
 
 from ai.fallback import rule_based_guide
 from ai.features import coaching_facts
-from ai.prompts import (PROMPT_VERSION, build_guide_prompt, build_guide_prompt_v2, build_repair_prompt,
-                        build_team_report_prompt)
+from ai.prompts import (PROMPT_VERSION, PROMPT_VERSION_V3, build_guide_prompt, build_guide_prompt_v2,
+                        build_guide_prompt_v3, build_repair_prompt, build_team_report_prompt)
 from ai.providers import AINotConfiguredError, AIRateLimitedError, AIUnavailableError, get_provider
 from ai.schemas import GUIDE_JSON_SCHEMA, CoachingGuide
 
@@ -57,21 +57,24 @@ def _parse_guide(text):
         return None, problems
 
 
-def generate_efficiency_guide(day, severity="moderate", recent=()):
-    """Structured coaching guide (prompt v2) for one engineer-day. Never raises.
+def generate_efficiency_guide(day, severity="moderate", recent=(), savings=None, prompt_version=PROMPT_VERSION):
+    """Structured coaching guide (prompt v2, or v3 with computed savings) for one engineer-day.
+    Never raises.
 
     `day` and `recent` (earlier days, oldest first) must already be free of identity
-    (see core.queries.without_pii): only metrics are sent to the model.
+    (see core.queries.without_pii): only metrics are sent to the model. `savings` is
+    core.whatif.savings_facts output, used by prompt v3 and the rule-based fallback.
     """
-    facts = coaching_facts(day, recent)
-    prompt = build_guide_prompt_v2(facts, severity)
+    facts = coaching_facts(day, recent, savings=savings)
+    build = build_guide_prompt_v3 if prompt_version == PROMPT_VERSION_V3 else build_guide_prompt_v2
+    prompt = build(facts, severity)
     provider = get_provider()
     calls = []
 
     def fallback(source):
         guide = rule_based_guide(facts)
         return GuideResult(tasks=tasks_from_guide(guide), source=source, guide=guide, calls=calls,
-                           prompt_version=PROMPT_VERSION)
+                           prompt_version=prompt_version)
 
     try:
         response = provider.generate(prompt, json_schema=GUIDE_JSON_SCHEMA)
@@ -89,7 +92,7 @@ def generate_efficiency_guide(day, severity="moderate", recent=()):
             logger.error("Guide output still invalid after repair (%s); using the rule-based guide", error)
             return fallback("invalid_output")
         return GuideResult(tasks=tasks_from_guide(guide), source=source, guide=guide, calls=calls,
-                           prompt_version=PROMPT_VERSION)
+                           prompt_version=prompt_version)
     except AIRateLimitedError:
         logger.warning("LLM rate limit hit; using the rule-based guide")
         return fallback("rate_limited")
@@ -150,8 +153,10 @@ def generate_efficiency_guide_v1(engineer_data, severity="moderate"):
 @dataclass
 class TeamReport:
     text: str
-    outcome: str          # ai | rate_limited | unavailable
+    outcome: str          # ai | ai_repaired | invalid_output | rate_limited | unavailable
     calls: list = field(default_factory=list)
+    memo: dict | None = None             # team-v2: {summary, focus: [{area, why, practice}]}
+    prompt_version: str = "team-v1"
 
 
 def generate_team_report(team_summary):

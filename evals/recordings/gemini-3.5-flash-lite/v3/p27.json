@@ -1,0 +1,12 @@
+{
+ "calls": [
+  {
+   "text": "{\n  \"headline\": \"Your efficiency score is 51.0 out of 100 with an estimated cost today of $14.75, placing you in the team bottom two.\",\n  \"actions\": [\n    {\n      \"title\": \"Use compact more often\",\n      \"problem\": \"Your weakest area is discipline at 28.06 points below its maximum because /compact was used in 6.5% of sessions over the last 7 days, which is 2 of 31 sessions resulting in 1.94 of 30 points.\",\n      \"fix\": \"Run /compact regularly at the start of new tasks to keep your context clean and improve your discipline score.\",\n      \"focus\": \"discipline\"\n    },\n    {\n      \"title\": \"Raise your cache hit ratio\",\n      \"problem\": \"Only 75.7% of prompt tokens were served from cache, giving you 30.28 of 40 points in the cache category.\",\n      \"fix\": \"A cache hit ratio at the team top quartile of 83.0% would save $8.72 per 30 days.\",\n      \"focus\": \"cache\"\n    },\n    {\n      \"title\": \"Optimize model mix distribution\",\n      \"problem\": \"Your model mix stands at Opus 14.0%, Sonnet 62.0%, and Haiku 24.0%, earning 18.78 of 30 points.\",\n      \"fix\": \"Bringing Opus share to the team top quartile of 15.0% would save $2.46 per 30 days.\",\n      \"focus\": \"model_mix\"\n    },\n    {\n      \"title\": \"Maintain context hygiene\",\n      \"problem\": \"With /compact used in only 2 of 31 sessions over the last 7 days, you scored just 1.94 of 30 points in discipline.\",\n      \"fix\": \"Make /compact a mandatory routine in every session to protect your context window and efficiency score.\",\n      \"focus\": \"discipline\"\n    }\n  ]\n}",
+   "model": "gemini-3.5-flash-lite",
+   "input_tokens": 419,
+   "output_tokens": 469,
+   "latency_ms": 2214,
+   "cost_usd": 0.001298
+  }
+ ]
+}

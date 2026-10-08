@@ -1,0 +1,12 @@
+{
+ "calls": [
+  {
+   "text": "Good morning, team! Looking at our aggregate metrics for yesterday, we are maintaining a steady and productive rhythm with Claude Code. Our total spend came in at a very manageable $133.06, demonstrating great fiscal responsibility as we tackle our current milestones. While our average score of 52.1 shows we are getting consistent baseline value from our AI interactions, we also logged 2 critical events that provide us with clear signposts for where we can refine our approach. Overall, the team's engagement with the agent remains a strong asset to our daily engineering workflows.\n\nAs we look toward tomorrow, let's focus on two key best practices to help optimize both our costs and our operational efficiency. First, let's aim for tighter, more specific prompt engineering\u2014breaking large, complex requests into smaller, targeted tasks can drastically improve our output quality scores and reduce token waste. Second, let's make a habit of thoroughly reviewing and clearing out context windows between distinct tasks to prevent hallucination drift and keep Claude operating at peak performance. Keep up the fantastic collaboration, and let's have a great day of building!",
+   "model": "gemini-3.5-flash-lite",
+   "input_tokens": 163,
+   "output_tokens": 229,
+   "latency_ms": 2109,
+   "cost_usd": 0.000621
+  }
+ ]
+}

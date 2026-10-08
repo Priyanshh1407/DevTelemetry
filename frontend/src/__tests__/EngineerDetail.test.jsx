@@ -118,3 +118,42 @@ describe('EngineerDetail shows no placeholder assets (Phase 7)', { timeout: 3000
         expect(screen.getByText('Average sessions per day (30 days)')).toBeInTheDocument();
     });
 });
+
+describe('EngineerDetail coaching days (UPG-05)', { timeout: 30000 }, () => {
+    it('lists the days this engineer was coached, under the trend chart', async () => {
+        vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+            ok: true, status: 200,
+            json: () => Promise.resolve({ ...DETAILS, coaching: [{ date: '2026-03-30', target_area: 'cache' }] }),
+        }));
+
+        await renderDetail();
+
+        expect(await screen.findByText(/Coached 03-30 on prompt caching/)).toBeInTheDocument();
+    });
+
+    it('works with an API that sends no coaching list', async () => {
+        vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+            ok: true, status: 200, json: () => Promise.resolve(DETAILS),
+        }));
+
+        await renderDetail();
+
+        expect(await screen.findByText('Ada Lovelace')).toBeInTheDocument();
+        expect(screen.queryByText(/Coached/)).not.toBeInTheDocument();
+    });
+});
+
+describe('EngineerDetail spend anomalies (UPG-07)', { timeout: 30000 }, () => {
+    it('lists this engineer\'s anomaly days under the trend chart', async () => {
+        vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+            ok: true, status: 200,
+            json: () => Promise.resolve({ ...DETAILS, anomalies: [
+                { date: '2026-03-31', cost_usd: 61.5, excess_usd: 49.2, driver: 'volume',
+                  driver_label: 'more tokens (e.g. a runaway agent loop)' }] }),
+        }));
+
+        await renderDetail();
+
+        expect(await screen.findByText(/Unusual spend 03-31: \$61\.50, likely more tokens/)).toBeInTheDocument();
+    });
+});

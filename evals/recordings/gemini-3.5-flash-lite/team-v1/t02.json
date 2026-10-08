@@ -1,0 +1,12 @@
+{
+ "calls": [
+  {
+   "text": "TEAM MEMO: Claude Code Daily Performance Update\n\nTeam, looking at today\u2019s aggregate metrics, we have plenty to celebrate regarding our overall health and momentum. With a total spend of $186.12, our resource allocation remains tightly managed and well within healthy operational parameters. While our average score sits at 52.1, this baseline reflects the continuous, complex problem-solving our engineering team tackles daily using Claude Code, and your active engagement is driving our development cycles forward efficiently. \n\nAs we look ahead to tomorrow, let's focus on a couple of key best practices to further optimize our costs and efficiency. First, try refining your initial prompts to be as specific as possible, which helps Claude Code hit the mark on the first try and minimizes the need for costly iterative loops. Second, keep an eye on our critical count\u2014currently at two\u2014by proactively breaking larger, high-complexity tasks into smaller, manageable chunks before running them through the agent. Thank you all for your hard work and dedication to keeping our workflows smart and sustainable!",
+   "model": "gemini-3.5-flash-lite",
+   "input_tokens": 163,
+   "output_tokens": 215,
+   "latency_ms": 2078,
+   "cost_usd": 0.000586
+  }
+ ]
+}

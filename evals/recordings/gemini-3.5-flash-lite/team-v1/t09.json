@@ -1,0 +1,12 @@
+{
+ "calls": [
+  {
+   "text": "Good morning, team! Looking at our aggregate metrics for yesterday, we had a solid day of collaboration with Claude Code. We kept our total spend well-managed at $103.19 while maintaining a steady workflow across our active tasks. It\u2019s fantastic to see everyone leaning into AI-assisted development, and your collective momentum is really paying off as we push our projects forward.\n\nAs we look toward tomorrow, there are two key areas where we can optimize our performance and efficiency. First, let's focus on refining our initial prompt structures\u2014providing more precise context upfront can help reduce iterative back-and-forth and lower token spend. Second, please keep a close eye on the complexity of requests, especially given the two critical flags we hit yesterday; breaking larger tasks into smaller, modular sub-tasks will help Claude deliver more accurate results and keep our operations running smoothly. Let's keep up the great work!",
+   "model": "gemini-3.5-flash-lite",
+   "input_tokens": 163,
+   "output_tokens": 188,
+   "latency_ms": 1939,
+   "cost_usd": 0.000519
+  }
+ ]
+}

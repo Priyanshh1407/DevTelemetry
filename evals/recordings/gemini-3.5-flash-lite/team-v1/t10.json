@@ -1,0 +1,12 @@
+{
+ "calls": [
+  {
+   "text": "Good morning, team! Overall, our utilization of Claude Code yesterday showed fantastic momentum and strong baseline health. We maintained a steady and productive workflow while keeping our total spend at a highly manageable $142.62, reflecting great awareness of resource allocation across our active projects. \n\nAs we look ahead to tomorrow, let's focus on two key best practices to further optimize our costs and efficiency: first, try breaking down complex, multi-layered tasks into smaller, more targeted prompts to help Claude Code hit the mark on the first try and improve our average score; and second, review our critical interventions (we had 2 logged yesterday) to identify patterns where we can provide clearer initial context or constraints. Thank you all for your hard work and adaptability\u2014let's keep building together!",
+   "model": "gemini-3.5-flash-lite",
+   "input_tokens": 163,
+   "output_tokens": 161,
+   "latency_ms": 3104,
+   "cost_usd": 0.000451
+  }
+ ]
+}

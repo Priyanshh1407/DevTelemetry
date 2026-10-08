@@ -1,0 +1,12 @@
+{
+ "calls": [
+  {
+   "text": "{\n  \"headline\": \"Improve your Claude Code efficiency score from 50.15 with these three focus areas.\",\n  \"actions\": [\n    {\n      \"title\": \"Improve Prompt Caching\",\n      \"problem\": \"Your cache score is the weakest area at 13.7% of prompt tokens served from cache, earning 5.47 of 40 points and sitting 34.53 points below its maximum.\",\n      \"fix\": \"Increasing your cache hit ratio to the team top quartile of 83.0% would save $328.01 per 30 days.\",\n      \"focus\": \"cache\"\n    },\n    {\n      \"title\": \"Optimize Model Mix\",\n      \"problem\": \"Your current model mix uses Opus 12.0%, Sonnet 59.0%, and Haiku 29.0%, earning 19.68 of 30 points.\",\n      \"fix\": \"Adjusting your Opus share to the team top quartile of 15.0% would save $8.79 per 30 days.\",\n      \"focus\": \"model_mix\"\n    },\n    {\n      \"title\": \"Maintain Compact Discipline\",\n      \"problem\": \"You used /compact in 83.3% of sessions over the last 7 days, which is 35 of 42 sessions, earning 25.0 of 30 points.\",\n      \"fix\": \"Continue using the /compact command in your daily sessions to maintain strong context management discipline.\",\n      \"focus\": \"discipline\"\n    }\n  ]\n}",
+   "model": "gemini-3.5-flash-lite",
+   "input_tokens": 410,
+   "output_tokens": 357,
+   "latency_ms": 1960,
+   "cost_usd": 0.001015
+  }
+ ]
+}

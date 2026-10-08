@@ -27,7 +27,9 @@ AREA_KEYWORDS = {
 EXPECTED_ACTIONS = {
     "v1": {"critical": 5, "moderate": 3, "low": 3},
     "v2": {"critical": 4, "moderate": 3, "low": 2},
+    "v3": {"critical": 4, "moderate": 3, "low": 2},
 }
+SAVING_KEYS = ("saving_month_usd_cache", "saving_month_usd_model")
 
 
 # Prose a number reader would otherwise split or misread: "11 dollars and 91 cents" (one
@@ -46,13 +48,16 @@ def extract_numbers(text):
     return numbers
 
 
-def allowed_numbers(day, recent):
-    """Every number a guide may legitimately cite: the facts given to v2, the raw values given
-    to v1 (shares also as percentages), and the score maxima / 7-day window the prompts mention."""
-    facts = coaching_facts(day, recent)
+def allowed_numbers(day, recent, savings=None):
+    """Every number a guide may legitimately cite: the facts given to v2 (and v3's computed
+    savings), the raw values given to v1 (shares also as percentages), and the score maxima /
+    7-day window / 30-day period the prompts mention."""
+    facts = coaching_facts(day, recent, savings=savings)
     allowed = {100.0, 40.0, 30.0, 7.0}
     for value in facts.values():
         values = value.values() if isinstance(value, dict) else [value]
+        if savings and value is savings:
+            allowed.add(30.0)       # "per 30 days"
         allowed.update(float(v) for v in values if isinstance(v, (int, float)) and not isinstance(v, bool))
     for key, value in day.items():
         if isinstance(value, (int, float)) and not isinstance(value, bool):
@@ -90,15 +95,16 @@ def classify_area(text):
 
 
 def action_texts(pipeline, result):
-    if pipeline == "v2" and result.guide:
+    if pipeline != "v1" and result.guide:
         return [f"{a['title']}. {a['problem']} {a['fix']}" for a in result.guide["actions"]]
     return [t["desc"] for t in result.tasks]
 
 
-def evaluate(profile, pipeline, result):
-    """Scores one guide. `result` is an ai.guide_generator.GuideResult."""
+def evaluate(profile, pipeline, result, savings=None):
+    """Scores one guide. `result` is an ai.guide_generator.GuideResult; `savings` = the computed
+    savings the v3 prompt was given (they count as grounded)."""
     day, recent, severity = profile["day"], profile["recent"], profile["severity"]
-    if pipeline == "v2":
+    if pipeline != "v1":
         valid = not result.is_fallback
         first_try = result.source == "ai"
     else:  # v1 "works" when the model produced a parseable numbered list
@@ -106,14 +112,20 @@ def evaluate(profile, pipeline, result):
         first_try = valid
 
     texts = action_texts(pipeline, result) if valid else []
-    allowed = allowed_numbers(day, recent)
+    allowed = allowed_numbers(day, recent, savings)
     numbers = [n for t in texts for n in extract_numbers(t)]
     ungrounded = [n for n in numbers if not is_grounded(n, allowed)]
     derived = [n for n in ungrounded if is_derived(n, allowed)]
     weakest = coaching_facts(day, recent)["weakest_area"]
 
     calls = result.calls
-    return {
+    extra = {}
+    if savings is not None:
+        # Did a guide quote a computed saving (when there was one to quote)?
+        quotable = [savings[k] for k in SAVING_KEYS if savings[k] > 0]
+        extra["saving_quotable"] = bool(quotable)
+        extra["cites_saving"] = any(is_grounded(n, set(quotable)) for n in numbers) if quotable else False
+    return {**extra,
         "id": profile["id"],
         "severity": severity,
         "weakest_area": weakest,
@@ -169,4 +181,7 @@ def summarize(rows):
         "latency_ms_p50": _percentile([r["latency_ms"] for r in rows if r["llm_calls"]], 50),
         "latency_ms_p95": _percentile([r["latency_ms"] for r in rows if r["llm_calls"]], 95),
         "cost_usd": round(sum(r["cost_usd"] for r in rows), 6),
+        # v3 only (absent from v1/v2 so their published results stay comparable)
+        **({"saving_cited_rate": _rate([r for r in valid_rows if r["saving_quotable"]], "cites_saving")}
+           if rows and "cites_saving" in rows[0] else {}),
     }

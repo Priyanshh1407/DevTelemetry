@@ -4,6 +4,12 @@ Project: DevTelemetry | Type: Full-stack web app (FastAPI + SQLite + React/Vite)
 Prior context read: `README.md`, `DEVTELEMETRY_INTERVIEW_REPORT.md` (untracked), `interview_study_guide.md`, `demo_commands.txt`. No previous `PROJECT_AUDIT_REPORT.md` / `UPGRADE_PLAN.md` / `FIX_LOG.md` existed, so this is the first audit.
 Assumptions (not stated in repo): target roles = SDE **and** ML/AI Engineer; time budget = 3–4 weeks.
 
+> **Current status (2026-10-07).** Sections 1–4 describe the project as audited on 2026-10-02 and are kept as the baseline. Every finding in them is fixed. The "Status after Phase N" notes at the end of section 4 track each phase.
+> - **Phases 0–7:** merged (PR #1), CI green on GitHub, live on Render.
+> - **Phase 8:** done on `phase-8-features`, not merged or deployed.
+> - **Open P0/P1:** none.
+> - **Interview readiness:** yes, within the limits listed in section 7.
+
 ---
 
 ## 1. Executive Summary
@@ -341,6 +347,23 @@ Not run: the live Render deployment (I didn’t want to trigger side effects on 
   - placeholder secrets in `.env.example` (an example admin token would be a public password);
   - under-metered latency when falling back between models.
 - **Open:** the live deploy (PR merge plus the `deployment` branch), then the live check of `/health` and the Runbook.
+
+### Status after Phase 8 (2026-10-07, branch `phase-8-features`, not merged or deployed)
+- **Done**, each with a measured claim (FIX_LOG has the numbers):
+  - UPG-05: coaching impact. DiD +0.02 under no effect (98% CI coverage) and +4.13 vs a true +4.13; naive +0.82 and "it worked" in 18% of no-effect teams.
+  - UPG-06: what-if savings and prompt v3. v3 = v2 on validity, targeting and grounding (30 profiles, live); 29 of 30 guides quote a computed saving; production on v3.
+  - UPG-07: spend anomalies. F1 0.69 vs 0.36 (fixed $30) and 0.66 (mean + 3σ); 0.37 false alarms per engineer-month.
+  - UPG-08: grounded team memo. It targets the team's biggest gap 0% → 100% (15 team-days, live); all numbers grounded; commands checked against Claude Code's documented list.
+- **New, fixed:**
+  - the planned DiD baseline (days −14..−1) overlapped the 7 days pooled into the selection score, so it would have kept part of the bias; it uses −13..−7;
+  - the memo eval's keyword classifier misread 3 of 15 memos and was replaced by the memo's stated focus area.
+- **New, open (documented, not fixed):**
+  - the grounded memo can still give wrong advice with right numbers ("/compact improves caching");
+  - the anomaly detector catches only 51% of broken-cache incidents.
+- **Verification:**
+  - 434 backend tests (97.6% coverage, CI's command), 45 frontend tests, ruff, ESLint and the build all pass;
+  - a fresh clone in Docker serves all new endpoints and panels;
+  - an Edge browser check found no console errors or failed requests.
 ---
 
 ## 5. Hygiene Bundle (P3)
@@ -360,18 +383,18 @@ Not run: the live Render deployment (I didn’t want to trigger side effects on 
 
 | Item | How to verify |
 |---|---|
-| Whether the live Render backend has SMTP/Slack/Gemini env vars set (affects how severe SEC-01 is in practice) | Check the Render dashboard env vars. Don’t test by POSTing to the live endpoint. |
-| Whether the live Runbook page is actually empty (BUG-01) | Open `https://devtelemetry-1.onrender.com/runbook/critical/<id>` with DevTools → Network and look for a request to `127.0.0.1:8000`. |
-| Anthropic usage-field semantics for the cache ratio (ML-03) | Read the Anthropic prompt-caching docs (`usage.input_tokens`, `cache_read_input_tokens`, `cache_creation_input_tokens`). |
-| Real SMTP timing for PERF-02 | Time `POST /trigger-alerts` locally with a test Gmail app password and PRODUCTION_MODE=false. |
-| Docker compose behavior (DX-01) | `docker compose up --build` on a clean checkout without `data/usage.db`. |
-| Python dependency CVEs | `pip install pip-audit && pip-audit -r requirements.txt` (I didn’t install it without asking). |
+| Whether the live Render backend has SMTP/Slack/Gemini env vars set (affects how severe SEC-01 is in practice) | Check the Render dashboard env vars. Don’t test by POSTing to the live endpoint. *Still unverified; admin actions now need `ADMIN_TOKEN` (SEC-01 fixed), so an unset token means they answer 503.* |
+| Whether the live Runbook page is actually empty (BUG-01) | Open `https://devtelemetry-1.onrender.com/runbook/critical/<id>` with DevTools → Network and look for a request to `127.0.0.1:8000`. *BUG-01 is fixed in code and in a local Docker build; the live page has not been checked.* |
+| Anthropic usage-field semantics for the cache ratio (ML-03) | *Resolved in ML-03: the fields follow Anthropic's usage object, with a data migration.* |
+| Real SMTP timing for PERF-02 | *Moot after PERF-02: dispatch runs in the background and the request answers 202 in 41 ms.* |
+| Docker compose behavior (DX-01) | *Verified on clean clones (Phase 0–7 verification and 2026-10-07).* |
+| Python dependency CVEs | *Resolved in SEC-03: pip-audit and npm audit clean.* |
 
 ---
 
 ## 7. Things I Must NOT Claim in an Interview (current state)
 
-- “CI is green on GitHub.” *(updated after Phase 3)* CI exists and every step passes on clean environments (192 backend tests on Python 3.10 and 3.14, 23 frontend tests, 96% coverage), but say “green on GitHub” only after you’ve seen the run in the Actions tab.
+- ~~“CI is green on GitHub.”~~ *(true since PR #1, 2026-10-04: the first GitHub run failed on a missing `pytest.ini`, fixed, then green. Phase 8's branch has not run on GitHub yet: 435 backend + 46 frontend tests, 97.6% coverage locally with CI's exact command.)*
 - “It shows how much each engineer spends.” *(updated after Phase 1)* Cost is now computed from token usage with dated list prices (ML-01 fixed), but the usage itself is synthetic, and the per-model split is an assumption (tokens allocated by model mix). Say “estimated from usage with list prices”.
 - “It tracks Claude Code usage.” *(updated after Phase 6)* There is an ingestion API with Anthropic’s usage field names (UPG-02), but no real producer is connected; the dashboard data is a persona-based simulation. Say “it has a validated ingestion contract; the demo runs on simulated data calibrated to published costs”.
 - “Scheduled alerts run in production.” *(updated after Phase 2)* The mechanism exists and is tested (GitHub Actions tick → idempotent endpoint), but it only runs once merged to the default branch with the two secrets set. Don’t claim it’s live until you’ve seen a scheduled run in the Actions tab.
@@ -381,6 +404,8 @@ Not run: the live Render deployment (I didn’t want to trigger side effects on 
 - *(added after Phase 6)* “The new prompt eliminated hallucinations.” The old one had 1 wrong number in 30 guides; the big measured gain is targeting (50% → 100%). Quote eval numbers with their n (30) and model (gemini-3.5-flash-lite), and note that on 3.8 Flash the old prompt already targeted 100% (n=10).
 - “Uses Gemini 1.5 Flash / Chart.js / React 18.” It doesn’t (DOC-01). *(Phase 6: the README now says Gemini 3.8 Flash; the Chart.js and React 18 mentions are fixed in the Phase 7 README rewrite.)*
 - ~~“The trend arrows / sparklines show performance trends.”~~ *(fixed in BUG-07: they now come from a real 7-day score change and daily token volume)*
-- Any percentage like “reduces cost by X%”. Nothing has been measured.
+- Any percentage like “reduces cost by X%”. Nothing has been measured. *(after Phase 8: the what-if panel shows what a habit is worth on the engineer's own tokens, which is a re-pricing, not a measured reduction.)*
+- *(added after Phase 8)* “Coaching improves scores by 3 points.” The +3.0 on the demo is the effect the simulator was told to produce. What is proven is the method: on simulated teams with a known answer, DiD recovers it (within 0.02 points) where the naive number doesn't. Say “the estimator is validated on simulation; with real data it would report whatever effect is there”, and name the parallel-trends assumption.
+- *(added after Phase 8)* “The guard stopped the memo from inventing commands.” In the 30 live memo replies, neither prompt invented one, so the guard never fired. It is tested with injected bad replies. Say it's a safety net.
 
 - *(added after Phase 4)* “The score is objective” or “the weights are optimal.” The weights are judgment calls (see docs/scoring.md); UPG-03 measures how sensitive the ranking is to them. You *can* say: “token fields match Anthropic’s usage API, and the ranking is stable: the bottom two match the habitually worst engineers 82% of the time in simulation.”

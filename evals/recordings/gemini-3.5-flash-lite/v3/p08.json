@@ -1,0 +1,12 @@
+{
+ "calls": [
+  {
+   "text": "{\n  \"headline\": \"Your efficiency score is 55.78 out of 100 with an estimated cost today of $11.21.\",\n  \"actions\": [\n    {\n      \"title\": \"Reduce Opus usage immediately\",\n      \"problem\": \"Model mix is your weakest area at 5.01 of 30 points, scoring 24.99 points below its maximum with Opus at 89.0 percent, Sonnet at 8.0 percent, and Haiku at 3.0 percent.\",\n      \"fix\": \"Switch default tasks to Sonnet and Haiku instead of relying on Opus. Opus share at the team top quartile of 15.0 percent would save $115.86 per 30 days.\",\n      \"focus\": \"model_mix\"\n    },\n    {\n      \"title\": \"Improve cache hit ratio\",\n      \"problem\": \"Only 75.2 percent of prompt tokens were served from cache, earning 30.08 of 40 points.\",\n      \"fix\": \"Keep context windows consistent and avoid unnecessary prompt changes to increase your cache retention. Cache hit ratio at the team top quartile of 83.0 percent would save $51.95 per 30 days.\",\n      \"focus\": \"cache\"\n    },\n    {\n      \"title\": \"Increase compact command usage\",\n      \"problem\": \"Compact was used in 69.0 percent of sessions over the last 7 days across 20 of 29 sessions, earning 20.69 of 30 points.\",\n      \"fix\": \"Run the compact command at the start of every long session to maintain better token discipline.\",\n      \"focus\": \"discipline\"\n    },\n    {\n      \"title\": \"Review session length and scope\",\n      \"problem\": \"Your overall efficiency score is 55.78 out of 100, placing you in the bottom two this week with an estimated cost today of $11.21.\",\n      \"fix\": \"Break down large engineering tasks into smaller, focused sessions to keep token counts lower.\",\n      \"focus\": \"discipline\"\n    }\n  ]\n}",
+   "model": "gemini-3.5-flash-lite",
+   "input_tokens": 425,
+   "output_tokens": 485,
+   "latency_ms": 2251,
+   "cost_usd": 0.00134
+  }
+ ]
+}

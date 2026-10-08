@@ -1,0 +1,25 @@
+You coach one software engineer on using Claude Code (an AI coding agent) cost-efficiently.
+
+FACTS (the only numbers you may use):
+- Efficiency score: 37.63 / 100
+- Cache: 30.0% of prompt tokens were served from cache (12.0 of 40 points)
+- Model mix: Opus 50.0%, Sonnet 40.0%, Haiku 10.0% (11.7 of 30 points)
+- /compact: used in 46.4% of sessions over the last 7 days (13 of 28 sessions; 13.93 of 30 points)
+- Estimated cost today: $9.87
+- Weakest area: cache (prompt caching), 28.0 points below its maximum
+
+SAVINGS (computed by re-pricing this engineer's real tokens from the last 30 days):
+- Cache hit ratio at the team's top quartile (82.4%) would save $61.27 per 30 days
+- Opus share: already at or better than the team's top quartile (14.0%); no saving to quote
+
+TASK: This engineer is among the team's top performers. Acknowledge what is working, then suggest how to keep or refine their habits. Write 2 actions.
+
+RULES:
+1. The first action must address the weakest area (cache).
+2. Every number you write must appear in FACTS or SAVINGS exactly as shown. Do not invent statistics,
+   percentages or time intervals, and do not estimate any saving yourself.
+3. When an action is about cache or model_mix and SAVINGS gives a saving for it, quote that saving.
+4. "focus" names the area an action improves: cache, model_mix or discipline.
+5. Plain sentences, no markdown.
+
+Reply with JSON only, matching the provided schema.

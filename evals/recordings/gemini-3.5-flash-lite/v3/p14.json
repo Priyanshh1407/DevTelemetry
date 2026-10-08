@@ -1,0 +1,12 @@
+{
+ "calls": [
+  {
+   "text": "{\n  \"headline\": \"Efficiency score is 63.49 out of 100 with an estimated cost today of $8.46.\",\n  \"actions\": [\n    {\n      \"title\": \"Reduce Opus usage\",\n      \"problem\": \"Model mix currently stands at Opus 89.0%, Sonnet 6.0%, Haiku 5.0%, making model_mix your weakest area at 24.75 points below its maximum.\",\n      \"fix\": \"Lower your reliance on Opus and shift tasks to Sonnet and Haiku where appropriate to capture team top quartile savings of $88.44 per 30 days.\",\n      \"focus\": \"model_mix\"\n    },\n    {\n      \"title\": \"Maintain high cache performance\",\n      \"problem\": \"Cache currently has 83.8% of prompt tokens served from cache, earning 33.53 of 40 points.\",\n      \"fix\": \"Continue using prompts that leverage existing context to sustain cache efficiency and realize team top quartile savings of $34.62 per 30 days.\",\n      \"focus\": \"cache\"\n    },\n    {\n      \"title\": \"Keep up compact usage\",\n      \"problem\": \"The command /compact was used in 82.4% of sessions over the last 7 days, translating to 28 of 34 sessions and 24.71 of 30 points.\",\n      \"fix\": \"Maintain your current discipline of running /compact regularly to keep session contexts streamlined.\",\n      \"focus\": \"discipline\"\n    }\n  ]\n}",
+   "model": "gemini-3.5-flash-lite",
+   "input_tokens": 412,
+   "output_tokens": 356,
+   "latency_ms": 1889,
+   "cost_usd": 0.001014
+  }
+ ]
+}

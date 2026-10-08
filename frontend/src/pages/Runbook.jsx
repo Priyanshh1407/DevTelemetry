@@ -88,7 +88,10 @@ export default function Runbook() {
         guideRequest
             .then(async (data) => {
                 const info = await detailsRequest;
-                if (!cancelled) { setGuide(data); setDetails(info); }
+                if (cancelled) return;
+                // source "none": the API has no usage for this engineer, so there is nothing to coach.
+                if (data.source === "none") setError("No usage data for this engineer.");
+                else { setGuide(data); setDetails(info); }
             })
             .catch((err) => { if (!cancelled) setError(err.message); })
             .finally(() => { if (!cancelled) setLoading(false); });

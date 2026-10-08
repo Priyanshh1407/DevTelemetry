@@ -1,0 +1,12 @@
+{
+ "calls": [
+  {
+   "text": "Good morning, team! Looking at yesterday's telemetry for Claude Code, we had a solid day of collaborative engineering with a total spend of $121.33. This shows great momentum and active engagement across our projects as we leverage AI to accelerate our workflows. While our average score of 55.4 gives us a good baseline, we also logged 2 critical-level events, which is a reminder that we are pushing the boundaries of what our tools can handle. Overall, the team's output is strong, and your dedication to integrating AI into our daily stack is clearly paying off.\n\nTo help us optimize both our costs and our efficiency moving forward, let's keep two best practices in mind for tomorrow. First, try to scope your prompts and context windows tightly; feeding Claude only the specific files and functions needed for a task reduces token waste and helps drive up our average response accuracy. Second, when hitting complex roadblocks that trigger critical errors, pause to refine the prompt strategy or break the problem into smaller, modular sub-tasks rather than iterating repeatedly in the same thread. Let's keep up the fantastic work and make today even more productive!",
+   "model": "gemini-3.5-flash-lite",
+   "input_tokens": 163,
+   "output_tokens": 237,
+   "latency_ms": 2660,
+   "cost_usd": 0.000641
+  }
+ ]
+}

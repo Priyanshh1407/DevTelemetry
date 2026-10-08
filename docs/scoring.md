@@ -76,3 +76,9 @@ Bump `SCORING_VERSION` in `core/scorer.py`. On the next startup, `init_db()` rec
 |---|---|
 | 2 | Token fields aligned with Anthropic's `usage` semantics; cache writes count as misses |
 | 3 | `/compact` term pooled over 7 days; model-mix shares normalized |
+
+## Built on the score
+
+- **[Coaching impact](impact.md)** measures the coached area's points on single days, not the 7-day pooled `/compact` term. Its baseline window skips the 7 days pooled into the selection day's score.
+- **[Spend anomalies](anomalies.md)** use cost, not the score, and name the driver by re-pricing the day at the engineer's usual habit.
+- **What-if savings** (`core/whatif.py`) re-price real tokens at a target cache hit ratio or Opus share, with the same price table as the cost column.

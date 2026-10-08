@@ -17,7 +17,7 @@ def test_seeding_twice_does_not_duplicate_engineers(empty_db, query):
 
 def test_reset_replaces_existing_data(empty_db, query):
     conn = get_db_connection()
-    conn.execute("INSERT INTO engineers (user_id, name, email) VALUES ('stale', 'Old Run', 'old@company.com')")
+    conn.execute("INSERT INTO engineers (user_id, name, email) VALUES ('stale', 'Old Run', 'old@example.com')")
     conn.commit()
     conn.close()
 

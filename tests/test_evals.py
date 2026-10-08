@@ -180,7 +180,7 @@ def test_a_live_eval_uses_one_model_and_never_the_fallback(tmp_path, mock_gemini
     assert (tmp_path / "rec" / "gemini-3.5-flash-lite" / "v2" / "p01.json").exists()
 
 
-@pytest.mark.parametrize("pipeline", ["v1", "v2"])
+@pytest.mark.parametrize("pipeline", ["v1", "v2", "v3"])
 def test_committed_recordings_reproduce_the_committed_results(tmp_path, pipeline):
     """The published eval table must follow from the published recordings, offline (this is
     what CI checks). If the checker or scoring changes, re-score and commit the new results."""
@@ -218,3 +218,49 @@ def test_a_replay_with_unchanged_numbers_leaves_published_results_alone(tmp_path
     runner.run("v2", "replay", results=tmp_path)
 
     assert published.read_bytes() == before
+
+
+# ── UPG-06: prompt v3 quotes computed savings ───────────────────────────────
+
+def test_v3_gives_the_model_computed_savings_and_counts_them_as_grounded(tmp_path, mock_gemini):
+    import evals.run as runner
+    from evals.checks import allowed_numbers
+    from evals.profiles import savings_for
+
+    profile = load()[0]
+    savings = savings_for(profile)
+    summary, rows = runner.run("v3", "live", profiles=[profile], recordings=tmp_path / "rec",
+                               results=tmp_path / "res", sleep=lambda s: None)
+
+    prompt = mock_gemini.models.generate_content.call_args.kwargs["contents"]
+    assert "SAVINGS (computed by re-pricing this engineer's real tokens from the last 7 days)" in prompt
+    assert savings["saving_month_usd_cache"] in allowed_numbers(profile["day"], profile["recent"], savings)
+    assert "saving_cited_rate" in summary and "cites_saving" in rows[0]
+
+
+def test_v2_stays_on_the_v2_prompt_whatever_the_app_default(tmp_path, mock_gemini, monkeypatch):
+    import ai.guide_generator as generator
+    import evals.run as runner
+
+    monkeypatch.setattr(generator, "PROMPT_VERSION", "v3")
+    summary, rows = runner.run("v2", "live", profiles=load()[:1], recordings=tmp_path / "rec",
+                               results=tmp_path / "res", sleep=lambda s: None)
+
+    assert "SAVINGS" not in mock_gemini.models.generate_content.call_args.kwargs["contents"]
+    assert "saving_cited_rate" not in summary and "cites_saving" not in rows[0]
+
+
+def test_a_guide_quoting_the_saving_is_counted():
+    from ai.guide_generator import GuideResult
+    from evals.checks import evaluate
+    from evals.profiles import savings_for
+
+    profile = next(p for p in load() if savings_for(p)["saving_month_usd_cache"] > 0)
+    saving = savings_for(profile)["saving_month_usd_cache"]
+    action = {"title": "Reuse cached context", "problem": f"Better caching would save ${saving:.2f} per 30 days.",
+              "fix": "Keep one session per task.", "focus": "cache"}
+    result = GuideResult(tasks=[], source="ai", guide={"headline": "h", "actions": [action]})
+
+    row = evaluate(profile, "v3", result, savings=savings_for(profile))
+
+    assert row["cites_saving"] and row["ungrounded"] == []
